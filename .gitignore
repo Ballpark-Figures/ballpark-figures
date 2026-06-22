@@ -1,1 +1,4 @@
 *.egg-info/
+battleship/
+yahtzee/
+*.egg-info/
