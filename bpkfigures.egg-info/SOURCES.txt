@@ -1,6 +1,0 @@
-pyproject.toml
-bpkfigures/__init__.py
-bpkfigures.egg-info/PKG-INFO
-bpkfigures.egg-info/SOURCES.txt
-bpkfigures.egg-info/dependency_links.txt
-bpkfigures.egg-info/top_level.txt
