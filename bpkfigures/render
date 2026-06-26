@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Thin launcher for bpkfigures.render: finds the project's venv python (walking
+# up from the CWD) and runs the render module under it, so `bpkfigures` is
+# importable without manually activating the venv.
+#
+# Put this on your PATH (or symlink it) and call from the scenes/ dir:
+#   render 01g --frames "1.0,-0.3"
+set -euo pipefail
+
+find_venv_python() {
+    local d="$PWD"
+    while [[ "$d" != "/" ]]; do
+        for p in "$d/.venv/bin/python" "$d/venv/bin/python"; do
+            [[ -x "$p" ]] && { echo "$p"; return 0; }
+        done
+        d="$(dirname "$d")"
+    done
+    command -v python3   # fall back to system python3
+}
+
+exec "$(find_venv_python)" -m bpkfigures.render "$@"

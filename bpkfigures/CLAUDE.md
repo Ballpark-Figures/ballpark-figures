@@ -28,6 +28,14 @@ calls for; no titles/labels/narration that weren't asked for.
   Anything not on screen at the end of the previous subscene must be ANIMATED IN
   at the start of the next (don't silently `add` — it pops). Things appearing
   together should animate in together.
+- **Every animation/wait must expose its `run_time` at the subscene level** so
+  the user can tweak timing later when editing the video. Concretely: pass an
+  explicit `run_time=` to every `self.play(...)` (don't rely on manim's default
+  1.0); `self.wait(t)` already shows its duration. If a subscene calls a HELPER
+  that plays animations (e.g. `_grow_step`, or a local `roll()`/`count_in()`
+  closure), give that helper a `run_time` parameter and pass it from the call
+  site — never bury a hardcoded run_time inside a helper where it can't be
+  reached. Default the param to the current value so behavior is unchanged.
 
 ## Reuse over reinvention
 - Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
@@ -38,10 +46,25 @@ calls for; no titles/labels/narration that weren't asked for.
 - Measure real mobject geometry (edges/centers) when placement matters; don't
   approximate positions.
 
-## Snapshot cache + rendering (`bpkfigures/scene.py`)
-- Render one subscene at a time via the `manim NN<letter>` alias
-  (`SUBSCENE=<letter>`); it loads the prior subscene's snapshot instead of
-  replaying. Run it from the dir holding the `NN*.py` files (`scenes/`).
+## Rendering — use the `render` script (`bpkfigures/render.py`)
+- **Render with `bpkfigures/render`, NOT hand-rolled `manim` calls.** It's the
+  single render path for user + agent (the old `manim()` zsh override is gone).
+  Run from the `scenes/` dir. If `render` isn't on PATH, invoke
+  `<repo>/.venv/bin/python -m bpkfigures.render` (it auto-locates the venv).
+- `render 01g` → subscene g, cleans stale, names `01g_<name>.mp4`. Quality
+  defaults to HIGH (`-qh`); add `--fast` for a quick `-ql` check (the agent
+  should usually use `--fast` for verification). `render 01g 01h 01i` → several
+  in sequence ("Finished rendering 01g" after each). `render 01` → full scene.
+  `--recompute` ignores the snapshot cache. Clears `SUBSCENE`/`RECOMPUTE` per run
+  (no leak into a later full render).
+- `render 01g --frames "1.0,2.0,-0.3"` renders THEN extracts those PNG frames
+  (negative = seconds-from-end) into a `frames/` dir beside the mp4 and prints
+  paths — one command instead of render+ffmpeg. `--frames N` = N evenly spaced.
+- `render 01h --state` (no render) prints the mobjects on screen at subscene h's
+  START (from the prior snapshot) — use to reason about starting state cheaply.
+
+## Snapshot cache (`bpkfigures/scene.py`)
+- Rendering one subscene loads the prior subscene's snapshot instead of replaying.
 - Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING the
   scene file) + a per-subscene dependency digest. Editing a later subscene (or
   code only it uses) leaves earlier snapshots valid; editing an asset/config/
@@ -49,9 +72,9 @@ calls for; no titles/labels/narration that weren't asked for.
 - Don't build un-picklable objects (e.g. `always_redraw` with a lambda) in
   `setup_scene` — it breaks the whole scene's snapshot. Build those in the
   subscene; keep picklable parts (`ValueTracker`, static text) in setup.
-- The alias auto-cleans stale `NN<letter>_*` videos and clears
-  `SUBSCENE`/`RECOMPUTE` at the start of each run. After editing it,
-  `source ~/.zshrc`.
+- `render` auto-cleans stale `NN<letter>_*` videos (`resolve --clean`). Both the
+  user and agent now use `render` (the old `manim()` zsh override was removed).
+  Quality defaults to HIGH; `--fast` gives a quick `-ql` check.
 
 ## Git / new repos
 - Each video is its own git repo. The FIRST thing to do when creating a new
@@ -72,3 +95,17 @@ calls for; no titles/labels/narration that weren't asked for.
 - For animation FEEL/timing: build a quick ROUGH version, render + grab frames,
   iterate from the user's reaction. Don't over-build the first pass. Render and
   verify after every visual change.
+- **Verify-render division of labor** (the user renders right after the agent,
+  so split the work to minimize TOTAL time): the agent renders 1–3 fast frames
+  to catch OBJECTIVE issues before handoff — wrong position/overlap, clipping/
+  z-order, an object that didn't appear or move, an off-screen label, a wrong
+  number, frame overflow, a size mismatch. These cost the user a full round-trip
+  if missed, so the agent should catch them. The agent does NOT iterate on
+  subjective FEEL (exact run_times, easing, hold durations, whether an overlap
+  is "enough") — the user judges that better/faster from the actual video. On
+  handoff, the agent explicitly NAMES which timing/feel knobs it left at a guess
+  so the user knows what to watch.
+- **Every animation/wait exposes its `run_time`** at the subscene level (pass
+  explicit `run_time=` to every `self.play`; give helpers that play a `run_time`
+  param) so the user can retime when editing the video. See the run_time note in
+  the scene-structure section if present.
