@@ -92,7 +92,7 @@ animations/**/cache/
 ### `<name>/.vscode/settings.json`
 ```json
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python3.14",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.analysis.extraPaths": [
     "${workspaceFolder}/animations"
   ],
