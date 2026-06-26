@@ -1,2 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:/Users/patrickliscio/My Documents/Pycharm Projects/Ballpark-Figures/media/videos/logo/1080p60/partial_movie_files/Logo/1206239610_2667827677_850567607.mp4'

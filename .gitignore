@@ -1,5 +1,21 @@
-*.egg-info/
+# Per-video sub-repos (each is its own git repo)
 battleship/
 yahtzee/
-*.egg-info/
 ballpark-figures/
+
+# Python
+*.egg-info/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Manim / generated media (never commit renders)
+media/
+*.mp4
+*.mov
+*.wav
+*.mp3
+
+# OS / editor junk
+.DS_Store
