@@ -53,6 +53,17 @@ calls for; no titles/labels/narration that weren't asked for.
   `SUBSCENE`/`RECOMPUTE` at the start of each run. After editing it,
   `source ~/.zshrc`.
 
+## Git / new repos
+- Each video is its own git repo. The FIRST thing to do when creating a new
+  video repo is add a `.gitignore` — otherwise generated renders get committed.
+  Per-repo `.gitignore` must cover at minimum:
+  `media/`, `**/media/`, `*.mp4 *.mov *.wav *.mp3`, `__pycache__/`, `*.py[cod]`,
+  `.venv/ venv/`, `.DS_Store`. (Media folders are project-specific so they live
+  in the per-repo .gitignore, not a global one. battleship/.gitignore is a good
+  reference template.)
+- NEVER commit the `media/` render output. If renders are already tracked,
+  untrack with `git rm -r --cached <dir>` (keeps files on disk).
+
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and
   flag deviations.
