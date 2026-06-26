@@ -115,9 +115,13 @@ animations/**/cache/
     "**/cache"
   ],
   "python.analysis.diagnosticMode": "openFilesOnly",
-  "python.analysis.indexing": false
+  "python.analysis.indexing": false,
+  "python.terminal.activateEnvironment": true
 }
 ```
+A single shared `.venv` at the project root serves BOTH animations and math.
+`python.terminal.activateEnvironment` auto-activates it in VS Code terminals
+opened anywhere in the project (including `math/`).
 
 ### `<name>/animations/config.py`
 ```python
@@ -172,14 +176,32 @@ Empty files.
 }
 ```
 
+## Create the shared venv and install packages
+ONE shared `.venv` at `<root>/<name>/.venv` serves both animations and math.
+From inside `<root>/<name>/`:
+1. `python3.14 -m venv .venv` (fall back to `python3` if `python3.14` is
+   missing; report which Python was used).
+2. `.venv/bin/python -m pip install --upgrade pip`
+3. `.venv/bin/pip install --upgrade manim scipy` — NEWEST STABLE versions
+   (no pins; `numpy` arrives as a manim dependency).
+4. `.venv/bin/pip install -e <root>` — editable install of the shared
+   `bpkfigures` package so edits to shared code take effect live.
+
+This downloads ~500 MB and takes a few minutes. Run installs in the
+background if possible and surface the final versions of `manim`/`scipy`/
+`numpy` (`.venv/bin/pip show`) in the completion report. If an install
+step fails (e.g. no network), do NOT abort the whole scaffold — report the
+failure and print the exact commands so the user can finish it later.
+
 ## Then initialize git
 Run `git init` inside `<root>/<name>/`, then `git add -A` and an initial
-commit `Scaffold <name> video` (the .gitignore is in place first, so no
-artifacts get staged). Do NOT touch the umbrella repo's git or the
-bpkfigures repo.
+commit `Scaffold <name> video`. The `.gitignore` (which excludes `.venv/`)
+is in place first, so neither the venv nor any artifact gets staged. Do NOT
+touch the umbrella repo's git or the bpkfigures repo.
 
 ## Finally
-Report what was created as a short tree, and remind the user that the
-`.venv/` for the new video still needs to be created/linked separately
-(it's intentionally not scaffolded). Then open `<name>.code-workspace` is
-the user's manual step.
+Report what was created as a short tree, plus the installed
+`manim`/`scipy`/`numpy` versions. Note that opening `<name>.code-workspace`
+is the user's manual step, and that the shared `.venv` auto-activates in VS
+Code terminals (and is found automatically by the `render` script) — so no
+manual activation is normally needed.
