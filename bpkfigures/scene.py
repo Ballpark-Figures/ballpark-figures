@@ -2,10 +2,148 @@ import hashlib
 import inspect
 import os
 import pickle
+import sys
+import types
 
 from manim import Scene
+from bpkfigures.style import *
 
 SNAPSHOT_DIR = os.path.join("cache", "snapshots")
+
+# Bump this to manually invalidate every cached snapshot (e.g. after changing
+# the snapshot machinery itself or any dependency the source hash can't see).
+SNAPSHOT_VERSION = 4
+
+_BPK_DIR = os.path.dirname(os.path.realpath(__file__))
+
+
+def _iter_py_files(root):
+    for dirpath, dirnames, filenames in os.walk(root):
+        # don't descend into caches / virtualenvs / build dirs
+        dirnames[:] = [d for d in dirnames
+                       if d not in ("__pycache__", ".venv", "venv", "media",
+                                    "cache", ".git")]
+        for fn in filenames:
+            if fn.endswith(".py"):
+                yield os.path.join(dirpath, fn)
+
+
+def _source_hash(roots, exclude=()):
+    """Deterministic md5 over the source of every .py file under `roots`,
+    skipping any realpath in `exclude`.
+
+    Walking fixed directories (not sys.modules) makes the hash stable across
+    invocations — sys.modules varies with what manim happens to import, which
+    would spuriously invalidate snapshots between a full render and a single-
+    subscene render. Editing any project source under these roots changes the
+    key and invalidates stale snapshots.
+
+    `exclude` is used to drop the scene's own module file: the scene source is
+    captured at finer (per-subscene) granularity by _scene_source_digest, so
+    hashing the whole file here too would make any edit to ANY subscene
+    invalidate ALL snapshots."""
+    skip = {os.path.realpath(p) for p in exclude}
+    files = set()
+    for root in roots:
+        if root and os.path.isdir(root):
+            files.update(os.path.realpath(p) for p in _iter_py_files(root))
+    files -= skip
+    h = hashlib.md5()
+    for f in sorted(files):
+        try:
+            with open(f, "rb") as fh:
+                h.update(f.encode())
+                h.update(fh.read())
+        except OSError:
+            pass
+    return h.hexdigest()
+
+
+def _referenced_names(fn):
+    """All global/attribute names a function references, including those inside
+    nested code objects (comprehensions, lambdas)."""
+    names = set()
+    stack = [fn.__code__]
+    while stack:
+        code = stack.pop()
+        names.update(code.co_names)
+        for const in code.co_consts:
+            if isinstance(const, types.CodeType):
+                stack.append(const)
+    return names
+
+
+def _scene_source_digest(cls, method_names):
+    """Deterministic md5 over the source of `method_names` (methods on `cls`)
+    plus the transitive closure of everything they reference that is defined in
+    the SAME module/class — other methods, module-level helper functions, and
+    module-level constants.
+
+    This captures exactly the scene-side code that shapes the snapshot's state
+    at per-subscene granularity: editing a LATER subscene (or code only it uses)
+    doesn't change the digest for an earlier subscene, while editing a helper or
+    constant that an in-scope method reaches does. Third-party / asset / config
+    code is deliberately NOT followed here — it's covered wholesale by
+    _source_hash."""
+    module = sys.modules.get(cls.__module__)
+    mod_ns = getattr(module, "__dict__", {})
+    cls_ns = dict(vars(cls))
+
+    def _same_module(obj):
+        return getattr(obj, "__module__", None) == cls.__module__
+
+    # collected (qualname -> source-or-repr); funcs/methods queued for walking
+    parts = {}
+    seen = set()
+    queue = []
+
+    def _add_function(qual, fn):
+        if qual in seen:
+            return
+        seen.add(qual)
+        try:
+            parts[qual] = inspect.getsource(fn)
+        except (OSError, TypeError):
+            parts[qual] = repr(fn)
+        queue.append(fn)
+
+    # seed with the requested methods
+    for name in method_names:
+        fn = cls_ns.get(name) or getattr(cls, name, None)
+        if isinstance(fn, types.FunctionType):
+            _add_function(f"{cls.__name__}.{name}", fn)
+
+    while queue:
+        fn = queue.pop()
+        for ref in _referenced_names(fn):
+            # a sibling method on the class?
+            obj = cls_ns.get(ref)
+            if isinstance(obj, types.FunctionType):
+                _add_function(f"{cls.__name__}.{ref}", obj)
+                continue
+            # a module-level name in the scene's module?
+            if ref in mod_ns:
+                val = mod_ns[ref]
+                if isinstance(val, types.FunctionType) and _same_module(val):
+                    _add_function(f"{cls.__module__}.{ref}", val)
+                elif isinstance(val, type) and _same_module(val):
+                    key = f"{cls.__module__}.{ref}"
+                    if key not in seen:
+                        seen.add(key)
+                        try:
+                            parts[key] = inspect.getsource(val)
+                        except (OSError, TypeError):
+                            parts[key] = repr(val)
+                elif isinstance(val, (int, float, str, bytes, bool, tuple,
+                                      frozenset, type(None), dict, list, set)):
+                    # module-level constant the code depends on
+                    parts[f"const:{ref}"] = repr(val)
+
+    h = hashlib.md5()
+    for qual in sorted(parts):
+        h.update(qual.encode())
+        h.update(parts[qual].encode())
+    return h.hexdigest()
 
 
 def subscene(fn):
@@ -30,13 +168,32 @@ class BpkScene(Scene):
     def setup_scene(self):
         pass
 
-    def _prefix_key(self, idx, names):
-        # hash of setup_scene + subscenes up to and including idx.
-        # editing a LATER subscene leaves earlier snapshots valid.
+    def _project_roots(self):
+        # The bpkfigures package, plus the scene's project tree (assets/,
+        # config.py live in the parent of the scenes/ dir). Walking these fixed
+        # dirs gives a stable hash regardless of how the scene was invoked.
         cls = type(self)
-        srcs = [inspect.getsource(cls.setup_scene)]
-        for name in names[: idx + 1]:
-            srcs.append(inspect.getsource(getattr(cls, name)))
+        scene_file = os.path.realpath(inspect.getfile(cls))
+        project_root = os.path.dirname(os.path.dirname(scene_file))  # animations/
+        return [_BPK_DIR, project_root]
+
+    def _prefix_key(self, idx, names):
+        # A snapshot at idx is valid iff the code that PRODUCES its end-state is
+        # unchanged. The key hashes three things:
+        #   1. a manual version stamp
+        #   2. _source_hash of project code (assets/config/bpkfigures) EXCEPT the
+        #      scene's own file — so an asset appearance change still invalidates
+        #      (correctness), but editing a subscene body doesn't flip this term.
+        #   3. the scene-side dependency closure of setup_scene + subscenes
+        #      0..idx (per-subscene granularity), so editing a LATER subscene, or
+        #      code only it uses, leaves earlier snapshots valid.
+        cls = type(self)
+        scene_file = os.path.realpath(inspect.getfile(cls))
+        srcs = [
+            f"v{SNAPSHOT_VERSION}",
+            _source_hash(self._project_roots(), exclude={scene_file}),
+            _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])),
+        ]
         return hashlib.md5("".join(srcs).encode()).hexdigest()
 
     def _snapshot_path(self, idx):
@@ -104,5 +261,28 @@ class BpkScene(Scene):
                     self._save_snapshot(i, names)
                 self.renderer.skip_animations = False
 
+        # Discard any partial-movie frames produced while fast-forwarding the
+        # prefix subscenes. Even under skip_animations, manim still appends each
+        # replayed play()'s (cached) partial-movie file to the concat list, so
+        # without this the earlier subscenes get stitched into this one's video.
+        self._discard_replay_frames()
+
         getattr(self, names[idx])()
         self._save_snapshot(idx, names)
+
+    def _discard_replay_frames(self):
+        """Blank out the partial-movie files accumulated so far so the rendered
+        output contains only the target subscene's animations.
+
+        The entries are replaced with None (not removed): manim indexes
+        partial_movie_files by num_plays, so the list length must be preserved,
+        and the final concat step skips None entries."""
+        fw = getattr(self.renderer, "file_writer", None)
+        if fw is None:
+            return
+        if hasattr(fw, "partial_movie_files"):
+            fw.partial_movie_files[:] = [None] * len(fw.partial_movie_files)
+        for section in getattr(fw, "sections", []):
+            if hasattr(section, "partial_movie_files"):
+                section.partial_movie_files[:] = (
+                    [None] * len(section.partial_movie_files))

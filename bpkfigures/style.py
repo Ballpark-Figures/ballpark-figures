@@ -1,9 +1,9 @@
 from manim import *
 
 BG_COLOR = ManimColor.from_rgb((2, 164, 211))
-BOARD_FILL = ManimColor.from_rgb((0, 0, 175))
+ACCENT_FILL = ManimColor.from_rgb((0, 0, 175))
 
-FONT = "Arial"
+FONT = "Inter"
 
 FONT_SIZE_XS = 15.0
 FONT_SIZE_SM = 24.0

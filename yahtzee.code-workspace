@@ -1,0 +1,20 @@
+{
+  "folders": [
+    { "path": "yahtzee", "name": "yahtzee" },
+    { "path": "bpkfigures", "name": "bpkfigures (shared)" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/.venv": true,
+      "**/media": true,
+      "**/cache": true
+    },
+    "search.exclude": {
+      "**/.venv": true,
+      "**/media": true,
+      "**/cache": true
+    }
+  }
+}
