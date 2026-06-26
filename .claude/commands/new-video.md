@@ -199,9 +199,27 @@ commit `Scaffold <name> video`. The `.gitignore` (which excludes `.venv/`)
 is in place first, so neither the venv nor any artifact gets staged. Do NOT
 touch the umbrella repo's git or the bpkfigures repo.
 
+## Create the PRIVATE GitHub remote
+All videos live under the `Ballpark-Figures` GitHub org and start PRIVATE
+(made public manually on release). After the initial commit, from inside
+`<root>/<name>/`:
+```
+gh repo create Ballpark-Figures/<name> --private --source=. --remote=origin --push
+```
+This creates the private repo, links it as `origin` (HTTPS, matching the
+other repos), and pushes. Guards:
+- If `gh` is NOT installed or NOT authenticated (`gh auth status` fails), do
+  NOT abort — skip this step and print the exact command above so the user
+  can run it later.
+- If the repo already exists on GitHub or creation fails for any reason,
+  report it and print the manual command; leave the local repo intact.
+
 ## Finally
 Report what was created as a short tree, plus the installed
-`manim`/`scipy`/`numpy` versions. Note that opening `<name>.code-workspace`
-is the user's manual step, and that the shared `.venv` auto-activates in VS
-Code terminals (and is found automatically by the `render` script) — so no
-manual activation is normally needed.
+`manim`/`scipy`/`numpy` versions and the GitHub repo URL (or the skip
+notice). Note that:
+- Opening `<name>.code-workspace` is the user's manual step.
+- The shared `.venv` auto-activates in VS Code terminals (and is found
+  automatically by the `render` script) — no manual activation needed.
+- On RELEASE, flip the repo public with:
+  `gh repo visibility public --repo Ballpark-Figures/<name>`
