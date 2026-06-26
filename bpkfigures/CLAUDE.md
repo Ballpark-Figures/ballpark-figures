@@ -81,11 +81,15 @@ calls for; no titles/labels/narration that weren't asked for.
   video repo is add a `.gitignore` — otherwise generated renders get committed.
   Per-repo `.gitignore` must cover at minimum:
   `media/`, `**/media/`, `*.mp4 *.mov *.wav *.mp3`, `__pycache__/`, `*.py[cod]`,
-  `.venv/ venv/`, `.DS_Store`. (Media folders are project-specific so they live
-  in the per-repo .gitignore, not a global one. battleship/.gitignore is a good
-  reference template.)
-- NEVER commit the `media/` render output. If renders are already tracked,
-  untrack with `git rm -r --cached <dir>` (keeps files on disk).
+  `.venv/ venv/`, `.DS_Store`, AND the manim snapshot cache `animations/**/cache/`
+  (50+ MB pickles per subscene — pure build artifact). (Media + cache are
+  project-specific so they live in the per-repo .gitignore, not a global one.
+  battleship/.gitignore is a good reference template.)
+- NEVER commit `media/` renders OR the `animations/**/cache/` snapshot pickles.
+  If already tracked, untrack with `git rm -r --cached <dir>` (keeps files on
+  disk). CAUTION: scope cache/pkl ignores to the animations tree — do NOT
+  blanket-ignore `*.pkl`, because solver data under `math/data/` and
+  `math/notebooks/data/` is intentionally tracked (synced between machines).
 
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and
