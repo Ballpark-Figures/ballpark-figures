@@ -163,39 +163,58 @@ def main(argv=None):
     fast = ("--fast" in argv) or ("-ql" in argv)
     hq = "--hq" in argv          # accepted but redundant (hq is the default)
     state = "--state" in argv
+    quiet = "--quiet" in argv    # pass -v WARNING to manim (drops per-animation INFO spam)
     frames_spec = None
+    tail = None                  # --tail N: capture manim output, emit only its last N lines
     rest = []
     i = 0
     while i < len(argv):
         a = argv[i]
-        if a in ("--recompute", "--hq", "--state", "--fast", "-ql"):
+        if a in ("--recompute", "--hq", "--state", "--fast", "-ql", "--quiet"):
             pass
         elif a == "--frames":
             i += 1
             frames_spec = argv[i] if i < len(argv) else None
+        elif a == "--tail":
+            i += 1
+            tail = argv[i] if i < len(argv) else None
         else:
             rest.append(a)
         i += 1
+
+    tail_n = None
+    if tail is not None:
+        try:
+            tail_n = max(1, int(tail))
+        except ValueError:
+            tail_n = None
 
     # every NN[letter] arg is a target — supports `render 01g 01h 01i`.
     targets = [a for a in rest if len(a) >= 2 and a[:2].isdigit()]
     if not targets:
         print("usage: render NN[letter] [NN[letter] ...] "
-              "[--recompute] [--fast] [--frames T|N] [--state]")
+              "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--state]")
         return 2
     passthrough = [a for a in rest if a not in targets]
 
     worst_rc = 0
     for target in targets:
-        rc = _render_one(target, passthrough, recompute, fast, state, frames_spec)
+        rc = _render_one(target, passthrough, recompute, fast, state, frames_spec,
+                         quiet=quiet, tail=tail_n)
         worst_rc = worst_rc or rc
         if not state and rc == 0:
             print(f"Finished rendering {target}", file=sys.stderr)
     return worst_rc
 
 
-def _render_one(target, passthrough, recompute, fast, state, frames_spec):
-    """Resolve, (clean+render) or --state, and extract frames for one target."""
+def _render_one(target, passthrough, recompute, fast, state, frames_spec,
+                quiet=False, tail=None):
+    """Resolve, (clean+render) or --state, and extract frames for one target.
+
+    quiet -> pass `-v WARNING` to manim (suppresses its per-animation INFO log).
+    tail  -> capture manim's output and print only its last `tail` lines (render's
+             own [render]/frame-path/Finished lines still print). Both opt-in;
+             without them manim streams live as before."""
     try:
         path, classname, output, letter = resolve.resolve(target)
     except Exception as e:
@@ -220,10 +239,20 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec):
 
     manim = _find_venv_manim()
     quality = "-ql" if fast else "-qh"
-    cmd = [manim, quality, *passthrough, path, classname, "-o", output]
+    cmd = [manim, quality]
+    if quiet:
+        cmd += ["-v", "WARNING"]
+    cmd += [*passthrough, path, classname, "-o", output]
     print(f"[render] {' '.join(cmd)}  (SUBSCENE={letter or '-'})",
           file=sys.stderr)
-    rc = subprocess.run(cmd, env=env).returncode
+    if tail is not None:
+        proc = subprocess.run(cmd, env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True)
+        for ln in proc.stdout.splitlines()[-tail:]:
+            print(ln, file=sys.stderr)
+        rc = proc.returncode
+    else:
+        rc = subprocess.run(cmd, env=env).returncode
     if rc != 0:
         return rc
 
