@@ -91,6 +91,27 @@ calls for; no titles/labels/narration that weren't asked for.
   blanket-ignore `*.pkl`, because solver data under `math/data/` and
   `math/notebooks/data/` is intentionally tracked (synced between machines).
 
+## Starting a new scene
+How the user likes a brand-new `scenes/NN<name>.py` built:
+- **Orient before writing.** First read the OTHER scenes in this video to match
+  their structure and conventions. If this is the video's FIRST scene, read a
+  previous video's scenes instead. Also keep in mind what already exists: this
+  video's `animations/assets/` and the shared `bpkfigures/` package — reuse, don't
+  reinvent.
+- **Start from a blank scene** (the setup_scene/@subscene pattern below), not a
+  copy — but informed by what you read above.
+- **Build from the script.** Stick to what `Script.md` (column 2) calls for:
+  don't invent extra content, don't deliberately omit. Fill gaps only where the
+  script is genuinely ambiguous, and flag those. (See the literal-implementation
+  and verify-render notes under Process.)
+- **Changing `assets/` or `bpkfigures/` is welcome — but ASK FIRST.** If a scene
+  would benefit from a new/modified shared asset or package change, propose it
+  before making the change; don't silently edit shared code.
+- **Timing:** make sensible run_time guesses and name them on handoff (see
+  Process). Every animation/wait in a subscene must expose a tunable `run_time`,
+  even when it calls a helper that performs the animation (see the run_time note
+  in the scene-structure section).
+
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and
   flag deviations.
