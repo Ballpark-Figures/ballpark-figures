@@ -72,6 +72,14 @@ How the user wants the agent to record things worth remembering:
   `dotclaude` repo (which the `@CLAUDE.private.md` import pulls in).
 
 ## Shell commands (agent)
+- **Keep each Bash command SHORT — a long command buries the user's screen.** The
+  approval prompt has no height cap (no Claude Code setting exists for it), so a
+  long or multi-line command covers the conversation text above it — which the
+  user needs to read to see WHY it's being run. So: state the rationale in the
+  message text BEFORE the tool call; keep the tool `description` accurate; split
+  multi-step work into several short, separate tool calls instead of one big
+  compound command; and prefer the dedicated Read/Grep/Glob tools, which don't
+  render as a shell command at all.
 - **Prefer a single command over a pipe.** The permission allowlist matches one
   command at a time, so chaining/piping allowed commands together (`find … | grep`,
   `pip list | grep`) can still trigger a prompt even when each piece is allowed.
