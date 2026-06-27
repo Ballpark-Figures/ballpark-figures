@@ -14,6 +14,36 @@ load wherever you're working. Video-specific rules live in that video's own
 - You can reference any video's files even if it's not in the open workspace —
   the agent reads them on disk. "Do this like the Battleship video" always works.
 
+## New video / new machine
+- **Start a new video with `/new-video <name>`** (`.claude/commands/new-video.md`
+  in the umbrella repo) — or apply its logic if Patrick asks in words ("start a
+  chess video"). It scaffolds the repo, builds ONE shared `.venv` at the video
+  root (newest-stable `manim`+`scipy`+editable `bpkfigures`; numpy via manim),
+  and creates a PRIVATE `Ballpark-Figures/<name>` GitHub repo. Videos stay
+  private until release, then Patrick flips them public manually
+  (`gh repo visibility public`). The umbrella `ballpark-figures` repo is public.
+- **Set up a second machine with `/sync-videos`** (`.claude/commands/sync-videos.md`)
+  — clones missing video repos and builds their venvs. Patrick's desktop runs
+  **WSL**, where `python3.14` may be absent (venv steps fall back to `python3`).
+- gh account: `MathNCheese`; remotes are HTTPS. The agent runs locally only and
+  cannot reach the desktop — commands travel via the umbrella repo (clone/pull).
+
+## Where instructions live (CLAUDE.md vs memory)
+How Patrick wants the agent to record things worth remembering:
+- **Default to CLAUDE.md** for anything Patrick wants the agent to know. It's
+  loaded every session (guaranteed) and syncs to his WSL desktop via git pull —
+  unlike agent memory, which is local to one machine and only surfaces via recall.
+- **Use memory ONLY for facts that genuinely can't be committed** (private URLs,
+  credentials — anything that shouldn't land in the public repo) AND that have a
+  clear, nameable trigger that can go in the memory's `description` so recall
+  reliably fires.
+- **If something is private but its trigger is fuzzy** (recall can't be trusted),
+  don't silently rely on memory — say so and ask Patrick to re-mention it when it
+  comes up.
+- The public GitHub repo intentionally shows how Patrick works, so workflow/
+  preference content in committed CLAUDE.md is fine — reliable loading beats repo
+  cleanliness.
+
 ## Shell commands (agent)
 - **Prefer a single command over a pipe.** The permission allowlist matches one
   command at a time, so chaining/piping allowed commands together (`find … | grep`,
