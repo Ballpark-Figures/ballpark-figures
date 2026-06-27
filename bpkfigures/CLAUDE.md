@@ -14,6 +14,17 @@ load wherever you're working. Video-specific rules live in that video's own
 - You can reference any video's files even if it's not in the open workspace —
   the agent reads them on disk. "Do this like the Battleship video" always works.
 
+## Shell commands (agent)
+- **Prefer a single command over a pipe.** The permission allowlist matches one
+  command at a time, so chaining/piping allowed commands together (`find … | grep`,
+  `pip list | grep`) can still trigger a prompt even when each piece is allowed.
+  Most read/inspect pipes have a clean single-command form — use it:
+  `rg PATTERN <path>` over `cat … | grep`; `rg --files -g "*.md"` (auto-skips
+  `.venv`/gitignored) over `find … | grep`; `pip show X` over `pip list | grep X`;
+  `git log -n N` over `git log | head`.
+- When a genuine multi-stage transform is unavoidable, run the stages as separate
+  calls (or accept the one prompt) rather than inventing a broad pipe allowlist.
+
 ## The Battleship video is the model
 Match its visual look and its **sparse on-screen text** — not necessarily its
 exact animation primitives. Render ONLY text the script's column 2 explicitly
