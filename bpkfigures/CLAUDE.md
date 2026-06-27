@@ -23,20 +23,26 @@ via the import below (a symlink to the `dotclaude` repo; absent → notes skippe
 @CLAUDE.private.md
 
 ## Where instructions live (CLAUDE.md vs memory)
-How Patrick wants the agent to record things worth remembering:
-- **Default to CLAUDE.md** for anything Patrick wants the agent to know. It's
+How the user wants the agent to record things worth remembering:
+- **Default to CLAUDE.md** for anything the user wants the agent to know. It's
   loaded every session (guaranteed) and syncs across machines via git pull —
   unlike agent memory, which is local to one machine and only surfaces via recall.
+- **When unsure where something goes, don't deliberate** — put it in CLAUDE.md and
+  say so. Only reach for memory if it literally cannot be committed (a secret).
 - **Use memory ONLY for facts that genuinely can't be committed** (private URLs,
   credentials — anything that shouldn't land in the public repo) AND that have a
   clear, nameable trigger that can go in the memory's `description` so recall
   reliably fires.
 - **If something is private but its trigger is fuzzy** (recall can't be trusted),
-  don't silently rely on memory — say so and ask Patrick to re-mention it when it
+  don't silently rely on memory — say so and ask the user to re-mention it when it
   comes up.
-- The public GitHub repo intentionally shows how Patrick works, so workflow/
+- The public GitHub repo intentionally shows how the user works, so workflow/
   preference content in committed CLAUDE.md is fine — reliable loading beats repo
   cleanliness.
+- **Never write the user's real name (or other personal identifiers) into any
+  file in a public repo** — bpkfigures/ and the video repos are public. Refer to
+  them as "the user." Real-name/identity facts belong only in the private
+  `dotclaude` repo (which the `@CLAUDE.private.md` import pulls in).
 
 ## Shell commands (agent)
 - **Prefer a single command over a pipe.** The permission allowlist matches one
@@ -173,3 +179,9 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   explicit `run_time=` to every `self.play`; give helpers that play a `run_time`
   param) so the user can retime when editing the video. See the run_time note in
   the scene-structure section if present.
+- **Use extended thinking for scene-building** (geometry + animation sequencing).
+  The costly mistakes here are spatial — overlaps, a label centered on the panel
+  edge instead of the cell, dice rolling into a guide line — and timing/sequencing
+  ones; working the coordinates out before emitting code prevents a wasted
+  render-and-review round-trip, which dwarfs the thinking cost. Skip it for quick
+  edits, lookups, and config back-and-forth where it's pure overhead.
