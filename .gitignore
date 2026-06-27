@@ -17,5 +17,11 @@ media/
 *.wav
 *.mp3
 
+# Private Claude tooling — real files live in the separate private `dotclaude`
+# repo and are symlinked into .claude/ per machine (see dotclaude/README.md).
+# Keep these OUT of this public repo.
+.claude/commands
+.claude/settings.local.json
+
 # OS / editor junk
 .DS_Store

@@ -26,7 +26,13 @@ load wherever you're working. Video-specific rules live in that video's own
   — clones missing video repos and builds their venvs. Patrick's desktop runs
   **WSL**, where `python3.14` may be absent (venv steps fall back to `python3`).
 - gh account: `MathNCheese`; remotes are HTTPS. The agent runs locally only and
-  cannot reach the desktop — commands travel via the umbrella repo (clone/pull).
+  cannot reach the desktop.
+- **The slash commands + permission allowlist live in a separate PRIVATE repo,
+  `Ballpark-Figures/dotclaude`** (cloned as a sibling of the umbrella), and are
+  symlinked into `.claude/` — they are NOT in this public repo. New-machine setup
+  (clone dotclaude + create the symlinks) is a one-time manual step documented in
+  `dotclaude/README.md`. After that, `git pull` in dotclaude syncs command/
+  allowlist changes between machines.
 
 ## Where instructions live (CLAUDE.md vs memory)
 How Patrick wants the agent to record things worth remembering:
@@ -54,6 +60,10 @@ How Patrick wants the agent to record things worth remembering:
   `git log -n N` over `git log | head`.
 - When a genuine multi-stage transform is unavoidable, run the stages as separate
   calls (or accept the one prompt) rather than inventing a broad pipe allowlist.
+- **Edits/Writes in the project tree auto-approve — so before a MAJOR rewrite of a
+  file, make sure it's committed (or commit it first).** That way the prior version
+  is recoverable from git if the edit goes wrong. Deletions (`rm`) stay gated and
+  prompt every time.
 
 ## The Battleship video is the model
 Match its visual look and its **sparse on-screen text** — not necessarily its
