@@ -5,6 +5,26 @@ Cross-video rules for all videos in this repo (`battleship/`, `yahtzee/`, …).
 load wherever you're working. Video-specific rules live in that video's own
 `CLAUDE.md` (e.g. `yahtzee/CLAUDE.md`).
 
+## Following instructions (read this first)
+- **Do what the user explicitly asked, in the form they asked for.** When they
+  name a file, format, or method ("put it in a CLAUDE.md", "use a tail flag"),
+  that exact choice IS the spec — not a suggestion to improve on with your own
+  judgment.
+- **Disagreeing is fine; silently overriding is NOT.** If you think a different
+  approach is better, FLAG IT AND ASK FIRST, then follow the user's decision.
+  Willfully deviating from an explicit instruction — even when your alternative
+  seems reasonable — is a serious error that can cause major problems later.
+  Flagging-then-asking is always acceptable; substituting without asking is not.
+- **Any promise about future behavior is meaningless unless you WRITE IT DOWN.**
+  This covers every form of it — "I'll fix it", "I'll do better next time", "I'll
+  remember to X", "going forward I'll…", "from now on…". You do NOT retain these
+  across context compaction or a session restart, so a spoken promise changes
+  nothing on its own. The ONLY thing that carries forward is an edit to the
+  relevant CLAUDE.md (or memory). So whenever you acknowledge a mistake or commit
+  to working differently, make that CLAUDE.md edit in the SAME turn — if there's
+  no edit, no change actually happened, and the user is right not to trust the
+  promise.
+
 ## Repo layout
 - `Ballpark-Figures/` umbrella repo: one sub-project per video plus the shared
   `bpkfigures/` package. Each video is its own git repo nested in the umbrella.
@@ -22,8 +42,15 @@ via the import below (a symlink to the `dotclaude` repo; absent → notes skippe
 
 @CLAUDE.private.md
 
-## Where instructions live (CLAUDE.md vs memory)
+## Where instructions live (which CLAUDE.md, and CLAUDE.md vs memory)
 How the user wants the agent to record things worth remembering:
+- **General/cross-video preferences go in `bpkfigures/CLAUDE.md` (this file), NOT
+  a video's `CLAUDE.md`.** Anything about how the agent should work in general —
+  conduct, workflow, tooling, process, instruction-following — belongs here so it
+  loads for every video. A video's own `CLAUDE.md` (e.g. `yahtzee/CLAUDE.md`) is
+  ONLY for rules specific to THAT video (its script, layout, assets). When unsure
+  whether a preference is general or video-specific, treat it as general and put
+  it here.
 - **Default to CLAUDE.md** for anything the user wants the agent to know. It's
   loaded every session (guaranteed) and syncs across machines via git pull —
   unlike agent memory, which is local to one machine and only surfaces via recall.
