@@ -1,7 +1,8 @@
 {
   "folders": [
     { "path": "yahtzee", "name": "yahtzee" },
-    { "path": "bpkfigures", "name": "bpkfigures (shared)" }
+    { "path": "bpkfigures", "name": "bpkfigures (shared)" },
+    { "path": "../dotclaude", "name": "dotclaude (private)" }
   ],
   "settings": {
     "files.exclude": {

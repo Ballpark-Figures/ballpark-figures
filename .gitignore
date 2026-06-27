@@ -22,6 +22,7 @@ media/
 # Keep these OUT of this public repo.
 .claude/commands
 .claude/settings.local.json
+bpkfigures/CLAUDE.private.md
 
 # OS / editor junk
 .DS_Store

@@ -15,29 +15,14 @@ load wherever you're working. Video-specific rules live in that video's own
   the agent reads them on disk. "Do this like the Battleship video" always works.
 
 ## New video / new machine
-- **Start a new video with `/new-video <name>`** (`.claude/commands/new-video.md`
-  in the umbrella repo) — or apply its logic if Patrick asks in words ("start a
-  chess video"). It scaffolds the repo, builds ONE shared `.venv` at the video
-  root (newest-stable `manim`+`scipy`+editable `bpkfigures`; numpy via manim),
-  and creates a PRIVATE `Ballpark-Figures/<name>` GitHub repo. Videos stay
-  private until release, then Patrick flips them public manually
-  (`gh repo visibility public`). The umbrella `ballpark-figures` repo is public.
-- **Set up a second machine with `/sync-videos`** (`.claude/commands/sync-videos.md`)
-  — clones missing video repos and builds their venvs. Patrick's desktop runs
-  **WSL**, where `python3.14` may be absent (venv steps fall back to `python3`).
-- gh account: `MathNCheese`; remotes are HTTPS. The agent runs locally only and
-  cannot reach the desktop.
-- **The slash commands + permission allowlist live in a separate PRIVATE repo,
-  `Ballpark-Figures/dotclaude`** (cloned as a sibling of the umbrella), and are
-  symlinked into `.claude/` — they are NOT in this public repo. New-machine setup
-  (clone dotclaude + create the symlinks) is a one-time manual step documented in
-  `dotclaude/README.md`. After that, `git pull` in dotclaude syncs command/
-  allowlist changes between machines.
+Use `/new-video <name>` to scaffold a new video, and `/sync-videos` to set up a
+second machine. The operational specifics (account, machine layout, private-repo
+mechanics) live in the private companion file that auto-loads alongside this one.
 
 ## Where instructions live (CLAUDE.md vs memory)
 How Patrick wants the agent to record things worth remembering:
 - **Default to CLAUDE.md** for anything Patrick wants the agent to know. It's
-  loaded every session (guaranteed) and syncs to his WSL desktop via git pull —
+  loaded every session (guaranteed) and syncs across machines via git pull —
   unlike agent memory, which is local to one machine and only surfaces via recall.
 - **Use memory ONLY for facts that genuinely can't be committed** (private URLs,
   credentials — anything that shouldn't land in the public repo) AND that have a
