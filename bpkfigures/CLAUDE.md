@@ -17,7 +17,10 @@ load wherever you're working. Video-specific rules live in that video's own
 ## New video / new machine
 Use `/new-video <name>` to scaffold a new video, and `/sync-videos` to set up a
 second machine. The operational specifics (account, machine layout, private-repo
-mechanics) live in the private companion file that auto-loads alongside this one.
+mechanics) live in the private companion file that auto-loads alongside this one
+via the import below (a symlink to the `dotclaude` repo; absent → notes skipped):
+
+@CLAUDE.private.md
 
 ## Where instructions live (CLAUDE.md vs memory)
 How Patrick wants the agent to record things worth remembering:
