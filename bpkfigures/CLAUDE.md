@@ -165,6 +165,10 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
 - For animation FEEL/timing: build a quick ROUGH version, render + grab frames,
   iterate from the user's reaction. Don't over-build the first pass. Render and
   verify after every visual change.
+- **Rough means low-polish, not partial scope.** When the user asks for a first
+  pass at a scene, rough in the WHOLE scene end-to-end (every beat wired up with
+  guessed timings) — don't stop after the first few beats. The user wants to
+  react to the complete arc, not a fragment. Keep each beat rough; cover them all.
 - **Verify-render division of labor** (the user renders right after the agent,
   so split the work to minimize TOTAL time): the agent renders 1–3 fast frames
   to catch OBJECTIVE issues before handoff — wrong position/overlap, clipping/

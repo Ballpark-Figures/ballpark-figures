@@ -9,12 +9,12 @@
       "**/__pycache__": true,
       "**/*.pyc": true,
       "**/.venv": true,
-      "**/media": true,
+      "**/partial_movie_files": true,
       "**/cache": true
     },
     "search.exclude": {
       "**/.venv": true,
-      "**/media": true,
+      "**/partial_movie_files": true,
       "**/cache": true
     }
   }
