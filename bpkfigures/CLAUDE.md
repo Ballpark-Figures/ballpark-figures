@@ -15,15 +15,15 @@ load wherever you're working. Video-specific rules live in that video's own
   Willfully deviating from an explicit instruction — even when your alternative
   seems reasonable — is a serious error that can cause major problems later.
   Flagging-then-asking is always acceptable; substituting without asking is not.
-- **Any promise about future behavior is meaningless unless you WRITE IT DOWN.**
-  This covers every form of it — "I'll fix it", "I'll do better next time", "I'll
-  remember to X", "going forward I'll…", "from now on…". You do NOT retain these
-  across context compaction or a session restart, so a spoken promise changes
-  nothing on its own. The ONLY thing that carries forward is an edit to the
-  relevant CLAUDE.md (or memory). So whenever you acknowledge a mistake or commit
-  to working differently, make that CLAUDE.md edit in the SAME turn — if there's
-  no edit, no change actually happened, and the user is right not to trust the
-  promise.
+- **A promise about future behavior changes nothing unless it's WRITTEN DOWN —
+  so when you catch yourself making one, ASK whether to record it.** Any "I'll fix
+  it" / "I'll do better next time" / "I'll remember to X" / "going forward I'll…"
+  does NOT survive context compaction or a session restart, so on its own it's
+  empty. The only thing that carries forward is an edit to the relevant CLAUDE.md
+  (or memory). But don't unilaterally add such a rule either (that over-corrects).
+  Instead, treat the urge to promise as a prompt to ask the user: "Should I add
+  this to a CLAUDE.md?" If yes, make the edit that turn; if no, drop it — just
+  don't leave it as a hollow promise that quietly evaporates.
 
 ## Repo layout
 - `Ballpark-Figures/` umbrella repo: one sub-project per video plus the shared
@@ -72,14 +72,6 @@ How the user wants the agent to record things worth remembering:
   `dotclaude` repo (which the `@CLAUDE.private.md` import pulls in).
 
 ## Shell commands (agent)
-- **Keep each Bash command SHORT — a long command buries the user's screen.** The
-  approval prompt has no height cap (no Claude Code setting exists for it), so a
-  long or multi-line command covers the conversation text above it — which the
-  user needs to read to see WHY it's being run. So: state the rationale in the
-  message text BEFORE the tool call; keep the tool `description` accurate; split
-  multi-step work into several short, separate tool calls instead of one big
-  compound command; and prefer the dedicated Read/Grep/Glob tools, which don't
-  render as a shell command at all.
 - **Prefer a single command over a pipe.** The permission allowlist matches one
   command at a time, so chaining/piping allowed commands together (`find … | grep`,
   `pip list | grep`) can still trigger a prompt even when each piece is allowed.
