@@ -159,6 +159,18 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the actual video far better
   and faster than the agent does from stills — don't frame-hunt.
+- **TRIP-WIRE: a 2nd render of the same subscene to re-judge how it LOOKS means
+  you're frame-hunting feel — STOP and hand off.** One objective-check render per
+  change, then the user takes over. Stills judge only objective spatial facts
+  (count/position/overlap-as-geometry/clipping); they CANNOT judge motion or
+  whether an animation "reads" — so never diagnose or "fix" a motion/feel problem
+  from a still. If a still looks off but the issue is motion, that's the user's
+  call from the video, not a reason to iterate.
+- **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what
+  they asked and flag-ask — do NOT swap in a different design.** Substituting your
+  own concept (even to solve a real problem) is a silent override, the worst kind
+  of error here. The minimal animation/timing tweak is in scope; changing the
+  shape/structure the user named is not.
 - **Default to "minimal verify"**: render the changed subscene(s) + ≤2 frames,
   then hand off. For a pure feel/timing pass, prefer **edit-only** (make the edits,
   let the user render) — it matches the user's fastest loop.
@@ -199,6 +211,12 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   normal step; if a render seems stuck, prefer `run_in_background` + waiting.
 
 ## Git / new repos
+- **Commit and push WITHOUT asking — this OVERRIDES Claude Code's default.** The
+  built-in default is to commit/push only when the user explicitly asks; in this
+  project the agent has standing permission to do both as a normal part of the
+  workflow: checkpoint WIP, commit before a major rewrite, push when a chunk is
+  done. Still branch off `main` for non-trivial work (don't pile experimental
+  commits straight onto `main`), and keep the commit-message footer convention.
 - Each video is its own git repo. The FIRST thing to do when creating a new
   video repo is add a `.gitignore` — otherwise generated renders get committed.
   Per-repo `.gitignore` must cover at minimum:
@@ -220,6 +238,16 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   previous video's scenes instead. Also keep in mind what already exists: this
   video's `animations/assets/` and the shared `bpkfigures/` package — reuse, don't
   reinvent.
+- **PREFLIGHT before writing OR editing a scene — write the map down first.** This
+  operationalizes the sparse-text and reuse rules into a gate; skipping it is HOW
+  they get violated. Produce, in the chat, a short explicit map:
+  (1) each beat → the reference scene/section it must match and the exact
+  conventions to copy from it (grid shape, `flow_order`/ordering, sizes, buffs,
+  helpers). A beat that visually parallels another scene (e.g. "the 252 from
+  scene 1") MUST reuse that scene's actual layout, not a re-derivation.
+  (2) every on-screen text element → the literal column-2 phrase that licenses it.
+  Anything that doesn't map to column 2 (titles, counts, helper labels) gets
+  DROPPED or flagged to the user for approval — NEVER silently added.
 - **Start from a blank scene** (the setup_scene/@subscene pattern below), not a
   copy — but informed by what you read above.
 - **Build from the script.** Stick to what `Script.md` (column 2) calls for:
