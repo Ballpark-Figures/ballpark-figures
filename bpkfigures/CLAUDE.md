@@ -174,6 +174,11 @@ The permission allowlist already covers the core loop (`render`, `manim`,
 - **Syntax check with `render NN --check`** (instant AST parse of the scene +
   `assets/*.py`, no manim) — NOT a separate `python -c "import ast …"`, which
   isn't allowlisted and prompts every time.
+- **Validate JSON with `python3 -m json.tool <file>`** (allowlisted) — NOT
+  `python -c "import json …"`. `json.tool` only parses/echoes JSON so it's safe
+  to allow; arbitrary `python -c`/`python3 -c` is real code execution, stays
+  gated, and prompts every time. General rule: reach for a FIXED, safe
+  invocation (a stdlib `-m` module, a wrapper script) over ad-hoc `-c`.
 - **Run renders via `run_in_background`** and read the task's output file. Don't
   build `cd … && render … > /tmp/log 2>&1; grep …` chains or manual
   `until grep …; do sleep; done` poll loops — the harness notifies on completion,
