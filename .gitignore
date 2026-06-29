@@ -1,6 +1,7 @@
 # Per-video sub-repos (each is its own git repo)
 battleship/
 yahtzee/
+mastermind/
 ballpark-figures/
 
 # Python

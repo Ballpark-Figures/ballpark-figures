@@ -1,0 +1,21 @@
+{
+  "folders": [
+    { "path": "mastermind", "name": "mastermind" },
+    { "path": "bpkfigures", "name": "bpkfigures (shared)" },
+    { "path": "../dotclaude", "name": "dotclaude (private)" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/.venv": true,
+      "**/partial_movie_files": true,
+      "**/cache": true
+    },
+    "search.exclude": {
+      "**/.venv": true,
+      "**/partial_movie_files": true,
+      "**/cache": true
+    }
+  }
+}
