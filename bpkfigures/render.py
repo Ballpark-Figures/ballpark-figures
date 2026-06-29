@@ -18,6 +18,8 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g --recompute           # ignore the snapshot cache
     render 01g --frames "1.0,2.0,-0.3"   # render then extract those frames
     render 01g --frames 5            # 5 evenly-spaced frames
+    render 01g --frames "1.0,-0.3" --extract  # extract from the EXISTING mp4
+                                              # (no re-render); then Read the PNGs
     render 01h --state               # print mobjects at h's start (no render)
     render 01 --check                # AST-parse the scene + assets only (no manim)
 
@@ -248,6 +250,7 @@ def main(argv=None):
     hq = "--hq" in argv          # accepted but redundant (hq is the default)
     state = "--state" in argv
     check = "--check" in argv    # AST-parse the scene + assets (no manim, instant)
+    extract = "--extract" in argv  # extract --frames from the EXISTING mp4 (no render)
     quiet = "--quiet" in argv    # pass -v WARNING to manim (drops per-animation INFO spam)
     frames_spec = None
     tail = None                  # --tail N: capture manim output, emit only its last N lines
@@ -255,7 +258,8 @@ def main(argv=None):
     i = 0
     while i < len(argv):
         a = argv[i]
-        if a in ("--recompute", "--hq", "--state", "--fast", "-ql", "--quiet", "--check"):
+        if a in ("--recompute", "--hq", "--state", "--fast", "-ql", "--quiet",
+                 "--check", "--extract"):
             pass
         elif a == "--frames":
             i += 1
@@ -292,15 +296,15 @@ def main(argv=None):
     worst_rc = 0
     for target in targets:
         rc = _render_one(target, passthrough, recompute, fast, state, frames_spec,
-                         quiet=quiet, tail=tail_n)
+                         quiet=quiet, tail=tail_n, extract=extract)
         worst_rc = worst_rc or rc
-        if not state and rc == 0:
+        if not state and not extract and rc == 0:
             print(f"Finished rendering {target}", file=sys.stderr)
     return worst_rc
 
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,
-                quiet=False, tail=None):
+                quiet=False, tail=None, extract=False):
     """Resolve, (clean+render) or --state, and extract frames for one target.
 
     quiet -> pass `-v WARNING` to manim (suppresses its per-animation INFO log).
@@ -315,6 +319,20 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
 
     if state:
         return _print_state(path, classname, letter)
+
+    if extract:
+        # pull --frames from the ALREADY-rendered mp4, no manim run
+        if frames_spec is None:
+            print("--extract needs --frames", file=sys.stderr)
+            return 2
+        mp4 = _output_mp4(output)
+        if not mp4:
+            print(f"[render] no existing mp4 for {output} — render it first",
+                  file=sys.stderr)
+            return 1
+        for p in _extract_frames(mp4, _parse_frames(frames_spec, _duration(mp4))):
+            print(p)
+        return 0
 
     # clean stale outputs for this slot
     for f in resolve.clean_stale(classname, target[:2], letter, output):

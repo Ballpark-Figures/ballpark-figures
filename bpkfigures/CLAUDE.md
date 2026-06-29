@@ -132,6 +132,10 @@ calls for; no titles/labels/narration that weren't asked for.
 - `render 01g --frames "1.0,2.0,-0.3"` renders THEN extracts those PNG frames
   (negative = seconds-from-end) into a `frames/` dir beside the mp4 and prints
   paths — one command instead of render+ffmpeg. `--frames N` = N evenly spaced.
+- `render 01g --frames "1.0,-0.3" --extract` extracts those frames from the
+  ALREADY-rendered mp4 (NO re-render) into `frames/` and prints paths — use it to
+  grab frames from a heavy subscene without rebuilding it. Then READ the PNGs with
+  the Read tool; never hand-roll `ffmpeg … && ffmpeg …` chains.
 - `render 01h --state` (no render) prints the mobjects on screen at subscene h's
   START (from the prior snapshot) — use to reason about starting state cheaply.
 
@@ -198,11 +202,19 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   to allow; arbitrary `python -c`/`python3 -c` is real code execution, stays
   gated, and prompts every time. General rule: reach for a FIXED, safe
   invocation (a stdlib `-m` module, a wrapper script) over ad-hoc `-c`.
-- **Run renders via `run_in_background`** and read the task's output file. Don't
-  build `cd … && render … > /tmp/log 2>&1; grep …` chains or manual
-  `until grep …; do sleep; done` poll loops — the harness notifies on completion,
-  and those chains both add overhead and dodge the allowlist (compound `&&`/`|`/
-  redirects can re-prompt even when each piece is allowed).
+- **Run renders via `run_in_background`, then READ the task's `.output` file with
+  the Read tool** — NOT `tail`/`grep`/`sed`/`| head` on it (those pipes prompt
+  every time; the Read tool never does). Don't build `cd … && render … > log; grep`
+  chains or `until grep …; do sleep; done` poll loops — the harness notifies on
+  completion.
+- **Grab render frames with `render … --frames … --extract`, then READ the PNGs**
+  (Read tool) — one allowlisted call, no re-render. NOT hand-rolled
+  `M=… && ffmpeg … && ffmpeg …` chains (the `&&`, `$VAR`, and `select='eq(n\,N)'`
+  quoting all force a prompt).
+- **Commit/push as SEPARATE simple git calls** — `git add`, `git commit`,
+  `git push` each in its own tool call. Never chain (`git add … && git commit …`)
+  or pipe (`… | tail`, `2>&1`); the chain prompts even though each git subcommand
+  is allowlisted.
 - **Edit files with the Edit/Write tools, never `python - <<'EOF'` splices** —
   arbitrary `python`/`python3` isn't (and shouldn't be) allowlisted, and file
   rewrites via heredoc are easy to get wrong.
