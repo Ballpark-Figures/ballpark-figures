@@ -171,6 +171,13 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 The permission allowlist already covers the core loop (`render`, `manim`,
 `ffmpeg`/`ffprobe`, `grep`/`rg`/`ls`/`cat`/`head`/`tail`/`wc`/`sort`/`tr`,
 `cd`/`echo`/`mkdir`). Friction comes from working AROUND it; so:
+- **Control-flow constructs are NEVER auto-approved — split them into separate
+  simple calls.** A `for`/`while`/`until` loop, a subshell `( … )`, `;`
+  sequencing, `||`, or command-substitution `$( … )` prompts EVERY time, even
+  when every command inside is allowlisted — the evaluator can't see what's
+  hidden in them. So for anything you want to run prompt-free, issue separate
+  one-command tool calls instead of packing them into a loop/subshell. Terse
+  one-liner verification loops (`for x in …; do …; done`) are the classic trap.
 - **Syntax check with `render NN --check`** (instant AST parse of the scene +
   `assets/*.py`, no manim) — NOT a separate `python -c "import ast …"`, which
   isn't allowlisted and prompts every time.
