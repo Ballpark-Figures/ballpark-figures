@@ -273,15 +273,25 @@ class BpkScene(Scene):
         if not (0 <= idx < len(names)):
             raise IndexError(f"Subscene '{target}' out of range (have {len(names)})")
 
-        loaded = self._load_snapshot(idx - 1, names) if idx > 0 else False
-        if not loaded:
+        # Load the LATEST valid snapshot at or before idx-1, then replay only the
+        # subscenes between it and idx (frames skipped). So editing subscene h
+        # doesn't force a full a..g replay when rendering i: a..g's snapshots are
+        # still valid, so we load g and replay just h. If nothing is valid we fall
+        # back to setup + full-prefix replay.
+        loaded_j = -1
+        for j in range(idx - 1, -1, -1):
+            if self._load_snapshot(j, names):
+                loaded_j = j
+                break
+
+        if loaded_j == -1:
             self.setup_scene()
-            if idx > 0:
-                self.renderer.skip_animations = True
-                for i, name in enumerate(names[:idx]):
-                    getattr(self, name)()
-                    self._save_snapshot(i, names)
-                self.renderer.skip_animations = False
+        if loaded_j < idx - 1:                  # replay the gap (or full prefix)
+            self.renderer.skip_animations = True
+            for i in range(loaded_j + 1, idx):
+                getattr(self, names[i])()
+                self._save_snapshot(i, names)
+            self.renderer.skip_animations = False
 
         # Discard any partial-movie frames produced while fast-forwarding the
         # prefix subscenes. Even under skip_animations, manim still appends each

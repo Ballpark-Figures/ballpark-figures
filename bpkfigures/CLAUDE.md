@@ -91,11 +91,28 @@ Match its visual look and its **sparse on-screen text** — not necessarily its
 exact animation primitives. Render ONLY text the script's column 2 explicitly
 calls for; no titles/labels/narration that weren't asked for.
 
-## Scene structure (the "Battleship pattern")
-- `setup_scene()` builds and positions **every** mobject as `self.<name>` (+ any
-  data the animations consume). Many subscenes → split into `_setup_<name>()`
-  helpers called in order.
-- `@subscene` methods contain **only animations** — nothing is constructed there.
+## Scene structure (LAZY per-subscene building)
+- **Build lazily, in the OWNER subscene — not all up front in `setup_scene`.**
+  Each subscene builds (as `self.<name>`) the mobjects it OWNS = the ones that
+  first appear in it, typically via a `_setup_<name>()` helper it calls at its
+  start; then it animates. `setup_scene` holds ONLY things on screen from frame 0
+  (a persistent background/scorecard) — often it's empty. Why this over the old
+  "build everything in setup_scene" pattern: a snapshot pickles the whole scene
+  state, so front-loading made every snapshot heavy AND made any setup edit
+  invalidate EVERY subscene's snapshot. Lazy building keeps snapshots light and
+  makes a setup edit invalidate only its owner subscene onward. (See the snapshot
+  cache + render notes.)
+- **Carry-over is automatic — don't rebuild.** An object built in subscene N and
+  left in `self` is restored (same object, same mutated state) when N+1 loads N's
+  snapshot, so later subscenes just REFERENCE `self.<name>`. Two rules: (1) every
+  reused object needs a `self.` handle (a local mobject can't be named next
+  subscene); (2) ONE owner per object — if two subscenes both `self.foo = …`, the
+  second silently replaces the carried one (a real bug). When a carry-over is
+  consumed/no longer needed, drop it (`self.foo = None`) so later snapshots stay
+  light.
+- `@subscene` methods are **build-its-own + animate** — they construct what they
+  own (or call its `_setup_<name>()`) then play; they never rebuild a carried-over
+  object.
 - **Subscene continuity:** a subscene starts from the previous one's END state.
   Anything not on screen at the end of the previous subscene must be ANIMATED IN
   at the start of the next (don't silently `add` — it pops). Things appearing
@@ -140,7 +157,12 @@ calls for; no titles/labels/narration that weren't asked for.
   START (from the prior snapshot) — use to reason about starting state cheaply.
 
 ## Snapshot cache (`bpkfigures/scene.py`)
-- Rendering one subscene loads the prior subscene's snapshot instead of replaying.
+- Rendering one subscene loads the LATEST VALID snapshot at or before the prior
+  subscene, then replays only the gap (frames skipped). So after editing subscene
+  h, `render NNi` loads g's still-valid snapshot and replays just h — it does NOT
+  rebuild the whole prefix. Combined with lazy building (above), editing a
+  subscene's `_setup_<name>` invalidates only that subscene onward, so the heavy
+  early build-up stays cached.
 - Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING the
   scene file) + a per-subscene dependency digest. Editing a later subscene (or
   code only it uses) leaves earlier snapshots valid; editing an asset/config/
