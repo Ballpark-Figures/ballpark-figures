@@ -47,6 +47,13 @@ def resolve(target):
         raise IndexError(f"Subscene '{letter}' out of range for {path}")
     return path, classname, f"{prefix}{letter}_{subs[idx]}", letter
 
+def subscene_letters(prefix):
+    """The subscene letters (['a','b',...]) defined in the NN-prefixed scene
+    file, in order. Empty list if the scene has no @subscene methods."""
+    path = _find_file(prefix)
+    _classname, subs = _parse(path)
+    return [chr(ord("a") + i) for i in range(len(subs))]
+
 def clean_stale(classname, prefix, letter, keep_output):
     """Remove stale rendered videos for this NN<letter> slot whose subscene was
     renamed/reordered (e.g. an old 01b_all_outcomes.mp4 left behind when 01b is

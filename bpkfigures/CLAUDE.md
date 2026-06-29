@@ -148,6 +148,44 @@ calls for; no titles/labels/narration that weren't asked for.
   user and agent now use `render` (the old `manim()` zsh override was removed).
   Quality defaults to HIGH; `--fast` gives a quick `-ql` check.
 
+## Rendering during iteration (agent — keep the loop fast)
+The slowest mistakes here are render round-trips, not thinking. Defaults:
+- **Render ONLY the subscene(s) you changed**, never the whole scene (`NN sub` /
+  `NN all`) unless geometry genuinely changed everywhere. `render NNk` replays the
+  prefix once; `NN sub` rebuilds all subscenes (much slower).
+- **Editing a shared asset (`assets/`, `bpkfigures/`) invalidates ALL snapshots**
+  (see the cache key above), so BATCH asset edits and render once, rather than
+  re-rendering after each small asset tweak.
+- **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
+  overlap/clipping). The user judges feel/timing from the actual video far better
+  and faster than the agent does from stills — don't frame-hunt.
+- **Default to "minimal verify"**: render the changed subscene(s) + ≤2 frames,
+  then hand off. For a pure feel/timing pass, prefer **edit-only** (make the edits,
+  let the user render) — it matches the user's fastest loop.
+- **Animation timing/visuals: use trackers/updaters** (value- or `dt`-driven), NOT
+  computed-time guesses (`Succession(Wait(t_guess), …)`). Guessed timings are
+  fragile and cause repeated rework; a value-/dt-driven effect fires correctly
+  regardless of how the surrounding animation is paced.
+
+### Keep commands allowlist-friendly (avoid permission prompts)
+The permission allowlist already covers the core loop (`render`, `manim`,
+`ffmpeg`/`ffprobe`, `grep`/`rg`/`ls`/`cat`/`head`/`tail`/`wc`/`sort`/`tr`,
+`cd`/`echo`/`mkdir`). Friction comes from working AROUND it; so:
+- **Syntax check with `render NN --check`** (instant AST parse of the scene +
+  `assets/*.py`, no manim) — NOT a separate `python -c "import ast …"`, which
+  isn't allowlisted and prompts every time.
+- **Run renders via `run_in_background`** and read the task's output file. Don't
+  build `cd … && render … > /tmp/log 2>&1; grep …` chains or manual
+  `until grep …; do sleep; done` poll loops — the harness notifies on completion,
+  and those chains both add overhead and dodge the allowlist (compound `&&`/`|`/
+  redirects can re-prompt even when each piece is allowed).
+- **Edit files with the Edit/Write tools, never `python - <<'EOF'` splices** —
+  arbitrary `python`/`python3` isn't (and shouldn't be) allowlisted, and file
+  rewrites via heredoc are easy to get wrong.
+- Use `rg`/`ls` (allowed) instead of `find` for inspection.
+- `pkill`/`kill`/`rm` stay gated on purpose — don't reach for process-killing as a
+  normal step; if a render seems stuck, prefer `run_in_background` + waiting.
+
 ## Git / new repos
 - Each video is its own git repo. The FIRST thing to do when creating a new
   video repo is add a `.gitignore` — otherwise generated renders get committed.

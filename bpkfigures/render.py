@@ -10,10 +10,16 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g --fast                # quick low-res check (-ql)
     render 01g 01h 01i               # several in sequence
     render 01                        # full scene
+    render 01 sub                    # all subscenes, in order
+    render 01 all                    # all subscenes, then the full scene
+    render 01bf                      # subscenes b through f
+    render 01b-                      # subscene b through the end
+    render 01-f                      # the beginning through subscene f
     render 01g --recompute           # ignore the snapshot cache
     render 01g --frames "1.0,2.0,-0.3"   # render then extract those frames
     render 01g --frames 5            # 5 evenly-spaced frames
     render 01h --state               # print mobjects at h's start (no render)
+    render 01 --check                # AST-parse the scene + assets only (no manim)
 
 Negative frame times are seconds-from-end (like ffmpeg -sseof). If `render`
 isn't on PATH, use `<repo>/.venv/bin/python -m bpkfigures.render ...`.
@@ -153,6 +159,84 @@ def _print_state(path, classname, letter):
     return 0
 
 
+# ── target expansion (ranges + all/sub) ───────────────────────────────────────
+def _expand_one(prefix, spec, letters):
+    """Expand a single NN token's `spec` (the part after the 2-digit prefix) into
+    concrete targets. "" → full scene; "g" → that subscene; "bf" → b..f; "b-" →
+    b..last; "-f" → first..f."""
+    if spec == "":
+        return [prefix]                                  # full scene
+    if len(spec) == 1 and spec.isalpha():
+        return [prefix + spec]                           # single subscene
+    if len(spec) == 2 and spec.endswith("-") and spec[0].isalpha():
+        lo, hi = spec[0], letters[-1]                    # "b-"  → b..last
+    elif len(spec) == 2 and spec.startswith("-") and spec[1].isalpha():
+        lo, hi = letters[0], spec[1]                     # "-f"  → first..f
+    elif len(spec) == 2 and spec.isalpha():
+        lo, hi = spec[0], spec[1]                        # "bf"  → b..f
+    else:
+        return [prefix + spec]                           # leave odd specs to resolve
+    if lo not in letters or hi not in letters:
+        raise IndexError(f"range {prefix}{spec} out of {prefix}'s subscenes "
+                         f"({letters[0]}..{letters[-1]})")
+    i0, i1 = letters.index(lo), letters.index(hi)
+    step = 1 if i0 <= i1 else -1
+    return [prefix + L for L in letters[i0:i1 + step:step]]
+
+
+def _expand_targets(rest):
+    """Turn `rest` into (targets, passthrough). Handles the `all`/`sub` keywords
+    (all subscenes, plus the full scene for `all`) and the range forms above."""
+    mode = "all" if "all" in rest else ("sub" if "sub" in rest else None)
+    toks = [a for a in rest if a not in ("all", "sub")]
+    digit_toks = [a for a in toks if len(a) >= 2 and a[:2].isdigit()]
+    passthrough = [a for a in toks if a not in digit_toks]
+
+    targets = []
+    for tok in digit_toks:
+        prefix, spec = tok[:2], tok[2:]
+        if mode and spec == "":
+            letters = resolve.subscene_letters(prefix)
+            targets += [prefix + L for L in letters]
+            if mode == "all":
+                targets.append(prefix)                   # full scene last
+        elif len(spec) == 2 or (len(spec) == 1 and spec in "-"):
+            targets += _expand_one(prefix, spec, resolve.subscene_letters(prefix))
+        else:
+            targets.append(tok)                          # NN or NNx — as-is
+    return targets, passthrough
+
+
+# ── --check: fast syntax check (no manim) ─────────────────────────────────────
+def _check_syntax(targets):
+    """AST-parse the target scene file(s) plus every assets/*.py they sit next to,
+    with NO manim import — an instant catch for syntax errors before paying for a
+    render. Returns 0 if all parse, 1 otherwise."""
+    import ast
+    paths = []
+    for target in targets:
+        try:
+            scene_path = resolve.resolve(target)[0]
+        except Exception as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        paths.append(os.path.abspath(scene_path))
+    # the shared assets the scenes import live in ../assets/ (run from scenes/)
+    paths += [os.path.abspath(p) for p in glob.glob(os.path.join("..", "assets", "*.py"))]
+
+    rc = 0
+    for p in dict.fromkeys(paths):     # dedup, keep order
+        try:
+            with open(p) as f:
+                ast.parse(f.read(), filename=p)
+        except SyntaxError as e:
+            print(f"{p}:{e.lineno}: {e.msg}", file=sys.stderr)
+            rc = 1
+    if rc == 0:
+        print("syntax OK")
+    return rc
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -163,6 +247,7 @@ def main(argv=None):
     fast = ("--fast" in argv) or ("-ql" in argv)
     hq = "--hq" in argv          # accepted but redundant (hq is the default)
     state = "--state" in argv
+    check = "--check" in argv    # AST-parse the scene + assets (no manim, instant)
     quiet = "--quiet" in argv    # pass -v WARNING to manim (drops per-animation INFO spam)
     frames_spec = None
     tail = None                  # --tail N: capture manim output, emit only its last N lines
@@ -170,7 +255,7 @@ def main(argv=None):
     i = 0
     while i < len(argv):
         a = argv[i]
-        if a in ("--recompute", "--hq", "--state", "--fast", "-ql", "--quiet"):
+        if a in ("--recompute", "--hq", "--state", "--fast", "-ql", "--quiet", "--check"):
             pass
         elif a == "--frames":
             i += 1
@@ -189,13 +274,20 @@ def main(argv=None):
         except ValueError:
             tail_n = None
 
-    # every NN[letter] arg is a target — supports `render 01g 01h 01i`.
-    targets = [a for a in rest if len(a) >= 2 and a[:2].isdigit()]
-    if not targets:
-        print("usage: render NN[letter] [NN[letter] ...] "
-              "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--state]")
+    # every NN[letter] arg is a target — supports `render 01g 01h 01i`, plus
+    # ranges (01bf, 01b-, 01-f) and the `all`/`sub` keywords.
+    try:
+        targets, passthrough = _expand_targets(rest)
+    except Exception as e:
+        print(str(e), file=sys.stderr)
         return 2
-    passthrough = [a for a in rest if a not in targets]
+    if not targets:
+        print("usage: render NN[letter] [NN[letter] ...] [NN all|sub] [NNbf|NNb-|NN-f] "
+              "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--state] [--check]")
+        return 2
+
+    if check:
+        return _check_syntax(targets)
 
     worst_rc = 0
     for target in targets:

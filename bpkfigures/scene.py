@@ -8,6 +8,28 @@ import types
 from manim import Scene
 from bpkfigures.style import *
 
+# ── Render-hang workaround (manim + Python 3.14) ──────────────────────────────
+# manim's SceneFileWriter spawns a NON-daemon thread per partial movie
+# (`listen_and_write`). Our snapshot skip-replay (fast-forwarding earlier
+# subscenes) can leave some of those threads orphaned, blocked forever on an
+# empty queue. Under Python 3.14 the interpreter won't exit until every
+# non-daemon thread joins, so the process deadlocks AFTER rendering finishes
+# (0% CPU, no mp4 written) and `render` appears to hang.
+# Force those writer threads to be daemons so a stray one can't wedge shutdown.
+# Safe: normal use still joins the thread explicitly (close_partial_movie_stream)
+# before closing each file, so no frame is lost; daemon only affects orphans.
+import manim.scene.scene_file_writer as _sfw  # noqa: E402
+
+_OrigThread = _sfw.Thread
+
+
+def _DaemonThread(*args, **kwargs):
+    kwargs.setdefault("daemon", True)
+    return _OrigThread(*args, **kwargs)
+
+
+_sfw.Thread = _DaemonThread
+
 SNAPSHOT_DIR = os.path.join("cache", "snapshots")
 
 # Bump this to manually invalidate every cached snapshot (e.g. after changing
