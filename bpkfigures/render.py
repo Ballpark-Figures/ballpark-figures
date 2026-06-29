@@ -8,6 +8,7 @@ subscene's start state. Quality defaults to HIGH (-qh); use --fast for -ql.
 Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/):
     render 01g                       # subscene g (high quality)
     render 01g --fast                # quick low-res check (-ql)
+    render 01g --very-fast           # 3 fps @ 256x144 — fastest possible check
     render 01g 01h 01i               # several in sequence
     render 01                        # full scene
     render 01 sub                    # all subscenes, in order
@@ -247,6 +248,7 @@ def main(argv=None):
     # use --fast (or -ql) for a quick low-res check.
     recompute = "--recompute" in argv
     fast = ("--fast" in argv) or ("-ql" in argv)
+    very_fast = "--very-fast" in argv   # 3 fps @ 256x144 — fastest possible
     hq = "--hq" in argv          # accepted but redundant (hq is the default)
     state = "--state" in argv
     check = "--check" in argv    # AST-parse the scene + assets (no manim, instant)
@@ -258,8 +260,8 @@ def main(argv=None):
     i = 0
     while i < len(argv):
         a = argv[i]
-        if a in ("--recompute", "--hq", "--state", "--fast", "-ql", "--quiet",
-                 "--check", "--extract"):
+        if a in ("--recompute", "--hq", "--state", "--fast", "--very-fast", "-ql",
+                 "--quiet", "--check", "--extract"):
             pass
         elif a == "--frames":
             i += 1
@@ -296,7 +298,8 @@ def main(argv=None):
     worst_rc = 0
     for target in targets:
         rc = _render_one(target, passthrough, recompute, fast, state, frames_spec,
-                         quiet=quiet, tail=tail_n, extract=extract)
+                         quiet=quiet, tail=tail_n, extract=extract,
+                         very_fast=very_fast)
         worst_rc = worst_rc or rc
         if not state and not extract and rc == 0:
             print(f"Finished rendering {target}", file=sys.stderr)
@@ -304,7 +307,7 @@ def main(argv=None):
 
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,
-                quiet=False, tail=None, extract=False):
+                quiet=False, tail=None, extract=False, very_fast=False):
     """Resolve, (clean+render) or --state, and extract frames for one target.
 
     quiet -> pass `-v WARNING` to manim (suppresses its per-animation INFO log).
@@ -348,8 +351,10 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         env["RECOMPUTE"] = "1"
 
     manim = _find_venv_manim()
-    quality = "-ql" if fast else "-qh"
+    quality = "-ql" if (fast or very_fast) else "-qh"
     cmd = [manim, quality]
+    if very_fast:
+        cmd += ["-r", "256,144", "--fps", "3"]   # terrible res + 3 fps
     if quiet:
         cmd += ["-v", "WARNING"]
     cmd += [*passthrough, path, classname, "-o", output]
