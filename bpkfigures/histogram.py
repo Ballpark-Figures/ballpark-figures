@@ -12,6 +12,35 @@ def get_histogram_counts(data, min_val, max_val):
     return values, counts
 
 
+def _build_hist_bars(values, mag_lookup, max_mag, width, height, n,
+                     bar_color, opacity, is_vertical):
+    """One Rectangle per value with magnitude > 0, scaled so max_mag == height.
+    Positions match across calls (same values/width/n), so a base layer and an
+    overlay layer line up bar-for-bar."""
+    bars = VGroup()
+    bar_width = width / n
+    for i, val in enumerate(values):
+        c = mag_lookup.get(val, 0)
+        if c <= 0 or max_mag <= 0:
+            continue
+        h = (c / max_mag) * height
+        if not is_vertical:
+            bar = Rectangle(width=bar_width * 0.9, height=h,
+                            fill_color=bar_color, fill_opacity=opacity,
+                            stroke_width=0)
+            x = (i - n / 2 + 0.5) * bar_width
+            y = h / 2
+        else:
+            bar = Rectangle(width=h, height=bar_width * 0.9,
+                            fill_color=bar_color, fill_opacity=opacity,
+                            stroke_width=0)
+            x = h / 2
+            y = (i - n / 2 + 0.5) * bar_width
+        bar.move_to(np.array([x, y, 0]))
+        bars.add(bar)
+    return bars
+
+
 def get_histogram(
     data,
     center=ORIGIN,
@@ -23,50 +52,63 @@ def get_histogram(
     bar_color=BLUE,
     is_vertical=False,
     x_axis_label=None,
-    show_sim_count=False
+    show_sim_count=False,
+    counts=None,
+    min_prob=None,
+    show_y_axis=False,
+    y_axis_label=None,
+    y_ticks=4,
+    overlays=None,
+    base_label=None,
+    base_opacity=0.4,
+    x_tick_step=10,
 ):
-    if min_val is None:
-        min_val = min(data)
-    if max_val is None:
-        max_val = max(data)
+    # ── magnitudes: either supplied directly ({value: prob/weight}) or counted
+    #    from raw samples. ``total`` (sum over the FULL set, pre-trim) anchors the
+    #    percent y-axis. ──────────────────────────────────────────────────────
+    if counts is not None:
+        mag = dict(counts)
+        if min_val is None:
+            min_val = min(mag)
+        if max_val is None:
+            max_val = max(mag)
+    else:
+        if min_val is None:
+            min_val = min(data)
+        if max_val is None:
+            max_val = max(data)
+        _, mag = get_histogram_counts(data, min_val=min_val, max_val=max_val)
 
-    values, counts = get_histogram_counts(data, min_val=min_val, max_val=max_val)
+    total = sum(mag.values())
 
-    count_list = [counts[v] for v in values]
-    max_count = max(count_list)
+    # ── auto-trim the displayed range to where the frequency clears min_prob ──
+    if min_prob is not None and total > 0:
+        present = [v for v in range(min_val, max_val + 1)
+                   if mag.get(v, 0) / total > min_prob]
+        if present:
+            min_val, max_val = min(present), max(present)
+
+    values = list(range(min_val, max_val + 1))
     n = max_val - min_val + 1
     bar_width = width / n
+    max_mag = max((mag.get(v, 0) for v in values), default=0)
 
-    bars = VGroup()
-
-    for i, val in enumerate(values):
-        c = counts[val]
-        h = (c / max_count) * height
-
-        if not is_vertical:
-            bar = Rectangle(
-                width=bar_width * 0.9,
-                height=h,
-                fill_color=bar_color,
-                fill_opacity=1.0,
-                stroke_width=0
-            )
-            x = (i - n / 2 + 0.5) * bar_width
-            y = h / 2
-        else:
-            bar = Rectangle(
-                width=h,
-                height=bar_width * 0.9,
-                fill_color=bar_color,
-                fill_opacity=1.0,
-                stroke_width=0
-            )
-            x = h / 2
-            y = (i - n / 2 + 0.5) * bar_width
-        bar.move_to(np.array([x, y, 0]))
-        bars.add(bar)
+    bars = _build_hist_bars(
+        values, mag, max_mag, width, height, n, bar_color,
+        opacity=(base_opacity if overlays else 1.0), is_vertical=is_vertical)
 
     elements = VGroup(bars)
+
+    # ── overlays: sub-distributions drawn on top, same normalization ─────────
+    overlay_groups = VGroup()
+    if overlays:
+        for ov_counts, ov_color, _ov_label in overlays:
+            ov_bars = _build_hist_bars(
+                values, dict(ov_counts), max_mag, width, height, n,
+                ov_color, opacity=1.0, is_vertical=is_vertical)
+            ov_bars.set_z_index(1)
+            overlay_groups.add(ov_bars)
+        elements.add(overlay_groups)
 
     if not is_vertical:
         axis = Line(
@@ -82,9 +124,40 @@ def get_histogram(
         )
     elements.add(axis)
 
+    # ── optional vertical axis with percent ticks (horizontal hist only) ─────
+    if show_y_axis and not is_vertical:
+        y_axis = Line(
+            start=np.array([-width / 2, 0, 0]),
+            end=np.array([-width / 2, height, 0]),
+            color=BLACK
+        )
+        elements.add(y_axis)
+        y_tick_labels = VGroup()
+        max_frac = (max_mag / total) if total > 0 else 0
+        for t in range(1, y_ticks + 1):
+            f = t / y_ticks
+            y = f * height
+            tick = Line(
+                start=np.array([-width / 2 - 0.1, y, 0]),
+                end=np.array([-width / 2, y, 0]),
+                color=BLACK
+            )
+            pct = f * max_frac * 100
+            lab = crisp_text(f"{pct:.2g}%", font=FONT,
+                             font_size=FONT_SIZE_SM, color=BLACK)
+            lab.next_to(tick, LEFT, buff=0.1)
+            y_tick_labels.add(tick, lab)
+        elements.add(y_tick_labels)
+        if y_axis_label is not None:
+            y_axis_text = crisp_text(y_axis_label, font=FONT,
+                                     font_size=FONT_SIZE_SM, color=BLACK)
+            y_axis_text.rotate(PI / 2)
+            y_axis_text.next_to(y_tick_labels, LEFT, buff=0.2)
+            elements.add(y_axis_text)
+
     labels = VGroup()
     for i, val in enumerate(values):
-        if val % 10 != 0:
+        if val % x_tick_step != 0:
             continue
         if not is_vertical:
             x = (i - n / 2 + 0.5) * bar_width
@@ -128,6 +201,29 @@ def get_histogram(
         sim_label.next_to(bars, UR, buff=0)
         sim_label.shift(LEFT * 1.0 + DOWN * 0.6)
         elements.add(sim_label)
+
+    # ── legend: a swatch + label per series (base + each overlay) ────────────
+    if overlays and (base_label is not None
+                     or any(lbl is not None for _, _, lbl in overlays)):
+        entries = []
+        if base_label is not None:
+            entries.append((bar_color, base_label))
+        for _, ov_color, ov_label in overlays:
+            if ov_label is not None:
+                entries.append((ov_color, ov_label))
+        rows = VGroup()
+        for col, text in entries:
+            swatch = Square(side_length=0.22, fill_color=col,
+                            fill_opacity=1.0, stroke_width=0)
+            txt = crisp_text(text, font=FONT, font_size=FONT_SIZE_SM,
+                             color=BLACK)
+            txt.next_to(swatch, RIGHT, buff=0.15)
+            rows.add(VGroup(swatch, txt))
+        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        # top-right, inset from the plot's upper-right corner
+        rows.next_to(np.array([width / 2, height, 0]), DL, buff=0.0)
+        rows.shift(LEFT * 0.2 + DOWN * 0.2)
+        elements.add(rows)
 
     core = VGroup(bars, axis)
     elements.shift(np.array(center) - core.get_center())
