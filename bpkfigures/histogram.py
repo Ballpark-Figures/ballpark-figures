@@ -31,18 +31,23 @@ def _nice_ticks(vmax, target=5):
 
 
 def _build_hist_bars(values, mag_lookup, max_mag, width, height, n,
-                     bar_color, opacity, is_vertical, bar_ratio=0.9):
-    """One Rectangle per value with magnitude > 0, scaled so max_mag == height.
-    Positions match across calls (same values/width/n), so a base layer and an
-    overlay layer line up bar-for-bar. ``bar_ratio`` is the fraction of each
-    slot the bar fills (1.0 = no gaps, contiguous bars)."""
+                     bar_color, opacity, is_vertical, bar_ratio=0.9,
+                     full_grid=False):
+    """One Rectangle per value, scaled so max_mag == height. Positions match
+    across calls (same values/width/n), so a base layer and an overlay layer line
+    up bar-for-bar. ``bar_ratio`` is the fraction of each slot the bar fills
+    (1.0 = no gaps). ``full_grid`` keeps a (near-zero) bar at EVERY value so two
+    layers share one bar per slot — Transforming between them then changes each
+    bar's HEIGHT in place (some grow, some shrink) instead of sliding bars."""
     bars = VGroup()
     bar_width = width / n
     for i, val in enumerate(values):
         c = mag_lookup.get(val, 0)
-        if c <= 0 or max_mag <= 0:
+        if not full_grid and (c <= 0 or max_mag <= 0):
             continue
-        h = (c / max_mag) * height
+        h = (c / max_mag) * height if max_mag > 0 else 0
+        if full_grid:
+            h = max(h, 1e-3)
         if not is_vertical:
             bar = Rectangle(width=bar_width * bar_ratio, height=h,
                             fill_color=bar_color, fill_opacity=opacity,
@@ -209,7 +214,8 @@ def get_histogram(
             color=BLACK
         )
         title_text.next_to(elements, UP, buff=0.5)
-        elements.add(title_text)
+        title_text.set_x(axis.get_center()[0])   # centre on the plot, not the
+        elements.add(title_text)                 # y-axis-label-heavy bounding box
 
     if show_sim_count:
         sim_label = crisp_text(
@@ -259,15 +265,17 @@ def get_histogram(
     return elements
 
 
-def overlay_bars(plot, counts, color, opacity=1.0):
+def overlay_bars(plot, counts, color, opacity=1.0, full_grid=False):
     """A VGroup of overlay bars aligned bar-for-bar to ``plot`` (a get_histogram
     result), built from {value: prob}. Same normalization as the base, so each
-    overlay bar never exceeds its base bar. Transform between two of these to
-    morph one highlighted sub-distribution into another."""
+    overlay bar never exceeds its base bar. With ``full_grid=True`` the layer has
+    one bar per score, so Transforming between two such layers morphs heights in
+    place (the battleship-style transition)."""
     g = plot.hist_geom
     bars = _build_hist_bars(
         g["values"], dict(counts), g["max_mag"], g["width"], g["height"],
-        g["n"], color, opacity, is_vertical=False, bar_ratio=g["bar_ratio"])
+        g["n"], color, opacity, is_vertical=False, bar_ratio=g["bar_ratio"],
+        full_grid=full_grid)
     bars.shift(g["shift"])
     bars.set_z_index(1)
     return bars
