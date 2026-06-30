@@ -1,7 +1,8 @@
 from manim import *
 import numpy as np
 
-from bpkfigures.style import FONT, FONT_SIZE_SM, FONT_SIZE_MD, FONT_SIZE_LG, crisp_text, crisp_paragraph
+from bpkfigures.style import (FONT, FONT_SIZE_SM, FONT_SIZE_MD, FONT_SIZE_LG,
+                              ACCENT_FILL, crisp_text, crisp_paragraph)
 
 
 def get_histogram_counts(data, min_val, max_val):
@@ -73,7 +74,7 @@ def get_histogram(
     max_val=None,
     width=8,
     height=4,
-    bar_color=BLUE,
+    bar_color=ACCENT_FILL,
     is_vertical=False,
     x_axis_label=None,
     show_sim_count=False,

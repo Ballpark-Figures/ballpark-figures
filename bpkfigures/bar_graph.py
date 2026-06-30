@@ -1,7 +1,7 @@
 from manim import *
 import numpy as np
 
-from bpkfigures.style import FONT, FONT_SIZE_SM, FONT_SIZE_MD, crisp_text
+from bpkfigures.style import FONT, FONT_SIZE_SM, FONT_SIZE_MD, ACCENT_FILL, crisp_text
 
 
 def _make_bar(length, height, color, opacity=1.0, fade=False, n_seg=16):
@@ -34,7 +34,7 @@ def get_bar_graph(
     pct_buff=0.35,
     center=ORIGIN,
     long_color=GREY_C,
-    short_color=BLUE,
+    short_color=ACCENT_FILL,
     pct_color=BLACK,
     label_color=BLACK,
 ):
