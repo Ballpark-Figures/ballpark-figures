@@ -12,11 +12,30 @@ def get_histogram_counts(data, min_val, max_val):
     return values, counts
 
 
+def _nice_ticks(vmax, target=5):
+    """Round tick values in (0, vmax] using a 1/2/2.5/5 ×10^k step."""
+    if vmax <= 0:
+        return []
+    raw = vmax / target
+    mag = 10 ** np.floor(np.log10(raw))
+    for m in (1, 2, 2.5, 5, 10):
+        if raw <= m * mag:
+            step = m * mag
+            break
+    ticks = []
+    k = 1
+    while k * step <= vmax + 1e-9:
+        ticks.append(round(k * step, 10))
+        k += 1
+    return ticks
+
+
 def _build_hist_bars(values, mag_lookup, max_mag, width, height, n,
-                     bar_color, opacity, is_vertical):
+                     bar_color, opacity, is_vertical, bar_ratio=0.9):
     """One Rectangle per value with magnitude > 0, scaled so max_mag == height.
     Positions match across calls (same values/width/n), so a base layer and an
-    overlay layer line up bar-for-bar."""
+    overlay layer line up bar-for-bar. ``bar_ratio`` is the fraction of each
+    slot the bar fills (1.0 = no gaps, contiguous bars)."""
     bars = VGroup()
     bar_width = width / n
     for i, val in enumerate(values):
@@ -25,13 +44,13 @@ def _build_hist_bars(values, mag_lookup, max_mag, width, height, n,
             continue
         h = (c / max_mag) * height
         if not is_vertical:
-            bar = Rectangle(width=bar_width * 0.9, height=h,
+            bar = Rectangle(width=bar_width * bar_ratio, height=h,
                             fill_color=bar_color, fill_opacity=opacity,
                             stroke_width=0)
             x = (i - n / 2 + 0.5) * bar_width
             y = h / 2
         else:
-            bar = Rectangle(width=h, height=bar_width * 0.9,
+            bar = Rectangle(width=h, height=bar_width * bar_ratio,
                             fill_color=bar_color, fill_opacity=opacity,
                             stroke_width=0)
             x = h / 2
@@ -62,6 +81,7 @@ def get_histogram(
     base_label=None,
     base_opacity=0.4,
     x_tick_step=10,
+    bar_ratio=0.9,
 ):
     # ── magnitudes: either supplied directly ({value: prob/weight}) or counted
     #    from raw samples. ``total`` (sum over the FULL set, pre-trim) anchors the
@@ -95,7 +115,8 @@ def get_histogram(
 
     bars = _build_hist_bars(
         values, mag, max_mag, width, height, n, bar_color,
-        opacity=(base_opacity if overlays else 1.0), is_vertical=is_vertical)
+        opacity=(base_opacity if overlays else 1.0), is_vertical=is_vertical,
+        bar_ratio=bar_ratio)
 
     elements = VGroup(bars)
 
@@ -105,7 +126,7 @@ def get_histogram(
         for ov_counts, ov_color, _ov_label in overlays:
             ov_bars = _build_hist_bars(
                 values, dict(ov_counts), max_mag, width, height, n,
-                ov_color, opacity=1.0, is_vertical=is_vertical)
+                ov_color, opacity=1.0, is_vertical=is_vertical, bar_ratio=bar_ratio)
             ov_bars.set_z_index(1)
             overlay_groups.add(ov_bars)
         elements.add(overlay_groups)
@@ -134,16 +155,15 @@ def get_histogram(
         elements.add(y_axis)
         y_tick_labels = VGroup()
         max_frac = (max_mag / total) if total > 0 else 0
-        for t in range(1, y_ticks + 1):
-            f = t / y_ticks
-            y = f * height
+        vmax = max_frac * 100                       # tallest bar as a percent
+        for pct in _nice_ticks(vmax, y_ticks):
+            y = (pct / vmax) * height if vmax > 0 else 0
             tick = Line(
                 start=np.array([-width / 2 - 0.1, y, 0]),
                 end=np.array([-width / 2, y, 0]),
                 color=BLACK
             )
-            pct = f * max_frac * 100
-            lab = crisp_text(f"{pct:.2g}%", font=FONT,
+            lab = crisp_text(f"{pct:g}%", font=FONT,
                              font_size=FONT_SIZE_SM, color=BLACK)
             lab.next_to(tick, LEFT, buff=0.1)
             y_tick_labels.add(tick, lab)
@@ -226,9 +246,51 @@ def get_histogram(
         elements.add(rows)
 
     core = VGroup(bars, axis)
-    elements.shift(np.array(center) - core.get_center())
+    shift = np.array(center) - core.get_center()
+    elements.shift(shift)
 
+    # geometry handles so a scene can build aligned overlay layers + legends and
+    # animate them independently of the base plot
+    elements.bars = bars
+    elements.hist_geom = {
+        "values": values, "max_mag": max_mag, "width": width, "height": height,
+        "n": n, "shift": shift, "bar_ratio": bar_ratio, "total": total,
+    }
     return elements
+
+
+def overlay_bars(plot, counts, color, opacity=1.0):
+    """A VGroup of overlay bars aligned bar-for-bar to ``plot`` (a get_histogram
+    result), built from {value: prob}. Same normalization as the base, so each
+    overlay bar never exceeds its base bar. Transform between two of these to
+    morph one highlighted sub-distribution into another."""
+    g = plot.hist_geom
+    bars = _build_hist_bars(
+        g["values"], dict(counts), g["max_mag"], g["width"], g["height"],
+        g["n"], color, opacity, is_vertical=False, bar_ratio=g["bar_ratio"])
+    bars.shift(g["shift"])
+    bars.set_z_index(1)
+    return bars
+
+
+def make_hist_legend(plot, entries, font_size=FONT_SIZE_SM, anchor=None):
+    """Legend (swatch + label per (color, text) entry) anchored by its UPPER-LEFT
+    corner so it never drifts as entries/label widths change. Defaults to the
+    upper area just right of the plot's centre (where the bars are short)."""
+    g = plot.hist_geom
+    rows = VGroup()
+    for col, text in entries:
+        swatch = Square(side_length=0.22, fill_color=col, fill_opacity=1.0,
+                        stroke_width=0)
+        txt = crisp_text(text, font=FONT, font_size=font_size, color=BLACK)
+        txt.next_to(swatch, RIGHT, buff=0.15)
+        rows.add(VGroup(swatch, txt))
+    rows.arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+    if anchor is None:
+        anchor = np.array([g["shift"][0] + g["width"] * 0.06,
+                           g["shift"][1] + g["height"] * 0.97, 0])
+    rows.move_to(anchor, aligned_edge=UL)
+    return rows
 
 
 def get_dual_histogram(
