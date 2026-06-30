@@ -88,15 +88,30 @@ How the user wants the agent to record things worth remembering:
   `dotclaude` repo (which the `@CLAUDE.private.md` import pulls in).
 
 ## Shell commands (agent)
-- **Prefer a single command over a pipe.** The permission allowlist matches one
-  command at a time, so chaining/piping allowed commands together (`find … | grep`,
-  `pip list | grep`) can still trigger a prompt even when each piece is allowed.
-  Most read/inspect pipes have a clean single-command form — use it:
-  `rg PATTERN <path>` over `cat … | grep`; `rg --files -g "*.md"` (auto-skips
-  `.venv`/gitignored) over `find … | grep`; `pip show X` over `pip list | grep X`;
-  `git log -n N` over `git log | head`.
-- When a genuine multi-stage transform is unavoidable, run the stages as separate
-  calls (or accept the one prompt) rather than inventing a broad pipe allowlist.
+- **Chains auto-approve when EVERY subcommand matches an allow rule.** Claude Code
+  splits on `&&`, `||`, `;`, `|`, `&` and newlines and checks each piece
+  independently, so chaining *allowlisted* read-only commands (`grep …`, `ls …`,
+  `git log …`) is fine and does NOT prompt. The earlier "any chain prompts" advice
+  was wrong. What actually forces prompts:
+  - **`cd` combined with `git` in one compound command ALWAYS prompts** — even
+    when both are individually allowed (a hardcoded safety rule). This was the #1
+    source of needless prompts here. The Bash tool's **cwd persists between
+    calls**, so NEVER write `cd "<repo>" && git commit …`. Instead `cd` once in
+    its own call (or just rely on the already-current dir) and run each `git add`
+    / `git commit` / `git push` as a STANDALONE command.
+  - **Any non-allowlisted subcommand drags the whole line into a prompt** — most
+    often an ad-hoc interpreter (`python3 <<EOF …`, `*/.venv/bin/python
+    script.py`). Don't shell out to throwaway python: use Edit/Write + the
+    dedicated tools, or a FIXED `-m` module. For peeking at solver `.npz` data use
+    `python -m bpkfigures.inspect_npz <path>` (allowlisted, safe — loads with
+    `allow_pickle=False`) instead of a probe script.
+  - **Subshells `( … )`, command-substitution `$( … )`, `for`/`while` loops, exec
+    wrappers (`watch`, `xargs -flags`), and `find -exec/-delete`** never
+    auto-approve — split them into separate simple calls.
+- There is NO syntax to allowlist a compound pattern (rules are per-subcommand),
+  so the fix is always behavioral: standalone calls + the right tool. Prefer the
+  clean single-command read form anyway: `rg PATTERN <path>` over `cat … | grep`;
+  `pip show X` over `pip list | grep X`; `git log -n N` over `git log | head`.
 - **Edits/Writes in the project tree auto-approve — so before a MAJOR rewrite of a
   file, make sure it's committed (or commit it first).** That way the prior version
   is recoverable from git if the edit goes wrong. Deletions (`rm`) stay gated and
@@ -232,13 +247,16 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 The permission allowlist already covers the core loop (`render`, `manim`,
 `ffmpeg`/`ffprobe`, `grep`/`rg`/`ls`/`cat`/`head`/`tail`/`wc`/`sort`/`tr`,
 `cd`/`echo`/`mkdir`). Friction comes from working AROUND it; so:
-- **Control-flow constructs are NEVER auto-approved — split them into separate
-  simple calls.** A `for`/`while`/`until` loop, a subshell `( … )`, `;`
-  sequencing, `||`, or command-substitution `$( … )` prompts EVERY time, even
-  when every command inside is allowlisted — the evaluator can't see what's
-  hidden in them. So for anything you want to run prompt-free, issue separate
-  one-command tool calls instead of packing them into a loop/subshell. Terse
-  one-liner verification loops (`for x in …; do …; done`) are the classic trap.
+- **Separators split and auto-approve; control-flow constructs never do.**
+  Plain separators — `&&`, `||`, `;`, `|` — are parsed and each subcommand is
+  matched independently, so a chain of *allowlisted* commands runs prompt-free.
+  But `for`/`while`/`until` loops, subshells `( … )`, and command-substitution
+  `$( … )` always prompt (the evaluator can't see inside them) — split those into
+  separate one-command tool calls. Terse one-liner verification loops
+  (`for x in …; do …; done`) and the `( cmd || fallback )` subshell idiom are the
+  classic traps. NB: a chain still prompts if ANY one subcommand isn't allowlisted
+  (e.g. ad-hoc `python`), or if it's the `cd`+`git` combo (always prompts — see
+  the git note below).
 - **Syntax check with `render NN --check`** (instant AST parse of the scene +
   `assets/*.py`, no manim) — NOT a separate `python -c "import ast …"`, which
   isn't allowlisted and prompts every time.
@@ -256,10 +274,12 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   (Read tool) — one allowlisted call, no re-render. NOT hand-rolled
   `M=… && ffmpeg … && ffmpeg …` chains (the `&&`, `$VAR`, and `select='eq(n\,N)'`
   quoting all force a prompt).
-- **Commit/push as SEPARATE simple git calls** — `git add`, `git commit`,
-  `git push` each in its own tool call. Never chain (`git add … && git commit …`)
-  or pipe (`… | tail`, `2>&1`); the chain prompts even though each git subcommand
-  is allowlisted.
+- **Run git as STANDALONE calls — never `cd <repo> && git …`.** The `cd`+`git`
+  combo ALWAYS prompts (hardcoded safety block), and it was the #1 source of
+  needless prompts. The Bash cwd PERSISTS between calls, so `cd <repo>` once in
+  its own call (or just rely on the current dir — yahtzee is the primary working
+  dir) and then run `git add` / `git commit` / `git push` each standalone, with no
+  `cd` prefix, pipe, or `2>&1`.
 - **Edit files with the Edit/Write tools, never `python - <<'EOF'` splices** —
   arbitrary `python`/`python3` isn't (and shouldn't be) allowlisted, and file
   rewrites via heredoc are easy to get wrong.
