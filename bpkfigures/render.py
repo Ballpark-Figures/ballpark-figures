@@ -240,6 +240,57 @@ def _check_syntax(targets):
     return rc
 
 
+# ── per-scene render lock (avoid concurrent renders corrupting the cache) ──────
+_LOCK_DIR = os.path.join("cache", "locks")
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True          # exists, just not ours
+    except OSError:
+        return False
+    return True
+
+
+def _acquire_locks(prefixes):
+    """One lock per scene prefix so a second render of the SAME scene can't run
+    concurrently (concurrent manim runs corrupt partial movies / the snapshot
+    cache). Stale locks (dead PID) are taken over. Returns the acquired paths, or
+    None if any scene is already being rendered by a live process."""
+    os.makedirs(_LOCK_DIR, exist_ok=True)
+    acquired = []
+    for prefix in prefixes:
+        path = os.path.join(_LOCK_DIR, f"render-{prefix}.lock")
+        if os.path.exists(path):
+            try:
+                pid = int(open(path).read().split()[0])
+            except (ValueError, OSError, IndexError):
+                pid = None
+            if pid and _pid_alive(pid):
+                print(f"[render] scene {prefix} is already being rendered "
+                      f"(pid {pid}) — refusing a concurrent render of the same "
+                      f"scene; wait for it or kill it. (lock: {path})",
+                      file=sys.stderr)
+                _release_locks(acquired)
+                return None
+        with open(path, "w") as f:
+            f.write(f"{os.getpid()} {prefix}")
+        acquired.append(path)
+    return acquired
+
+
+def _release_locks(paths):
+    for p in paths or []:
+        try:
+            os.remove(p)
+        except OSError:
+            pass
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -295,15 +346,24 @@ def main(argv=None):
     if check:
         return _check_syntax(targets)
 
-    worst_rc = 0
-    for target in targets:
-        rc = _render_one(target, passthrough, recompute, fast, state, frames_spec,
-                         quiet=quiet, tail=tail_n, extract=extract,
-                         very_fast=very_fast)
-        worst_rc = worst_rc or rc
-        if not state and not extract and rc == 0:
-            print(f"Finished rendering {target}", file=sys.stderr)
-    return worst_rc
+    # lock per scene for actual renders (not the read-only --state/--extract modes)
+    locks = None
+    if not state and not extract:
+        locks = _acquire_locks(sorted({t[:2] for t in targets}))
+        if locks is None:
+            return 1
+    try:
+        worst_rc = 0
+        for target in targets:
+            rc = _render_one(target, passthrough, recompute, fast, state,
+                             frames_spec, quiet=quiet, tail=tail_n,
+                             extract=extract, very_fast=very_fast)
+            worst_rc = worst_rc or rc
+            if not state and not extract and rc == 0:
+                print(f"Finished rendering {target}", file=sys.stderr)
+        return worst_rc
+    finally:
+        _release_locks(locks)
 
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,

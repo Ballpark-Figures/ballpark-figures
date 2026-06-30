@@ -155,6 +155,11 @@ calls for; no titles/labels/narration that weren't asked for.
   the Read tool; never hand-roll `ffmpeg … && ffmpeg …` chains.
 - `render 01h --state` (no render) prints the mobjects on screen at subscene h's
   START (from the prior snapshot) — use to reason about starting state cheaply.
+- **`render` takes a per-scene lockfile** (`cache/locks/`), so a SECOND render of
+  the same scene while one is running is REFUSED (concurrent manim runs corrupt
+  partial movies / the snapshot cache — don't do it). A stale lock from a dead
+  process is auto-taken-over, so there's nothing to clean up by hand. `--check`,
+  `--state`, and `--extract` don't lock (they don't render).
 
 ## Snapshot cache (`bpkfigures/scene.py`)
 - Rendering one subscene loads the LATEST VALID snapshot at or before the prior
