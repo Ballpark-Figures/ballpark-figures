@@ -31,6 +31,22 @@ load wherever you're working. Video-specific rules live in that video's own
 - Each video: `animations/{config.py, assets/, scenes/NN<name>.py}`.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
+
+## Shared visual vocabulary — USE THESE, don't hand-pick (read before styling)
+Keep every video visually consistent by pulling colours and surfaces from the
+shared package instead of inventing ad-hoc hex values:
+- **Colours come from `style.py`.** `ACCENT_FILL` is the primary accent (deep
+  blue) — default for bars/fills. The secondary trio `ACCENT_GOLD` /
+  `ACCENT_ORANGE` / `ACCENT_RED` (also `ACCENT_PALETTE`) is for categorical /
+  overlay / highlight roles. Reuse these; do NOT introduce new one-off hex
+  colours unless the user asks. If a new shade is genuinely needed, add it to
+  `style.py` (so it's reusable) rather than burying it in a scene.
+- **Panels sit on a card.** Use `bpkfigures/card.py` (`get_card` / `card_behind`)
+  for the standard rounded surface (matches the scorecard look) — prefer it over
+  a raw `RoundedRectangle`. Lean toward putting free-floating text/tables/plots
+  on a card rather than straight on the background.
+- These are shared defaults; changing them still follows the "ASK before editing
+  `bpkfigures/`" rule.
 - You can reference any video's files even if it's not in the open workspace —
   the agent reads them on disk. "Do this like the Battleship video" always works.
 

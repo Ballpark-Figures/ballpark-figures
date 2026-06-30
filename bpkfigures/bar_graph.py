@@ -33,7 +33,7 @@ def get_bar_graph(
     label_buff=0.3,
     pct_buff=0.35,
     center=ORIGIN,
-    long_color=GREY_C,
+    long_color=interpolate_color(ACCENT_FILL, WHITE, 0.72),   # light accent tint
     short_color=ACCENT_FILL,
     pct_color=BLACK,
     label_color=BLACK,
