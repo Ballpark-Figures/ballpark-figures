@@ -168,10 +168,12 @@ calls for; no titles/labels/narration that weren't asked for.
   rebuild the whole prefix. Combined with lazy building (above), editing a
   subscene's `_setup_<name>` invalidates only that subscene onward, so the heavy
   early build-up stays cached.
-- Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING the
-  scene file) + a per-subscene dependency digest. Editing a later subscene (or
-  code only it uses) leaves earlier snapshots valid; editing an asset/config/
-  shared helper invalidates them. Bump `SNAPSHOT_VERSION` to force-invalidate.
+- Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING the scene
+  file AND the render/resolve CLI tooling, which never affect output) + a
+  per-subscene dependency digest. Editing a later subscene (or code only it uses)
+  leaves earlier snapshots valid; editing an asset/config/shared helper (or
+  `scene.py`/`style.py`) invalidates them; editing `render.py`/`resolve.py` does
+  NOT. Bump `SNAPSHOT_VERSION` to force-invalidate.
 - Don't build un-picklable objects (e.g. `always_redraw` with a lambda) in
   `setup_scene` — it breaks the whole scene's snapshot. Build those in the
   subscene; keep picklable parts (`ValueTracker`, static text) in setup.

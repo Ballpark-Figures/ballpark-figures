@@ -211,9 +211,14 @@ class BpkScene(Scene):
         #      code only it uses, leaves earlier snapshots valid.
         cls = type(self)
         scene_file = os.path.realpath(inspect.getfile(cls))
+        # render.py / resolve.py are the CLI wrapper — never imported during a
+        # scene render, so their source can't change output. Exclude them too, so
+        # editing the render script doesn't needlessly invalidate every snapshot.
+        tooling = {os.path.realpath(os.path.join(_BPK_DIR, f))
+                   for f in ("render.py", "resolve.py")}
         srcs = [
             f"v{SNAPSHOT_VERSION}",
-            _source_hash(self._project_roots(), exclude={scene_file}),
+            _source_hash(self._project_roots(), exclude={scene_file} | tooling),
             _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])),
         ]
         return hashlib.md5("".join(srcs).encode()).hexdigest()
