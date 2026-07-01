@@ -353,6 +353,16 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   (2) every on-screen text element → the literal column-2 phrase that licenses it.
   Anything that doesn't map to column 2 (titles, counts, helper labels) gets
   DROPPED or flagged to the user for approval — NEVER silently added.
+  (3) **the WHOLE of column 2 as a clause-by-clause checklist** — quote EVERY
+  clause verbatim, animation directions included ("move dice down a row", "remove
+  4kind", "3 other configurations", "counter to increase EV remaining"), and next
+  to each write the exact thing you'll build for it. A clause you intend to
+  deviate from, can't build, or would paraphrase gets FLAGGED-and-ASKED, never
+  silently changed or dropped. Paraphrasing column 2 into your own words is HOW
+  "wrong box" / "dropped instruction" / "ignored the row structure" errors happen
+  — the exact words ARE the spec (numbers, counts, "row", which box). Do this
+  before writing; **re-run the same table against the built scene at handoff** and
+  report every clause that still doesn't match.
 - **Start from a blank scene** (the setup_scene/@subscene pattern below), not a
   copy — but informed by what you read above.
 - **Build from the script.** Stick to what `Script.md` (column 2) calls for:
