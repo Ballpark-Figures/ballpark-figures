@@ -58,6 +58,24 @@ via the import below (a symlink to the `dotclaude` repo; absent → notes skippe
 
 @CLAUDE.private.md
 
+## Concurrent sessions — one worktree per scene
+When two Claude sessions run at once, give each its OWN directory via a git
+worktree — do NOT share one folder. In git the checked-out branch belongs to the
+DIRECTORY, not the session, so two sessions in one folder share ONE branch: when
+one switches branches, the other's files (and any in-flight render) move with it.
+That has caused real breakage here (a render silently used another branch's older
+scene file; a mid-render branch switch crashed a snapshot save).
+- **Start parallel scene work with `/scene <NN>`** (e.g. `/scene 13multiplayer`).
+  It creates/points to a worktree at `<video>-sceneNN` on its own `scene-NN-*`
+  branch, with the `.venv` symlinked so `render` works there. Open THAT folder in
+  its own VSCode window and run that scene's session there. Idempotent — re-run to
+  get the path back. Clean up a finished scene with `git worktree remove`.
+- If you'd rather not use worktrees, the only safe alternative is to keep BOTH
+  sessions on the SAME branch (never create per-scene branches) — but that gives
+  up per-scene isolation and relies on never switching, so prefer `/scene`.
+- Two VSCode windows on the SAME folder do NOT help (same folder = same branch);
+  windows only isolate when each opens a DIFFERENT worktree folder.
+
 ## Where instructions live (which CLAUDE.md, and CLAUDE.md vs memory)
 How the user wants the agent to record things worth remembering:
 - **General/cross-video preferences go in `bpkfigures/CLAUDE.md` (this file), NOT

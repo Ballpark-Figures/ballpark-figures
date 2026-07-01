@@ -4,6 +4,10 @@ yahtzee/
 mastermind/
 ballpark-figures/
 
+# Per-scene git worktrees (<video>-sceneNN) — created by /scene for concurrent
+# sessions; they're checkouts of a sub-repo, never tracked by the umbrella.
+*-scene[0-9]*/
+
 # Python
 *.egg-info/
 __pycache__/
