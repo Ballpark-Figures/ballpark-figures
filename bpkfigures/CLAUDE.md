@@ -369,6 +369,18 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   — the exact words ARE the spec (numbers, counts, "row", which box). Do this
   before writing; **re-run the same table against the built scene at handoff** and
   report every clause that still doesn't match.
+  (4) **each beat → the column-1 VOICEOVER sentence(s) it pairs with — READ
+  COLUMN 1, not column 2 alone.** Column 2 (animation notes) is often terse or
+  elliptical ("skip most of the stuff", "montage"); the VOICEOVER is what pins
+  down what a beat actually depicts, so quote the paired column-1 text next to
+  each beat BEFORE writing code. When column 2 is vague or you're unsure which
+  game state / turn / quantity a beat refers to, the voiceover disambiguates it —
+  e.g. a montage whose voiceover says "the second reroll of turn 12, then the
+  first reroll of turn 12" is the *specific* two-open-box turn-12 state (and its
+  numbers are rest-of-GAME EVs), NOT a generic single-box illustration. If the
+  two columns still don't pin it down, FLAG-and-ASK rather than guessing. (This
+  rule exists because reading column 2 in isolation repeatedly produced the wrong
+  state/quantity for such beats.)
 - **Start from a blank scene** (the setup_scene/@subscene pattern below), not a
   copy — but informed by what you read above.
 - **Build from the script.** Stick to what `Script.md` (column 2) calls for:
