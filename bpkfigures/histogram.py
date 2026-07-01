@@ -394,6 +394,7 @@ def get_panning_histogram(
     counts, window_center, union_min, union_max, scale_x,
     center=ORIGIN, width=8.0, height=4.0, bar_color=ACCENT_FILL, bar_ratio=0.9,
     x_tick_step=50, edge_ramp=0.3, y_tick_values=(0.5, 1.0, 1.5),
+    y_tick_ladder=(0.5, 1, 2, 5, 10, 20, 50), y_max_ticks=5,
     y_headroom=0.9,
     y_axis_label=None, x_axis_label=None, title=None,
     median=None, median_color=ACCENT_GOLD, median_label_anchor=None,
@@ -440,14 +441,24 @@ def get_panning_histogram(
     x_axis = Line([box_left, base_y, 0], [box_right, base_y, 0], color=BLACK)
     y_axis = Line([box_left, base_y, 0], [box_left, base_y + height, 0], color=BLACK)
 
-    # percent ticks over a FIXED value grid, placed by THIS plot's scale (one
-    # subgroup per value so morph_panning pairs 1% -> 1% etc.); ticks above the
-    # box top fade out / in from the top edge.
+    # percent ticks over a FIXED value grid (one subgroup per value so
+    # morph_panning pairs 1% -> 1% etc.). The visible STEP coarsens as the scale
+    # grows — the smallest ladder step giving <= y_max_ticks ticks — so half-
+    # percents give way to whole percents give way to 10s/20s; off-step values
+    # sit at opacity 0. Combined with the top-edge fade, ticks glide in/out (their
+    # opacity interpolates across a morph) instead of crowding.
+    step = y_tick_ladder[-1]
+    for s in y_tick_ladder:
+        if vmax_pct / s <= y_max_ticks:
+            step = s
+            break
     top = base_y + height
     y_tick_grp = VGroup()
     for pct in y_tick_values:
         y = base_y + (pct / 100.0) * y_unit
-        op = 0.0 if y >= top else min(1.0, (top - y) / edge_ramp)
+        on_step = abs(pct / step - round(pct / step)) < 1e-9
+        op = (0.0 if (not on_step or y >= top)
+              else min(1.0, (top - y) / edge_ramp))
         tick = Line([box_left - 0.1, y, 0], [box_left, y, 0], color=BLACK)
         lab = crisp_text(f"{pct:g}%", font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
         lab.next_to(tick, LEFT, buff=0.1)
