@@ -396,8 +396,8 @@ def get_panning_histogram(
     x_tick_step=50, edge_ramp=0.3, y_tick_values=(0.5, 1.0, 1.5),
     y_headroom=0.9,
     y_axis_label=None, x_axis_label=None, title=None,
-    median=None, median_color=ACCENT_GOLD, median_label="Median",
-    median_width=0.14, median_stroke=4, median_text=True,
+    median=None, median_color=ACCENT_GOLD, median_label_anchor=None,
+    median_stroke=3, median_dot_radius=0.05,
 ):
     """A histogram on a fixed score→x scale, positioned so score ``window_center``
     sits at the plot's horizontal centre. Bars and x-tick labels span the WHOLE
@@ -482,28 +482,37 @@ def get_panning_histogram(
                                      font_size=FONT_SIZE_LG, color=BLACK)
         title_text.move_to(np.array([cx, base_y + height + 0.85, 0]))
 
-    # median: highlighted bar + a label ABOVE the bars (readable) joined by a
-    # leader line down to the bar top
+    # median: a NORMAL-width highlighted bar, with a callout to a label parked at
+    # ``median_label_anchor`` (a fixed point, e.g. the empty upper-right): a dot at
+    # the bar top → a riser up to the anchor's height (a "shelf" above the peak) →
+    # a horizontal line across to the anchor. Routing up-and-over keeps the leader
+    # clear of the tall central bars. The label itself is drawn by the caller.
     median_group = None
     if median is not None:
         mx = x_of(median)
         mh = max(h_of(median), 1e-3)
+        bar_top = base_y + mh
         op = _edge_opacity(mx, box_left, box_right, edge_ramp)
-        hl = Rectangle(width=max(bar_w, median_width), height=mh,
-                       fill_color=median_color, fill_opacity=1.0, stroke_width=0)
+        hl = Rectangle(width=bar_w, height=mh, fill_color=median_color,
+                       fill_opacity=1.0, stroke_width=0)
         hl.move_to(np.array([mx, base_y + mh / 2, 0]))
-        hl.set_z_index(2)
-        leader = Line([mx, base_y + height + 0.12, 0], [mx, base_y + mh, 0],
-                      color=median_color, stroke_width=median_stroke)
-        leader.set_z_index(2)
-        parts = [hl, leader]
-        if median_text:
-            lab = crisp_text(f"{median_label} {median}", font=FONT,
-                             font_size=FONT_SIZE_SM, color=BLACK, weight="BOLD")
-            lab.move_to(np.array([mx, base_y + height + 0.32, 0]))
-            lab.set_z_index(3)
-            parts.append(lab)
+        parts = [hl]
+        if median_label_anchor is not None:
+            ax, ay = median_label_anchor[0], median_label_anchor[1]
+            # DASHED leader (bar stays solid) so the up-and-over route reads as an
+            # annotation pointer, not a taller bar. Fixed dash counts keep the
+            # morph clean. Riser up to the shelf, then across to the anchor.
+            riser = DashedVMobject(
+                Line([mx, bar_top, 0], [mx, ay, 0], color=median_color,
+                     stroke_width=median_stroke), num_dashes=5, dashed_ratio=0.55)
+            horiz = DashedVMobject(
+                Line([mx, ay, 0], [ax, ay, 0], color=median_color,
+                     stroke_width=median_stroke), num_dashes=12, dashed_ratio=0.55)
+            dot = Dot(np.array([mx, bar_top, 0]), radius=median_dot_radius,
+                      color=median_color)
+            parts += [riser, horiz, dot]
         median_group = VGroup(*parts)
+        median_group.set_z_index(2)
         median_group.set_opacity(op)
 
     elements = VGroup(bars, x_axis, y_axis, y_tick_grp, x_tick_grp, axis_labels)
