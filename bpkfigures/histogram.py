@@ -394,7 +394,7 @@ def get_panning_histogram(
     counts, window_center, union_min, union_max, scale_x,
     center=ORIGIN, width=8.0, height=4.0, bar_color=ACCENT_FILL, bar_ratio=0.9,
     x_tick_step=50, edge_ramp=0.3, y_tick_values=(0.5, 1.0, 1.5),
-    y_tick_ladder=(0.5, 1, 2, 5, 10, 20, 50), y_max_ticks=5,
+    y_tick_ladder=(0.5, 1, 2, 5, 10, 20, 50), y_max_ticks=5, y_tick_fade=0.6,
     y_headroom=0.9,
     y_axis_label=None, x_axis_label=None, title=None,
     median=None, median_color=ACCENT_GOLD, median_label_anchor=None,
@@ -442,28 +442,31 @@ def get_panning_histogram(
     y_axis = Line([box_left, base_y, 0], [box_left, base_y + height, 0], color=BLACK)
 
     # percent ticks over a FIXED value grid (one subgroup per value so
-    # morph_panning pairs 1% -> 1% etc.). The visible STEP coarsens as the scale
-    # grows — the smallest ladder step giving <= y_max_ticks ticks — so half-
-    # percents give way to whole percents give way to 10s/20s; off-step values
-    # sit at opacity 0. Combined with the top-edge fade, ticks glide in/out (their
-    # opacity interpolates across a morph) instead of crowding.
-    step = y_tick_ladder[-1]
-    for s in y_tick_ladder:
-        if vmax_pct / s <= y_max_ticks:
-            step = s
-            break
+    # morph_panning pairs 1% -> 1% etc.). Each value gets a CONTINUOUS density
+    # fade: it stays fully on until the scale grows past where its granularity (the
+    # coarsest ladder step dividing it) would pack more than ``y_max_ticks`` ticks
+    # in, then fades out over a band of ~``y_tick_fade`` beyond that. Because the
+    # scale grows gradually across a beat, fine ticks (halves, then wholes) hand off
+    # to coarse ones SMOOTHLY over many morph steps instead of a whole set of labels
+    # popping on/off at a discrete step boundary. The top-edge fade still eases
+    # ticks in as they enter from above.
     top = base_y + height
     y_tick_grp = VGroup()
     for pct in y_tick_values:
         y = base_y + (pct / 100.0) * y_unit
-        on_step = abs(pct / step - round(pct / step)) < 1e-9
-        op = (0.0 if (not on_step or y >= top)
-              else min(1.0, (top - y) / edge_ramp))
+        pct_level = max((s for s in y_tick_ladder
+                         if abs(pct / s - round(pct / s)) < 1e-9),
+                        default=y_tick_ladder[0])
+        keep_max = pct_level * y_max_ticks          # scale where this value gets dense
+        band = keep_max * y_tick_fade
+        dens = 1.0 if band <= 0 else smooth(
+            min(1.0, max(0.0, (keep_max + band - vmax_pct) / band)))
+        edge = min(1.0, (top - y) / edge_ramp) if y < top else 0.0
         tick = Line([box_left - 0.1, y, 0], [box_left, y, 0], color=BLACK)
         lab = crisp_text(f"{pct:g}%", font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
         lab.next_to(tick, LEFT, buff=0.1)
         grp = VGroup(tick, lab)
-        grp.set_opacity(op)
+        grp.set_opacity(dens * max(0.0, edge))
         y_tick_grp.add(grp)
 
     # x-tick labels; extended a full window's worth PAST union_max so the axis
