@@ -466,10 +466,14 @@ def get_panning_histogram(
         grp.set_opacity(op)
         y_tick_grp.add(grp)
 
-    # x-tick labels over the whole domain; off-window ones fade out
+    # x-tick labels; extended a full window's worth PAST union_max so the axis
+    # keeps ticking into empty space on the right (scores beyond the data), and a
+    # bit before union_min; off-window ones fade out.
+    x_pad = int((width / 2) / scale_x) + x_tick_step
     x_tick_grp = VGroup()
-    t0 = union_min + (-union_min) % x_tick_step
-    for t in range(t0, union_max + 1, x_tick_step):
+    t0 = (union_min - x_pad)
+    t0 += (-t0) % x_tick_step
+    for t in range(t0, union_max + x_pad + 1, x_tick_step):
         x = x_of(t)
         lab = crisp_text(str(t), font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
         lab.move_to(np.array([x, base_y - 0.3, 0]))
