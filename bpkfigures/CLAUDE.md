@@ -58,23 +58,29 @@ via the import below (a symlink to the `dotclaude` repo; absent → notes skippe
 
 @CLAUDE.private.md
 
-## Concurrent sessions — one worktree per scene
-When two Claude sessions run at once, give each its OWN directory via a git
-worktree — do NOT share one folder. In git the checked-out branch belongs to the
-DIRECTORY, not the session, so two sessions in one folder share ONE branch: when
-one switches branches, the other's files (and any in-flight render) move with it.
-That has caused real breakage here (a render silently used another branch's older
-scene file; a mid-render branch switch crashed a snapshot save).
-- **Start parallel scene work with `/scene <NN>`** (e.g. `/scene 13multiplayer`).
-  It creates/points to a worktree at `<video>-sceneNN` on its own `scene-NN-*`
-  branch, with the `.venv` symlinked so `render` works there. Open THAT folder in
-  its own VSCode window and run that scene's session there. Idempotent — re-run to
-  get the path back. Clean up a finished scene with `git worktree remove`.
-- If you'd rather not use worktrees, the only safe alternative is to keep BOTH
-  sessions on the SAME branch (never create per-scene branches) — but that gives
-  up per-scene isolation and relies on never switching, so prefer `/scene`.
-- Two VSCode windows on the SAME folder do NOT help (same folder = same branch);
-  windows only isolate when each opens a DIFFERENT worktree folder.
+## Concurrent sessions — one shared branch (NOT per-scene branches)
+The user works several scenes at once as **multiple chat tabs in ONE VSCode
+window** (the new-chat icon). Verified against the Claude Code docs: the extension
+CANNOT scope a chat tab to its own folder — every tab in a window shares that
+window's working directory, hence ONE branch. So per-scene branches are
+fundamentally incompatible with this workflow (a tab switching branches yanks the
+others' files and any in-flight render; that has caused real breakage here — a
+render silently used another branch's older scene file, and a mid-render branch
+switch crashed a snapshot save).
+- **Keep ALL concurrent work on ONE shared branch — `main`.** Different scenes are
+  different files (`scenes/NN*.py`, that scene's assets), so tabs don't collide.
+  Do NOT create `scene-NN-*` branches for parallel work.
+- **The one habit that makes this safe: stage by EXPLICIT PATH** — `git add
+  animations/scenes/NN<name>.py`, never `git add -A` / `git add .`. The shared
+  working tree means a bulk add sweeps up EVERY tab's in-progress files into one
+  commit. Commit only the file(s) that tab changed.
+- **Shared resources** (`bpkfigures/`, `config.py`, `assets/`): don't have two tabs
+  editing the SAME shared file at the same moment — sequence those. (Editing a
+  shared file while another tab merely renders is fine; worst case a cache rebuild,
+  and the snapshot digest no longer crashes on it.)
+- Per-scene branches ARE possible, but ONLY via git worktrees in SEPARATE windows
+  (one folder per branch). That's more window management than the user wants, so
+  it's not the default — reach for it only if truly isolated branches are needed.
 
 ## Where instructions live (which CLAUDE.md, and CLAUDE.md vs memory)
 How the user wants the agent to record things worth remembering:
