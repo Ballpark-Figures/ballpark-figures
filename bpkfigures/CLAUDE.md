@@ -160,11 +160,21 @@ calls for; no titles/labels/narration that weren't asked for.
 ## Reuse over reinvention
 - Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
   BEFORE building a gameplay-style beat. Use the existing helpers.
+- **Read assets to CALL them, not just to imitate their look.** The reference
+  scene shows *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep`
+  + `roll_rest` (exactly what `99test.py` shows), not hand-placed coordinates.
+  Before a gameplay beat, name the exact asset method each sub-beat calls, and
+  trace the dice/card state through it (which boxes are open, where each die
+  sits). If you're re-deriving something an asset already provides, stop and call
+  the asset — reading code only to copy its *look* is how reinvention, and
+  "wrong-box"/"wrong-dice" mistakes, sneak in.
 - **Don't override a helper's default args** unless asked or genuinely required
   — defaults are deliberate and shared. If a layout seems to "need" a non-default
   value, the layout is probably wrong; fix the layout.
 - Measure real mobject geometry (edges/centers) when placement matters; don't
-  approximate positions.
+  approximate positions — and, likewise, don't approximate NUMBERS you can
+  compute: if a value is derivable (solver data, an asset), source the real one
+  instead of hardcoding a guess; if you must stub it, flag it explicitly.
 
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
 - **Render with `bpkfigures/render`, NOT hand-rolled `manim` calls.** It's the
