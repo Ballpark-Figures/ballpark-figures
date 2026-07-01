@@ -361,6 +361,182 @@ def morph_histogram(old, new):
     return anims
 
 
+# ══ Panning / scrolling histogram (scene 13: best-of-N morph + camera pan) ════
+#
+# get_histogram refits each distribution to the plot box (variable scale, bars
+# index-paired), so a transition slides identities: "the 200 bar becomes the 250
+# bar." These build every distribution on ONE fixed score→x and percent→y scale
+# and pan a window over it, so a transition instead (a) morphs each score-bar's
+# height IN PLACE (score 250 stays score 250) and (b) slides the whole field left
+# as the window centre moves right — low scores exit stage-left, high scores enter
+# from the right, and the 1% line stays the 1% line.
+
+def trimmed_range(counts, min_prob):
+    """[min, max] scores whose probability clears ``min_prob`` (same trim as
+    get_histogram's min_prob) — for picking a pan window / shared union domain."""
+    total = sum(counts.values())
+    if total <= 0:
+        return (min(counts), max(counts))
+    present = [v for v in counts if counts[v] / total > min_prob]
+    return (min(present), max(present)) if present else (min(counts), max(counts))
+
+
+def _edge_opacity(x, box_left, box_right, ramp):
+    """1.0 well inside the box, ramping to 0 over ``ramp`` units at each edge (and
+    0 outside) — so bars/ticks fade as they pan past the plot edges."""
+    if x <= box_left or x >= box_right:
+        return 0.0
+    d = min(x - box_left, box_right - x)
+    return min(1.0, d / ramp) if ramp > 0 else 1.0
+
+
+def get_panning_histogram(
+    counts, window_center, union_min, union_max, scale_x, y_max_pct,
+    center=ORIGIN, width=8.0, height=4.0, bar_color=ACCENT_FILL, bar_ratio=0.9,
+    x_tick_step=50, edge_ramp=0.3, y_ticks=4,
+    y_axis_label=None, x_axis_label=None, title=None,
+    median=None, median_color=ACCENT_GOLD, median_label="Median",
+):
+    """A histogram on a FIXED score→x and percent→y scale, positioned so score
+    ``window_center`` sits at the plot's horizontal centre. Bars and x-tick labels
+    span the WHOLE [union_min, union_max] domain (so two plots share one mobject
+    per score / per tick value, and morph_panning can pair them by identity);
+    those outside the visible box fade out via ``edge_ramp``. The y-scale is shared
+    (fixed ``y_max_pct``), so the 1% tick maps to 1% in every plot. Exposes
+    per-role handles (bars, x_axis, y_axis, y_ticks, x_ticks, axis_labels,
+    title_text, median_group) for morph_panning."""
+    cx, cy = center[0], center[1]
+    box_left, box_right = cx - width / 2, cx + width / 2
+    base_y = cy - height / 2
+    total = sum(counts.values())
+    y_unit = height * 100.0 / y_max_pct        # screen units per unit-probability
+
+    def x_of(score):
+        return cx + (score - window_center) * scale_x
+
+    def h_of(score):
+        p = counts.get(score, 0.0) / total if total > 0 else 0.0
+        return p * y_unit
+
+    bar_w = scale_x * bar_ratio
+
+    bars = VGroup()
+    for s in range(union_min, union_max + 1):
+        h = max(h_of(s), 1e-3)
+        x = x_of(s)
+        bar = Rectangle(width=bar_w, height=h, fill_color=bar_color,
+                        fill_opacity=_edge_opacity(x, box_left, box_right, edge_ramp),
+                        stroke_width=0)
+        bar.move_to(np.array([x, base_y + h / 2, 0]))
+        bars.add(bar)
+
+    x_axis = Line([box_left, base_y, 0], [box_right, base_y, 0], color=BLACK)
+    y_axis = Line([box_left, base_y, 0], [box_left, base_y + height, 0], color=BLACK)
+
+    # fixed percent ticks (no pan, identical across plots)
+    y_tick_grp = VGroup()
+    for pct in _nice_ticks(y_max_pct, y_ticks):
+        y = base_y + (pct / y_max_pct) * height
+        tick = Line([box_left - 0.1, y, 0], [box_left, y, 0], color=BLACK)
+        lab = crisp_text(f"{pct:g}%", font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
+        lab.next_to(tick, LEFT, buff=0.1)
+        y_tick_grp.add(tick, lab)
+
+    # x-tick labels over the whole domain; off-window ones fade out
+    x_tick_grp = VGroup()
+    t0 = union_min + (-union_min) % x_tick_step
+    for t in range(t0, union_max + 1, x_tick_step):
+        x = x_of(t)
+        lab = crisp_text(str(t), font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
+        lab.move_to(np.array([x, base_y - 0.3, 0]))
+        lab.set_opacity(_edge_opacity(x, box_left, box_right, edge_ramp))
+        x_tick_grp.add(lab)
+
+    axis_labels = VGroup()
+    if x_axis_label is not None:
+        xl = crisp_text(x_axis_label, font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
+        xl.move_to(np.array([cx, base_y - 0.7, 0]))
+        axis_labels.add(xl)
+    if y_axis_label is not None:
+        yl = crisp_text(y_axis_label, font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
+        yl.rotate(PI / 2)
+        yl.next_to(y_tick_grp, LEFT, buff=0.2)
+        axis_labels.add(yl)
+
+    title_text = None
+    if title is not None:
+        title_text = crisp_paragraph(title, alignment="center", font=FONT,
+                                     font_size=FONT_SIZE_LG, color=BLACK)
+        title_text.move_to(np.array([cx, base_y + height + 0.85, 0]))
+
+    # median: highlighted bar + a label ABOVE the bars (readable) joined by a
+    # leader line down to the bar top
+    median_group = None
+    if median is not None:
+        mx = x_of(median)
+        mh = max(h_of(median), 1e-3)
+        op = _edge_opacity(mx, box_left, box_right, edge_ramp)
+        hl = Rectangle(width=bar_w, height=mh, fill_color=median_color,
+                       fill_opacity=1.0, stroke_width=0)
+        hl.move_to(np.array([mx, base_y + mh / 2, 0]))
+        hl.set_z_index(2)
+        leader = Line([mx, base_y + height + 0.12, 0], [mx, base_y + mh, 0],
+                      color=median_color, stroke_width=2)
+        leader.set_z_index(2)
+        lab = crisp_text(f"{median_label} {median}", font=FONT,
+                         font_size=FONT_SIZE_SM, color=BLACK, weight="BOLD")
+        lab.move_to(np.array([mx, base_y + height + 0.32, 0]))
+        lab.set_z_index(3)
+        median_group = VGroup(hl, leader, lab)
+        median_group.set_opacity(op)
+
+    elements = VGroup(bars, x_axis, y_axis, y_tick_grp, x_tick_grp, axis_labels)
+    if title_text is not None:
+        elements.add(title_text)
+    if median_group is not None:
+        elements.add(median_group)
+
+    elements.bars = bars
+    elements.x_axis = x_axis
+    elements.y_axis = y_axis
+    elements.y_ticks = y_tick_grp
+    elements.x_ticks = x_tick_grp
+    elements.axis_labels = axis_labels
+    elements.title_text = title_text
+    elements.median_group = median_group
+    return elements
+
+
+def morph_panning(old, new):
+    """Turn one get_panning_histogram into another. Bars and x-ticks pair by
+    identity (same score / same tick value on the shared domain), so each morphs
+    height IN PLACE while sliding to its new window position (the pan) and fading
+    at the edges; the median group slides + morphs; the title crossfades; the
+    fixed axes / y-ticks are no-ops. Afterwards the NEW objects are live —
+    track ``self.plot = new``. Splat into self.play(*morph_panning(a, b), ...)."""
+    pairs = [
+        ("bars", ReplacementTransform),
+        ("x_ticks", ReplacementTransform),
+        ("y_ticks", ReplacementTransform),
+        ("x_axis", ReplacementTransform),
+        ("y_axis", ReplacementTransform),
+        ("axis_labels", ReplacementTransform),
+        ("median_group", ReplacementTransform),
+        ("title_text", FadeTransform),
+    ]
+    anims = []
+    for attr, anim in pairs:
+        o = getattr(old, attr, None)
+        nw = getattr(new, attr, None)
+        if o is not None and nw is not None:
+            anims.append(anim(o, nw))
+        elif o is not None:
+            anims.append(FadeOut(o))
+        elif nw is not None:
+            anims.append(FadeIn(nw))
+    return anims
+
+
 def overlay_bars(plot, counts, color, opacity=1.0, full_grid=False):
     """A VGroup of overlay bars aligned bar-for-bar to ``plot`` (a get_histogram
     result), built from {value: prob}. Same normalization as the base, so each
