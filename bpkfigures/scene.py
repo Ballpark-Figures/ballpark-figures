@@ -125,8 +125,14 @@ def _scene_source_digest(cls, method_names):
         seen.add(qual)
         try:
             parts[qual] = inspect.getsource(fn)
-        except (OSError, TypeError):
-            parts[qual] = repr(fn)
+        except Exception:
+            # getsource is best-effort: OSError (no source), TypeError (builtin),
+            # or — if the file on disk was rewritten under a live render by a
+            # concurrent session — a TokenError/SyntaxError from a stale line
+            # range. None of these should abort the render, so fall back to a
+            # DETERMINISTIC key (the qualname). NEVER repr(fn): its 0x… address
+            # changes every process and would poison the snapshot cache.
+            parts[qual] = qual
         queue.append(fn)
 
     # seed with the requested methods
@@ -154,8 +160,8 @@ def _scene_source_digest(cls, method_names):
                         seen.add(key)
                         try:
                             parts[key] = inspect.getsource(val)
-                        except (OSError, TypeError):
-                            parts[key] = repr(val)
+                        except Exception:
+                            parts[key] = key  # deterministic fallback (see above)
                 elif isinstance(val, (int, float, str, bytes, bool, tuple,
                                       frozenset, type(None), dict, list, set)):
                     # module-level constant the code depends on
