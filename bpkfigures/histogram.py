@@ -2,7 +2,7 @@ from manim import *
 import numpy as np
 
 from bpkfigures.style import (FONT, FONT_SIZE_SM, FONT_SIZE_MD, FONT_SIZE_LG,
-                              ACCENT_FILL, crisp_text, crisp_paragraph)
+                              ACCENT_FILL, ACCENT_GOLD, crisp_text, crisp_paragraph)
 
 
 def get_histogram_counts(data, min_val, max_val):
@@ -88,6 +88,9 @@ def get_histogram(
     base_opacity=0.4,
     x_tick_step=10,
     bar_ratio=0.9,
+    median=None,
+    median_color=ACCENT_GOLD,
+    median_label="Median",
 ):
     # ── magnitudes: either supplied directly ({value: prob/weight}) or counted
     #    from raw samples. ``total`` (sum over the FULL set, pre-trim) anchors the
@@ -150,6 +153,14 @@ def get_histogram(
             color=BLACK
         )
     elements.add(axis)
+
+    # component handles (None unless the matching block below builds them) so a
+    # scene / morph_histogram can address each piece by role
+    y_axis = None
+    y_tick_labels = None
+    y_axis_text = None
+    axis_label_text = None
+    title_text = None
 
     # ── optional vertical axis with percent ticks (horizontal hist only) ─────
     if show_y_axis and not is_vertical:
@@ -260,10 +271,94 @@ def get_histogram(
     # animate them independently of the base plot
     elements.bars = bars
     elements.hist_geom = {
-        "values": values, "max_mag": max_mag, "width": width, "height": height,
-        "n": n, "shift": shift, "bar_ratio": bar_ratio, "total": total,
+        "values": values, "mag": mag, "max_mag": max_mag, "width": width,
+        "height": height, "n": n, "shift": shift, "bar_ratio": bar_ratio,
+        "total": total,
     }
+
+    # per-role handles (see morph_histogram); any may be None
+    elements.x_axis = axis
+    elements.y_axis = y_axis
+    elements.y_ticks = y_tick_labels
+    elements.y_axis_label_text = y_axis_text
+    elements.x_labels = labels
+    elements.x_axis_label_text = axis_label_text
+    elements.title_text = title_text
+
+    # ── optional median highlight + label (built in ABSOLUTE coords, so add it
+    #    AFTER the shift above — median_marker applies the shift itself) ────────
+    if median is not None:
+        elements.median_group = median_marker(
+            elements, median, color=median_color, label=median_label)
+        elements.add(elements.median_group)
+    else:
+        elements.median_group = None
+
     return elements
+
+
+def median_marker(plot, median, color=ACCENT_GOLD, label="Median",
+                  show_value=True, font_size=FONT_SIZE_SM, label_buff=0.12):
+    """Recolour the bar at score ``median`` and label it (e.g. "Median 248"),
+    anchored to ``plot`` via its ``hist_geom`` (same convention as overlay_bars /
+    make_hist_legend). ``median`` snaps to the nearest in-range value. Returns a
+    VGroup(highlighted_bar, label); z-indexed above the base bars."""
+    g = plot.hist_geom
+    values, mag = g["values"], g["mag"]
+    max_mag, width, height = g["max_mag"], g["width"], g["height"]
+    n, shift, bar_ratio = g["n"], g["shift"], g["bar_ratio"]
+
+    if median not in values:
+        median = min(values, key=lambda v: abs(v - median))
+    i = values.index(median)
+    bar_width = width / n
+    c = mag.get(median, 0)
+    h = (c / max_mag) * height if max_mag > 0 else 0
+    x = (i - n / 2 + 0.5) * bar_width + shift[0]
+    y0 = shift[1]
+
+    hl = Rectangle(width=bar_width * bar_ratio, height=max(h, 1e-3),
+                   fill_color=color, fill_opacity=1.0, stroke_width=0)
+    hl.move_to(np.array([x, y0 + h / 2, 0]))
+    hl.set_z_index(2)
+
+    txt = f"{label} {median}" if show_value else label
+    lab = crisp_text(txt, font=FONT, font_size=font_size, color=BLACK,
+                     weight="BOLD")
+    lab.next_to(np.array([x, y0 + h, 0]), UP, buff=label_buff)
+    lab.set_z_index(2)
+
+    return VGroup(hl, lab)
+
+
+def morph_histogram(old, new):
+    """Animations that smoothly turn one get_histogram plot into another whose
+    range / y-scale / title / median differ. Bars and axis lines Replacement
+    Transform (bars morph in place, filling the same box); the tick-label groups,
+    title, and median crossfade (values shift). Returns a list to splat into
+    ``self.play(*morph_histogram(old, new), run_time=...)``; afterwards the NEW
+    objects are the live ones, so track ``self.plot = new``."""
+    anims = [ReplacementTransform(old.bars, new.bars),
+             ReplacementTransform(old.x_axis, new.x_axis)]
+    swaps = [
+        ("y_axis", ReplacementTransform),
+        ("y_ticks", FadeTransform),
+        ("y_axis_label_text", ReplacementTransform),
+        ("x_labels", FadeTransform),
+        ("x_axis_label_text", ReplacementTransform),
+        ("title_text", FadeTransform),
+        ("median_group", FadeTransform),
+    ]
+    for attr, anim in swaps:
+        o = getattr(old, attr, None)
+        nw = getattr(new, attr, None)
+        if o is not None and nw is not None:
+            anims.append(anim(o, nw))
+        elif o is not None:
+            anims.append(FadeOut(o))
+        elif nw is not None:
+            anims.append(FadeIn(nw))
+    return anims
 
 
 def overlay_bars(plot, counts, color, opacity=1.0, full_grid=False):
