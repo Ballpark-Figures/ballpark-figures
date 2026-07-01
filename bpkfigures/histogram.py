@@ -396,6 +396,7 @@ def get_panning_histogram(
     x_tick_step=50, edge_ramp=0.3, y_ticks=4,
     y_axis_label=None, x_axis_label=None, title=None,
     median=None, median_color=ACCENT_GOLD, median_label="Median",
+    median_width=0.14, median_stroke=4, median_text=True,
 ):
     """A histogram on a FIXED score→x and percent→y scale, positioned so score
     ``window_center`` sits at the plot's horizontal centre. Bars and x-tick labels
@@ -476,18 +477,21 @@ def get_panning_histogram(
         mx = x_of(median)
         mh = max(h_of(median), 1e-3)
         op = _edge_opacity(mx, box_left, box_right, edge_ramp)
-        hl = Rectangle(width=bar_w, height=mh, fill_color=median_color,
-                       fill_opacity=1.0, stroke_width=0)
+        hl = Rectangle(width=max(bar_w, median_width), height=mh,
+                       fill_color=median_color, fill_opacity=1.0, stroke_width=0)
         hl.move_to(np.array([mx, base_y + mh / 2, 0]))
         hl.set_z_index(2)
         leader = Line([mx, base_y + height + 0.12, 0], [mx, base_y + mh, 0],
-                      color=median_color, stroke_width=2)
+                      color=median_color, stroke_width=median_stroke)
         leader.set_z_index(2)
-        lab = crisp_text(f"{median_label} {median}", font=FONT,
-                         font_size=FONT_SIZE_SM, color=BLACK, weight="BOLD")
-        lab.move_to(np.array([mx, base_y + height + 0.32, 0]))
-        lab.set_z_index(3)
-        median_group = VGroup(hl, leader, lab)
+        parts = [hl, leader]
+        if median_text:
+            lab = crisp_text(f"{median_label} {median}", font=FONT,
+                             font_size=FONT_SIZE_SM, color=BLACK, weight="BOLD")
+            lab.move_to(np.array([mx, base_y + height + 0.32, 0]))
+            lab.set_z_index(3)
+            parts.append(lab)
+        median_group = VGroup(*parts)
         median_group.set_opacity(op)
 
     elements = VGroup(bars, x_axis, y_axis, y_tick_grp, x_tick_grp, axis_labels)
