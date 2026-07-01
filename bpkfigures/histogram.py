@@ -391,26 +391,32 @@ def _edge_opacity(x, box_left, box_right, ramp):
 
 
 def get_panning_histogram(
-    counts, window_center, union_min, union_max, scale_x, y_max_pct,
+    counts, window_center, union_min, union_max, scale_x,
     center=ORIGIN, width=8.0, height=4.0, bar_color=ACCENT_FILL, bar_ratio=0.9,
-    x_tick_step=50, edge_ramp=0.3, y_ticks=4,
+    x_tick_step=50, edge_ramp=0.3, y_tick_values=(0.5, 1.0, 1.5),
+    y_headroom=0.9,
     y_axis_label=None, x_axis_label=None, title=None,
     median=None, median_color=ACCENT_GOLD, median_label="Median",
     median_width=0.14, median_stroke=4, median_text=True,
 ):
-    """A histogram on a FIXED score→x and percent→y scale, positioned so score
-    ``window_center`` sits at the plot's horizontal centre. Bars and x-tick labels
-    span the WHOLE [union_min, union_max] domain (so two plots share one mobject
-    per score / per tick value, and morph_panning can pair them by identity);
-    those outside the visible box fade out via ``edge_ramp``. The y-scale is shared
-    (fixed ``y_max_pct``), so the 1% tick maps to 1% in every plot. Exposes
-    per-role handles (bars, x_axis, y_axis, y_ticks, x_ticks, axis_labels,
-    title_text, median_group) for morph_panning."""
+    """A histogram on a fixed score→x scale, positioned so score ``window_center``
+    sits at the plot's horizontal centre. Bars and x-tick labels span the WHOLE
+    [union_min, union_max] domain, and the y-ticks span a fixed ``y_tick_values``
+    grid — so two plots share one mobject per score / per x-value / per y-value,
+    and morph_panning pairs them BY IDENTITY. Content outside the box fades via
+    ``edge_ramp`` (x-ticks past the sides, y-ticks past the top). The y-axis
+    RESCALES per plot so the tallest bar fills ``y_headroom`` of the box, so a
+    transition (a) morphs bar heights, (b) pans horizontally, and (c) slides the
+    y-ticks vertically — 1% stays the 1% label, moving to its new height, while a
+    new 1.5% fades in from the top. Exposes per-role handles (bars, x_axis, y_axis,
+    y_ticks, x_ticks, axis_labels, title_text, median_group) for morph_panning."""
     cx, cy = center[0], center[1]
     box_left, box_right = cx - width / 2, cx + width / 2
     base_y = cy - height / 2
     total = sum(counts.values())
-    y_unit = height * 100.0 / y_max_pct        # screen units per unit-probability
+    peak_pct = (max(counts.values()) / total * 100.0) if total > 0 else 1.0
+    vmax_pct = peak_pct / y_headroom           # tallest bar fills y_headroom of box
+    y_unit = height * 100.0 / vmax_pct         # screen units per unit-probability
 
     def x_of(score):
         return cx + (score - window_center) * scale_x
@@ -434,14 +440,20 @@ def get_panning_histogram(
     x_axis = Line([box_left, base_y, 0], [box_right, base_y, 0], color=BLACK)
     y_axis = Line([box_left, base_y, 0], [box_left, base_y + height, 0], color=BLACK)
 
-    # fixed percent ticks (no pan, identical across plots)
+    # percent ticks over a FIXED value grid, placed by THIS plot's scale (one
+    # subgroup per value so morph_panning pairs 1% -> 1% etc.); ticks above the
+    # box top fade out / in from the top edge.
+    top = base_y + height
     y_tick_grp = VGroup()
-    for pct in _nice_ticks(y_max_pct, y_ticks):
-        y = base_y + (pct / y_max_pct) * height
+    for pct in y_tick_values:
+        y = base_y + (pct / 100.0) * y_unit
+        op = 0.0 if y >= top else min(1.0, (top - y) / edge_ramp)
         tick = Line([box_left - 0.1, y, 0], [box_left, y, 0], color=BLACK)
         lab = crisp_text(f"{pct:g}%", font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
         lab.next_to(tick, LEFT, buff=0.1)
-        y_tick_grp.add(tick, lab)
+        grp = VGroup(tick, lab)
+        grp.set_opacity(op)
+        y_tick_grp.add(grp)
 
     # x-tick labels over the whole domain; off-window ones fade out
     x_tick_grp = VGroup()
@@ -461,7 +473,7 @@ def get_panning_histogram(
     if y_axis_label is not None:
         yl = crisp_text(y_axis_label, font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
         yl.rotate(PI / 2)
-        yl.next_to(y_tick_grp, LEFT, buff=0.2)
+        yl.move_to([box_left - 1.25, base_y + height / 2, 0])   # fixed (ticks pan)
         axis_labels.add(yl)
 
     title_text = None
