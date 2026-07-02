@@ -1,26 +1,38 @@
 from manim import *
 
 BG_COLOR = ManimColor.from_rgb((2, 164, 211))
-ACCENT_FILL = ManimColor.from_rgb((0, 0, 175))   # primary accent (deep blue)
+# ── ACCENT COLOUR HIERARCHY (pick in this order; don't hand-pick hex) ──────────
+# 1. PRIMARY   — ACCENT_FILL (deep blue): the default single accent, for data /
+#    bars / fills. A scene that needs only one colour uses this.
+# 2. HIGHLIGHT — ACCENT_GOLD: the "notice this" accent — highlights, medians,
+#    peaks, the emphasised element. Reserve it for that role; don't spend gold as a
+#    generic categorical fill in a scene that also needs a highlight colour.
+# 3. CATEGORICAL — when several colours must be told apart AT ONCE, pull from
+#    CATEGORICAL_PALETTE in order (warm gold/orange/red, then cool green/purple/
+#    pink). These carry NO fixed meaning; they only have to differ.
+# NOT accents: semantic score/status colours (points = green, zeroed/loss = red)
+# are a per-video concern, defined in that video's config.py (e.g. yahtzee
+# SCORE_GREEN / SCORE_RED) and deliberately DARKER than the accents. Do NOT reuse
+# ACCENT_GREEN / ACCENT_RED for "good/bad" — they're categorical only.
+ACCENT_FILL = ManimColor.from_rgb((0, 0, 175))   # 1. primary (deep blue)
 
-# Secondary accent palette — a warm trio that reads against the blue primary and
-# the cyan background. Use these (in order) for categorical / overlay / highlight
-# colours so every video stays consistent.
-ACCENT_GOLD   = ManimColor("#E8A33D")
+# Secondary "warm trio". ACCENT_GOLD is the highlight accent (tier 2 above); the
+# three together are the first categorical set and read against the blue primary
+# and the cyan background.
+ACCENT_GOLD   = ManimColor("#E8A33D")            # 2. highlight / median / emphasis
 ACCENT_ORANGE = ManimColor("#E87A2C")
 ACCENT_RED    = ManimColor("#D6402C")
 ACCENT_PALETTE = [ACCENT_GOLD, ACCENT_ORANGE, ACCENT_RED]
 
-# Cool complements to the warm trio above, for when a categorical set needs more
-# than three distinct colours (e.g. a multi-line chart). Chosen to stay legible on
-# the cyan background — a medium blue is deliberately avoided (it blends with the
+# Cool complements — extend the categorical set past three. Chosen to stay legible
+# on the cyan background — a medium blue is deliberately avoided (it blends with the
 # BG), so the deep-blue primary ACCENT_FILL stays reserved for bars/fills.
 ACCENT_GREEN  = ManimColor("#2E9E4F")
 ACCENT_PURPLE = ManimColor("#7A3FB0")
 ACCENT_PINK   = ManimColor("#C43B86")
 
-# A 6-way categorical palette (warm trio + cool trio), none of which is the primary
-# ACCENT_FILL. Use in order for lines/series that must all be told apart at once.
+# 3. A 6-way categorical palette (warm trio + cool trio), none of which is the
+# primary ACCENT_FILL. Use in order for lines/series that must all differ at once.
 CATEGORICAL_PALETTE = [ACCENT_GOLD, ACCENT_ORANGE, ACCENT_RED,
                        ACCENT_GREEN, ACCENT_PURPLE, ACCENT_PINK]
 

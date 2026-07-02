@@ -58,15 +58,23 @@ traceable to the user's OWN computations, never re-derived by the agent.
 ## Shared visual vocabulary — USE THESE, don't hand-pick (read before styling)
 Keep every video visually consistent by pulling colours and surfaces from the
 shared package instead of inventing ad-hoc hex values:
-- **Colours come from `style.py`.** `ACCENT_FILL` is the primary accent (deep
-  blue) — default for bars/fills. The secondary trio `ACCENT_GOLD` /
-  `ACCENT_ORANGE` / `ACCENT_RED` (also `ACCENT_PALETTE`) is for categorical /
-  overlay / highlight roles; when more than three distinct colours are needed at
-  once (e.g. a multi-line chart) use the 6-way `CATEGORICAL_PALETTE` (warm trio +
-  cool `ACCENT_GREEN` / `ACCENT_PURPLE` / `ACCENT_PINK`). Reuse these; do NOT
-  introduce new one-off hex colours unless the user asks. If a new shade is
-  genuinely needed, add it to `style.py` (so it's reusable) rather than burying it
-  in a scene.
+- **Colours come from `style.py`, picked in a fixed hierarchy** (the canonical
+  version, with rationale, is the header block in `style.py` — read it before
+  styling):
+  1. **Primary** `ACCENT_FILL` (deep blue) — data/bars/fills; a one-colour scene
+     uses this.
+  2. **Highlight** `ACCENT_GOLD` — the "notice this" accent (highlights, medians,
+     peaks, the emphasised element). Reserve it for that; don't spend gold as a
+     generic categorical fill when the scene also needs a highlight colour.
+  3. **Categorical** — when several colours must differ AT ONCE, pull from
+     `CATEGORICAL_PALETTE` in order (warm `ACCENT_GOLD`/`ACCENT_ORANGE`/`ACCENT_RED`,
+     then cool `ACCENT_GREEN`/`ACCENT_PURPLE`/`ACCENT_PINK`). No fixed meaning.
+  - **Semantic score/status colours are NOT accents:** points = green, zeroed/loss
+    = red live in the *video's* `config.py` (e.g. yahtzee `SCORE_GREEN`/`SCORE_RED`),
+    deliberately darker — don't reuse `ACCENT_GREEN`/`ACCENT_RED` for "good/bad".
+  - Reuse these; do NOT introduce new one-off hex colours unless the user asks. If
+    a new shade is genuinely needed, add it to `style.py` (so it's reusable) rather
+    than burying it in a scene.
 - **Panels sit on a card.** Use `bpkfigures/card.py` (`get_card` / `card_behind`)
   for the standard rounded surface (matches the scorecard look) — prefer it over
   a raw `RoundedRectangle`. Lean toward putting free-floating text/tables/plots
