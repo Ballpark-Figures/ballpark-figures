@@ -25,6 +25,29 @@ load wherever you're working. Video-specific rules live in that video's own
   this to a CLAUDE.md?" If yes, make the edit that turn; if no, drop it — just
   don't leave it as a hollow promise that quietly evaporates.
 
+## The numbers are the product — NEVER invent a calculation (read this first)
+This channel's job is: do rigorous math, then present it. So every quantity on
+screen (EV, probability, count, aggregate) is the PRODUCT — it must be correct and
+traceable to the user's OWN computations, never re-derived by the agent.
+- **Never write new math for a displayed value.** If producing a number would
+  require implementing ANY calculation — scoring, probability, EV, a reroll/
+  combinatorial sum, a simulation, an aggregation — STOP and ASK FIRST, even when
+  you're certain it's correct. (This bit us: a hand-rolled single-box EV in a scene
+  asset was both unsanctioned AND wrong, and shipped silently.)
+- **Source, don't compute.** Before showing a number, find where it already lives:
+  a solver output / data file (`math/data/…`), a notebook/module helper (`math/…`,
+  e.g. `state_explorer.py`), or a value the user gave you — and read it from there.
+  The machinery already exists; use it. If two sources exist, ask which is canonical.
+- **A blank is fine; a silent number is not.** Leaving a value stubbed and FLAGGED
+  is always acceptable. Filling it with a number you computed yourself is not.
+- **If it genuinely isn't available**, stop and flag. Then the user points you to
+  the source, fills it, or explicitly approves a method BEFORE you write it — and an
+  approved computation lives in the shared math pipeline (notebook/module), not
+  buried in a scene.
+- **Provenance on handoff.** When a scene shows numbers, report each one → its
+  source (file / helper / solver field). If the honest source is "the agent worked
+  it out," the rule was already broken — surface it.
+
 ## Repo layout
 - `Ballpark-Figures/` umbrella repo: one sub-project per video plus the shared
   `bpkfigures/` package. Each video is its own git repo nested in the umbrella.
@@ -204,9 +227,9 @@ calls for; no titles/labels/narration that weren't asked for.
   — defaults are deliberate and shared. If a layout seems to "need" a non-default
   value, the layout is probably wrong; fix the layout.
 - Measure real mobject geometry (edges/centers) when placement matters; don't
-  approximate positions — and, likewise, don't approximate NUMBERS you can
-  compute: if a value is derivable (solver data, an asset), source the real one
-  instead of hardcoding a guess; if you must stub it, flag it explicitly.
+  approximate positions. For NUMBERS, the bar is even higher: don't guess AND don't
+  compute them yourself — SOURCE every displayed value from the user's pipeline, or
+  stub-and-flag it. See "The numbers are the product — NEVER invent a calculation".
 
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
 - **Render with `bpkfigures/render`, NOT hand-rolled `manim` calls.** It's the
