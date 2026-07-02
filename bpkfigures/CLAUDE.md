@@ -61,13 +61,23 @@ shared package instead of inventing ad-hoc hex values:
 - **Colours come from `style.py`.** `ACCENT_FILL` is the primary accent (deep
   blue) — default for bars/fills. The secondary trio `ACCENT_GOLD` /
   `ACCENT_ORANGE` / `ACCENT_RED` (also `ACCENT_PALETTE`) is for categorical /
-  overlay / highlight roles. Reuse these; do NOT introduce new one-off hex
-  colours unless the user asks. If a new shade is genuinely needed, add it to
-  `style.py` (so it's reusable) rather than burying it in a scene.
+  overlay / highlight roles; when more than three distinct colours are needed at
+  once (e.g. a multi-line chart) use the 6-way `CATEGORICAL_PALETTE` (warm trio +
+  cool `ACCENT_GREEN` / `ACCENT_PURPLE` / `ACCENT_PINK`). Reuse these; do NOT
+  introduce new one-off hex colours unless the user asks. If a new shade is
+  genuinely needed, add it to `style.py` (so it's reusable) rather than burying it
+  in a scene.
 - **Panels sit on a card.** Use `bpkfigures/card.py` (`get_card` / `card_behind`)
   for the standard rounded surface (matches the scorecard look) — prefer it over
   a raw `RoundedRectangle`. Lean toward putting free-floating text/tables/plots
   on a card rather than straight on the background.
+- **Emphasise by DIMMING THE REST, not just bolding the focus.** To spotlight
+  element(s) in a group (lines in a chart, rows in a bar graph, items in a list),
+  fade every OTHER member to ~0.2 opacity while the focused one(s) stay full — the
+  dimmed field makes the focus pop far better than only bolding/recolouring it.
+  `save_state()` each element before dimming and `Restore` after, so each keeps
+  its own original opacity (e.g. a 0.85-tint bar comes back to 0.85, not 1.0). Now
+  the house move in scenes 07 (bar-graph rows) and 08 (lines).
 - These are shared defaults; changing them still follows the "ASK before editing
   `bpkfigures/`" rule.
 - You can reference any video's files even if it's not in the open workspace —
@@ -387,7 +397,12 @@ The permission allowlist already covers the core loop (`render`, `manim`,
     you at the repo root; a later `render NN` then fails silently-ish with "No file
     matching NN*.py" (the error is only in `.output`, so you don't see it until you
     read the file). After any git work, `cd` back to `scenes/` in its own call
-    first.
+    first. **This happens even when you NEVER `cd` for git** — running `git -C
+    <repo> …` standalone (or just having a background task in between) still leaves
+    the next background `render` launching from the repo root. So don't reason "I
+    used `git -C`, so my cwd is safe": treat ANY git command as having reset the
+    cwd, and re-`cd scenes/` (its own call) immediately before EVERY background
+    render batch that follows git. (Cost ~3 failed renders in one session.)
 - **Grab render frames with `render … --frames … --extract`, then READ the PNGs**
   (Read tool) — one allowlisted call, no re-render. NOT hand-rolled
   `M=… && ffmpeg … && ffmpeg …` chains (the `&&`, `$VAR`, and `select='eq(n\,N)'`
