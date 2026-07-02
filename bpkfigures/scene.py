@@ -7,6 +7,7 @@ import types
 
 from manim import Scene
 from bpkfigures.style import *
+from bpkfigures.highlight import *
 
 # ── Render-hang workaround (manim + Python 3.14) ──────────────────────────────
 # manim's SceneFileWriter spawns a NON-daemon thread per partial movie

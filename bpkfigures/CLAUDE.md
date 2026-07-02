@@ -79,13 +79,29 @@ shared package instead of inventing ad-hoc hex values:
   for the standard rounded surface (matches the scorecard look) — prefer it over
   a raw `RoundedRectangle`. Lean toward putting free-floating text/tables/plots
   on a card rather than straight on the background.
+- **To spotlight specific element(s), use the shared `highlight()`; don't
+  hand-roll it per scene.** `bpkfigures/highlight.py`'s `highlight(scene,
+  targets, …)` fades a tinted (`ACCENT_GOLD`) overlay onto the targets, HOLDS it
+  (default ~1.5 s), then fades out. It's exported through `from config import *`.
+  Targets are Mobjects (their bounding box) or `(center, w, h)` regions (for a
+  span no single mobject covers). **Default to HOLD, not a flash** — a held
+  highlight reads far better; the user's near-universal preference is "let it sit
+  for a second or two." Only pass `pulse=True` when you specifically want a
+  there-and-back flash (e.g. a highlight that WALKS across rows with `lag_ratio`);
+  `persist=True` fades in and leaves it (caller removes the returned rects). The
+  scorecard's richer row version (`Scorecard.highlight_rows`, adds a thick border
+  + bold label) follows the same rule: holds by default, `pulse=True` to walk.
+  Do NOT write bespoke `FadeIn(rect, rate_func=there_and_back)` highlight code in
+  a scene — reach for `highlight()`.
 - **Emphasise by DIMMING THE REST, not just bolding the focus.** To spotlight
   element(s) in a group (lines in a chart, rows in a bar graph, items in a list),
   fade every OTHER member to ~0.2 opacity while the focused one(s) stay full — the
   dimmed field makes the focus pop far better than only bolding/recolouring it.
   `save_state()` each element before dimming and `Restore` after, so each keeps
   its own original opacity (e.g. a 0.85-tint bar comes back to 0.85, not 1.0). Now
-  the house move in scenes 07 (bar-graph rows) and 08 (lines).
+  the house move in scenes 07 (bar-graph rows) and 08 (lines). (Dimming-the-rest
+  and `highlight()`-the-target are complementary: dim when emphasising one OF a
+  group; overlay when calling out element(s) against an un-dimmed field.)
 - These are shared defaults; changing them still follows the "ASK before editing
   `bpkfigures/`" rule.
 - You can reference any video's files even if it's not in the open workspace —
@@ -206,9 +222,21 @@ calls for; no titles/labels/narration that weren't asked for.
   second silently replaces the carried one (a real bug). When a carry-over is
   consumed/no longer needed, drop it (`self.foo = None`) so later snapshots stay
   light.
-- `@subscene` methods are **build-its-own + animate** — they construct what they
-  own (or call its `_setup_<name>()`) then play; they never rebuild a carried-over
-  object.
+- **A `@subscene` BODY should read as ANIMATION — push construction into
+  `_setup_<name>()`.** The subscene calls `self._setup_<name>()` at its top to
+  build every mobject it OWNS (cards, tables, labels, example states, props),
+  then the body is just `self.play(...)` / `self.wait(...)` with each `run_time`
+  as a local variable — so the user can retune timing without wading through
+  construction. If it can go in setup, it should. Only THREE kinds of code
+  legitimately stay in the body: (1) offscreen ENTRANCE positioning that depends
+  on the carried-in geometry (build at home in setup, then `shift` offscreen and
+  animate back in the body); (2) un-picklable animation machinery (`always_redraw`
+  / `ValueTracker` counters — they can't live in a snapshot); (3) construction
+  whose geometry only exists AFTER an earlier play in the same subscene. Building
+  a mobject inline right next to its `play()` "because it's small" is the habit to
+  break — extract it. `scenes/05reductions.py` is the current model of this shape;
+  older scenes (02, 04, 07) still build inline and can be migrated when touched.
+  (They never rebuild a carried-over object — see carry-over above.)
 - **Subscene continuity:** a subscene starts from the previous one's END state.
   Anything not on screen at the end of the previous subscene must be ANIMATED IN
   at the start of the next (don't silently `add` — it pops). Things appearing
