@@ -312,6 +312,12 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   every time; the Read tool never does). Don't build `cd … && render … > log; grep`
   chains or `until grep …; do sleep; done` poll loops — the harness notifies on
   completion.
+  - **Confirm the cwd is `scenes/` before firing a background render.** The Bash
+    cwd persists across calls, so a `cd <repo-root>` done for a git commit leaves
+    you at the repo root; a later `render NN` then fails silently-ish with "No file
+    matching NN*.py" (the error is only in `.output`, so you don't see it until you
+    read the file). After any git work, `cd` back to `scenes/` in its own call
+    first.
 - **Grab render frames with `render … --frames … --extract`, then READ the PNGs**
   (Read tool) — one allowlisted call, no re-render. NOT hand-rolled
   `M=… && ffmpeg … && ffmpeg …` chains (the `&&`, `$VAR`, and `select='eq(n\,N)'`
