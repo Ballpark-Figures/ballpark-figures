@@ -195,6 +195,15 @@ calls for; no titles/labels/narration that weren't asked for.
   Anything not on screen at the end of the previous subscene must be ANIMATED IN
   at the start of the next (don't silently `add` — it pops). Things appearing
   together should animate in together.
+- **Every subscene is auto-framed by a static hold — do NOT add your own start/end
+  wait.** `scene.py` plays one leading `self.wait(SUBSCENE_HOLD)` at the very start
+  of a render plus one trailing hold after each subscene (`SUBSCENE_HOLD = 1.0s`).
+  So a single-subscene render is `HOLD·sub·HOLD` (a standalone clip padded 1s each
+  side, handy for editing) and a full-scene render is `HOLD·a·HOLD·b·…·N·HOLD` — a
+  SINGLE shared 1s pause between adjacent subscenes, not two. The framework OWNS the
+  boundary holds; a subscene body must NOT begin or end with a `self.wait(...)` (it
+  would stack on the framework's hold / double the between-subscene pause). Waits in
+  the MIDDLE of a subscene (pacing between its own steps) are fine and expected.
 - **Every animation/wait's `run_time` lives as an editable value in the subscene
   BODY** — a local variable (or inline literal) the user can see and tweak right
   there — so timing is retunable without digging into helpers. Concretely: pass an

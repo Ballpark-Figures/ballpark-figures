@@ -36,6 +36,15 @@ SNAPSHOT_DIR = os.path.join("cache", "snapshots")
 # the snapshot machinery itself or any dependency the source hash can't see).
 SNAPSHOT_VERSION = 4
 
+# Every subscene is framed by a static hold: the framework plays one leading
+# self.wait(SUBSCENE_HOLD) at the very start of a render, then one trailing hold
+# after each subscene. So a single-subscene render is HOLD·sub·HOLD (a standalone
+# clip with a pause each side), while a full-scene render reads
+# HOLD·a·HOLD·b·HOLD·…·N·HOLD — a SINGLE shared pause between adjacent subscenes,
+# not two. Subscene bodies therefore must NOT add their own start/end wait (the
+# framework owns those); internal mid-subscene waits are fine.
+SUBSCENE_HOLD = 1.0
+
 _BPK_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -275,8 +284,10 @@ class BpkScene(Scene):
 
         if not target:
             self.setup_scene()
+            self.wait(SUBSCENE_HOLD)             # leading hold (once, at scene start)
             for i, name in enumerate(names):
                 getattr(self, name)()
+                self.wait(SUBSCENE_HOLD)         # single shared pause between subscenes
                 self._save_snapshot(i, names)
             return
 
@@ -310,7 +321,9 @@ class BpkScene(Scene):
         # without this the earlier subscenes get stitched into this one's video.
         self._discard_replay_frames()
 
+        self.wait(SUBSCENE_HOLD)                 # leading hold on the incoming state
         getattr(self, names[idx])()
+        self.wait(SUBSCENE_HOLD)                 # trailing hold
         self._save_snapshot(idx, names)
 
     def _discard_replay_frames(self):
