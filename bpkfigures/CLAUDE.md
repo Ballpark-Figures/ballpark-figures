@@ -288,6 +288,13 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the actual video far better
   and faster than the agent does from stills — don't frame-hunt.
+- **After changing a beat, render THAT beat and glance at its NEIGHBOURS.** Beats
+  carry shared state (same dice, label, running number), so a change often reads
+  wrong only in the beat before/after — a value that equals the previous beat's, a
+  die that dips down then straight back up across a hand-off, text that now
+  overflows a column. A `--check` (syntax) is NOT a render: render the beat, look,
+  then scan the seams with its neighbours. (Each of those examples shipped in
+  scene-04 because the change was made but the beat/neighbour wasn't looked at.)
 - **TRIP-WIRE: a 2nd render of the same subscene to re-judge how it LOOKS means
   you're frame-hunting feel — STOP and hand off.** One objective-check render per
   change, then the user takes over. Stills judge only objective spatial facts
@@ -295,6 +302,15 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   whether an animation "reads" — so never diagnose or "fix" a motion/feel problem
   from a still. If a still looks off but the issue is motion, that's the user's
   call from the video, not a reason to iterate.
+- **TRIP-WIRE #2: built a beat WRONG twice for the same conceptual reason? STOP and
+  ASK what it should depict — do NOT re-guess.** A repeated conceptual miss (wrong
+  game state, wrong quantity, wrong turn) is a comprehension gap, not an
+  implementation bug: the fix is a QUESTION, not another render. Re-iterating on a
+  misunderstood beat burns rounds and ships confidently-wrong output — it's what
+  turned scene-04's montage into many painful rounds (polishing a beat built on the
+  wrong state/quantity instead of asking what column 1 said it was). If you're
+  unsure what a beat IS, that uncertainty is itself the trigger to ask BEFORE
+  building — don't treat a comprehension problem as an implementation one.
 - **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what
   they asked and flag-ask — do NOT swap in a different design.** Substituting your
   own concept (even to solve a real problem) is a silent override, the worst kind
