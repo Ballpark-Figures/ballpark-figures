@@ -195,6 +195,15 @@ calls for; no titles/labels/narration that weren't asked for.
   Anything not on screen at the end of the previous subscene must be ANIMATED IN
   at the start of the next (don't silently `add` — it pops). Things appearing
   together should animate in together.
+- **How a scene ENDS depends on what follows it in the script.** If a scene is NOT
+  immediately followed by a talking-head segment (`THA`–`THL`) — i.e. it cuts
+  straight to the next animated scene — its last subscene must end with NOTHING on
+  screen (fade/clear everything out), so animated scenes never hard-cut between two
+  full frames. If a scene IS followed by a talking head, it may end with its final
+  content still on screen (the talking head covers the transition) — often the
+  right call is to restore any mid-scene emphasis (dimmed/hidden elements) to the
+  full, clean end state. Check the script's segment order to know which case
+  applies.
 - **Every subscene is auto-framed by a static hold — do NOT add your own start/end
   wait.** `scene.py` plays one leading `self.wait(SUBSCENE_HOLD)` at the very start
   of a render plus one trailing hold after each subscene (`SUBSCENE_HOLD = 1.0s`).
