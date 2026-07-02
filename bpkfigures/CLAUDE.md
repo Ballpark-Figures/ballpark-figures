@@ -234,8 +234,16 @@ calls for; no titles/labels/narration that weren't asked for.
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
 - **Render with `bpkfigures/render`, NOT hand-rolled `manim` calls.** It's the
   single render path for user + agent (the old `manim()` zsh override is gone).
-  Run from the `scenes/` dir. If `render` isn't on PATH, invoke
-  `<repo>/.venv/bin/python -m bpkfigures.render` (it auto-locates the venv).
+  Run from the `scenes/` dir.
+- **Invoke it as BARE `render …` (the shell alias) — NOT the
+  `"<repo>/.venv/bin/python" -m bpkfigures.render` fallback.** Bare `render`
+  auto-approves (allowlist `render *`) and the alias expands fine in the agent
+  shell; the fallback needs the space-containing repo path QUOTED, and the quote
+  breaks the allowlist glob so it PROMPTS on every call. (That one slip made
+  ~every render in a whole scene prompt.) `cd` to `scenes/` in its OWN call, then
+  run `render …` standalone (a `cd && render` chain trips the cd-chain guard).
+  Only fall back to the venv-python form if bare `render` genuinely fails (it's
+  now allowlisted quoted too, but bare `render` is the default).
 - `render 01g` → subscene g, cleans stale, names `01g_<name>.mp4`. Quality
   defaults to HIGH (`-qh`); add `--fast` for a quick `-ql` check (the agent
   should usually use `--fast` for verification). `render 01g 01h 01i` → several
