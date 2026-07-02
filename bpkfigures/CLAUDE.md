@@ -82,7 +82,7 @@ shared package instead of inventing ad-hoc hex values:
 - **To spotlight specific element(s), use the shared `highlight()`; don't
   hand-roll it per scene.** `bpkfigures/highlight.py`'s `highlight(scene,
   targets, …)` fades a tinted (`ACCENT_GOLD`) overlay onto the targets, HOLDS it
-  (default ~1.5 s), then fades out. It's exported through `from config import *`.
+  (default ~1 s), then fades out. It's exported through `from config import *`.
   Targets are Mobjects (their bounding box) or `(center, w, h)` regions (for a
   span no single mobject covers). **Default to HOLD, not a flash** — a held
   highlight reads far better; the user's near-universal preference is "let it sit

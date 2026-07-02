@@ -44,11 +44,11 @@ def overlay_rect(target, *, color=ACCENT_GOLD, opacity=0.5, buff=0.0,
 
 
 def highlight(scene, targets, *, color=ACCENT_GOLD, opacity=0.5, buff=0.0,
-              corner_radius=0.0, fade=0.25, hold=1.5, lag_ratio=0.0,
+              corner_radius=0.0, fade=0.25, hold=1.0, lag_ratio=0.0,
               pulse=False, persist=False):
     """Emphasise `targets` (Mobjects and/or (center, w, h) regions).
 
-    Default: fade the overlays in (`fade` s), HOLD (`hold` s), fade out. See the
+    Default: fade the overlays in (`fade` s), HOLD (`hold` s, ~1 s), fade out. See the
     module docstring for pulse=/persist=. Returns the overlay rects (which are
     still on screen only when persist=True; otherwise already cleaned up)."""
     rects = [overlay_rect(t, color=color, opacity=opacity, buff=buff,
