@@ -64,8 +64,12 @@ def get_line_graph(
         return (y - y_min) / y_span * height
 
     # ── axes (an L at the plot box's bottom-left) ─────────────────────────────
+    # z-index 2 keeps the axes ABOVE the lines (z 1), so a line's very first point
+    # sitting on the y-axis (or a zero value on the x-axis) doesn't smudge over it.
     x_axis = Line([-width / 2, 0, 0], [width / 2, 0, 0], color=BLACK)
     y_axis = Line([-width / 2, 0, 0], [-width / 2, height, 0], color=BLACK)
+    x_axis.set_z_index(2)
+    y_axis.set_z_index(2)
     elements = VGroup(x_axis, y_axis)
 
     # ── x ticks + labels (every x_tick_step-th value of the domain) ───────────
