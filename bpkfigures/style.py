@@ -11,6 +11,19 @@ ACCENT_ORANGE = ManimColor("#E87A2C")
 ACCENT_RED    = ManimColor("#D6402C")
 ACCENT_PALETTE = [ACCENT_GOLD, ACCENT_ORANGE, ACCENT_RED]
 
+# Cool complements to the warm trio above, for when a categorical set needs more
+# than three distinct colours (e.g. a multi-line chart). Chosen to stay legible on
+# the cyan background — a medium blue is deliberately avoided (it blends with the
+# BG), so the deep-blue primary ACCENT_FILL stays reserved for bars/fills.
+ACCENT_GREEN  = ManimColor("#2E9E4F")
+ACCENT_PURPLE = ManimColor("#7A3FB0")
+ACCENT_PINK   = ManimColor("#C43B86")
+
+# A 6-way categorical palette (warm trio + cool trio), none of which is the primary
+# ACCENT_FILL. Use in order for lines/series that must all be told apart at once.
+CATEGORICAL_PALETTE = [ACCENT_GOLD, ACCENT_ORANGE, ACCENT_RED,
+                       ACCENT_GREEN, ACCENT_PURPLE, ACCENT_PINK]
+
 # Default card surface (cream), shared by the card asset + scorecard.
 CARD_FILL = "#F7F2E7"
 
