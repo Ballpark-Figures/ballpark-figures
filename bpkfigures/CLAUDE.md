@@ -257,6 +257,11 @@ calls for; no titles/labels/narration that weren't asked for.
   ALREADY-rendered mp4 (NO re-render) into `frames/` and prints paths — use it to
   grab frames from a heavy subscene without rebuilding it. Then READ the PNGs with
   the Read tool; never hand-roll `ffmpeg … && ffmpeg …` chains.
+- `render 01 sub --padded` writes, beside each rendered mp4, a copy with its FIRST
+  frame frozen at the head and LAST frame frozen at the tail (default 5s/side;
+  `--padded 3` = 3s) into a `padded_videos/` tree mirroring `videos/` — an editing
+  aid (handles around each subscene). Composes: `--padded --extract` pads an EXISTING
+  mp4 with no re-render. Re-encodes (crf 18); renders are silent so no audio sync.
 - `render 01h --state` (no render) prints the mobjects on screen at subscene h's
   START (from the prior snapshot) — use to reason about starting state cheaply.
 - **`render` takes a per-scene lockfile** (`cache/locks/`), so a SECOND render of

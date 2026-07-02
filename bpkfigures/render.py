@@ -21,6 +21,10 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g --frames 5            # 5 evenly-spaced frames
     render 01g --frames "1.0,-0.3" --extract  # extract from the EXISTING mp4
                                               # (no re-render); then Read the PNGs
+    render 01 sub --padded           # render each subscene + a first/last-frame-
+                                     # padded copy (5s/side) under padded_videos/
+    render 01g --padded 3            # render, then pad with 3s each side
+    render 01g --padded --extract    # pad the EXISTING mp4 (no re-render)
     render 01h --state               # print mobjects at h's start (no render)
     render 01 --check                # AST-parse the scene + assets only (no manim)
 
@@ -108,6 +112,33 @@ def _extract_frames(mp4, times):
         if r.returncode == 0:
             paths.append(out)
     return paths
+
+
+def _pad_video(mp4, seconds):
+    """Write a copy of `mp4` with `seconds` of its FIRST frame frozen at the head
+    and its LAST frame frozen at the tail, into a `padded_videos/` tree mirroring
+    `videos/` (same substructure). ffmpeg's tpad clones the end frames; renders are
+    SILENT so only the video stream needs padding. Returns the output path (or None
+    on failure). Re-encodes (tpad can't stream-copy) at near-lossless crf 18."""
+    parts = os.path.normpath(mp4).split(os.sep)
+    try:                                    # media/videos/<scene>/<q>/x.mp4 -> padded_videos
+        vi = len(parts) - 1 - parts[::-1].index("videos")
+    except ValueError:
+        print(f"[render] {mp4} is not under a videos/ dir — can't pad", file=sys.stderr)
+        return None
+    parts[vi] = "padded_videos"
+    out = os.sep.join(parts)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    vf = (f"tpad=start_duration={seconds}:start_mode=clone:"
+          f"stop_duration={seconds}:stop_mode=clone")
+    r = subprocess.run([_ffmpeg(), "-y", "-i", mp4, "-vf", vf,
+                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", out],
+                       capture_output=True)
+    if r.returncode != 0:
+        print(f"[render] ffmpeg pad failed for {mp4}:\n"
+              f"{r.stderr.decode(errors='replace')[-600:]}", file=sys.stderr)
+        return None
+    return out
 
 
 def _output_mp4(output):
@@ -306,6 +337,7 @@ def main(argv=None):
     extract = "--extract" in argv  # extract --frames from the EXISTING mp4 (no render)
     quiet = "--quiet" in argv    # pass -v WARNING to manim (drops per-animation INFO spam)
     frames_spec = None
+    padded = None                # --padded [N]: also write a first/last-frame-padded copy
     tail = None                  # --tail N: capture manim output, emit only its last N lines
     rest = []
     i = 0
@@ -317,6 +349,16 @@ def main(argv=None):
         elif a == "--frames":
             i += 1
             frames_spec = argv[i] if i < len(argv) else None
+        elif a == "--padded":
+            # optional numeric arg = seconds per side (default 5); a non-number next
+            # token (e.g. a target) is left alone
+            padded = 5.0
+            if i + 1 < len(argv):
+                try:
+                    padded = float(argv[i + 1])
+                    i += 1
+                except ValueError:
+                    pass
         elif a == "--tail":
             i += 1
             tail = argv[i] if i < len(argv) else None
@@ -340,7 +382,8 @@ def main(argv=None):
         return 2
     if not targets:
         print("usage: render NN[letter] [NN[letter] ...] [NN all|sub] [NNbf|NNb-|NN-f] "
-              "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--state] [--check]")
+              "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
+              "[--state] [--check]")
         return 2
 
     if check:
@@ -357,7 +400,7 @@ def main(argv=None):
         for target in targets:
             rc = _render_one(target, passthrough, recompute, fast, state,
                              frames_spec, quiet=quiet, tail=tail_n,
-                             extract=extract, very_fast=very_fast)
+                             extract=extract, very_fast=very_fast, padded=padded)
             worst_rc = worst_rc or rc
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
@@ -367,7 +410,7 @@ def main(argv=None):
 
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,
-                quiet=False, tail=None, extract=False, very_fast=False):
+                quiet=False, tail=None, extract=False, very_fast=False, padded=None):
     """Resolve, (clean+render) or --state, and extract frames for one target.
 
     quiet -> pass `-v WARNING` to manim (suppresses its per-animation INFO log).
@@ -384,17 +427,22 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         return _print_state(path, classname, letter)
 
     if extract:
-        # pull --frames from the ALREADY-rendered mp4, no manim run
-        if frames_spec is None:
-            print("--extract needs --frames", file=sys.stderr)
+        # post-process the ALREADY-rendered mp4 (extract frames and/or pad), no manim
+        if frames_spec is None and padded is None:
+            print("--extract needs --frames or --padded", file=sys.stderr)
             return 2
         mp4 = _output_mp4(output)
         if not mp4:
             print(f"[render] no existing mp4 for {output} — render it first",
                   file=sys.stderr)
             return 1
-        for p in _extract_frames(mp4, _parse_frames(frames_spec, _duration(mp4))):
-            print(p)
+        if frames_spec is not None:
+            for p in _extract_frames(mp4, _parse_frames(frames_spec, _duration(mp4))):
+                print(p)
+        if padded is not None:
+            p = _pad_video(mp4, padded)
+            if p:
+                print(p)
         return 0
 
     # clean stale outputs for this slot
@@ -431,15 +479,19 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     if rc != 0:
         return rc
 
-    if frames_spec is not None:
+    if frames_spec is not None or padded is not None:
         mp4 = _output_mp4(output)
         if not mp4:
             print(f"[render] could not find output mp4 for {output}",
                   file=sys.stderr)
             return rc
-        times = _parse_frames(frames_spec, _duration(mp4))
-        for p in _extract_frames(mp4, times):
-            print(p)
+        if frames_spec is not None:
+            for p in _extract_frames(mp4, _parse_frames(frames_spec, _duration(mp4))):
+                print(p)
+        if padded is not None:
+            p = _pad_video(mp4, padded)
+            if p:
+                print(p)
     return rc
 
 
