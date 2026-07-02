@@ -172,14 +172,22 @@ calls for; no titles/labels/narration that weren't asked for.
   Anything not on screen at the end of the previous subscene must be ANIMATED IN
   at the start of the next (don't silently `add` — it pops). Things appearing
   together should animate in together.
-- **Every animation/wait must expose its `run_time` at the subscene level** so
-  the user can tweak timing later when editing the video. Concretely: pass an
+- **Every animation/wait's `run_time` lives as an editable value in the subscene
+  BODY** — a local variable (or inline literal) the user can see and tweak right
+  there — so timing is retunable without digging into helpers. Concretely: pass an
   explicit `run_time=` to every `self.play(...)` (don't rely on manim's default
   1.0); `self.wait(t)` already shows its duration. If a subscene calls a HELPER
   that plays animations (e.g. `_grow_step`, or a local `roll()`/`count_in()`
-  closure), give that helper a `run_time` parameter and pass it from the call
-  site — never bury a hardcoded run_time inside a helper where it can't be
-  reached. Default the param to the current value so behavior is unchanged.
+  closure), give that HELPER a `run_time` PARAMETER and pass the value from the
+  subscene body — never bury a hardcoded run_time inside a helper where it can't be
+  reached.
+- **Do NOT put timing (or any tunable) on the @subscene method's own signature.**
+  Subscenes are invoked with NO arguments (`getattr(self, name)()` in `scene.py`),
+  so a `def beat(self, run_time=3.0)` param is NEVER overridden — it's a dead,
+  misleading "knob" that looks callable but isn't. Put the value in the BODY:
+  `def beat(self):` then `run_time = 3.0` at the top, used below. "Expose at the
+  subscene level" means in the subscene's BODY, not its signature — the signature
+  of an `@subscene` is always just `(self)`.
 
 ## Reuse over reinvention
 - Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
@@ -391,9 +399,10 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   would benefit from a new/modified shared asset or package change, propose it
   before making the change; don't silently edit shared code.
 - **Timing:** make sensible run_time guesses and name them on handoff (see
-  Process). Every animation/wait in a subscene must expose a tunable `run_time`,
-  even when it calls a helper that performs the animation (see the run_time note
-  in the scene-structure section).
+  Process). Every animation/wait must expose a tunable `run_time` as a value in the
+  subscene BODY (not on the @subscene signature — subscenes take no args), even when
+  it calls a helper that performs the animation (see the run_time note in the
+  scene-structure section).
 
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and
@@ -417,10 +426,11 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   is "enough") — the user judges that better/faster from the actual video. On
   handoff, the agent explicitly NAMES which timing/feel knobs it left at a guess
   so the user knows what to watch.
-- **Every animation/wait exposes its `run_time`** at the subscene level (pass
-  explicit `run_time=` to every `self.play`; give helpers that play a `run_time`
-  param) so the user can retime when editing the video. See the run_time note in
-  the scene-structure section if present.
+- **Every animation/wait exposes its `run_time`** as a value in the subscene BODY —
+  NOT on the @subscene signature (subscenes are called with no args, so a signature
+  param is a dead knob). Pass explicit `run_time=` to every `self.play`; give helpers
+  that play a `run_time` param and pass the body's value in. So the user can retime
+  when editing the video. See the run_time note in the scene-structure section.
 - **Use extended thinking for scene-building** (geometry + animation sequencing).
   The costly mistakes here are spatial — overlaps, a label centered on the panel
   edge instead of the cell, dice rolling into a guide line — and timing/sequencing
