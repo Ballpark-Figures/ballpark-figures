@@ -506,6 +506,15 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   of `---` between the two columns (an empty beat should still be an empty segment,
   e.g. `… --- (no change) --- …`) — a mismatch silently shifts the pairing, so
   flag it rather than zipping blindly.
+- **A beat with an EMPTY animation column (voiceover-only) gets NO subscene.**
+  When column 2 for a beat is blank (just narration, nothing to show), do NOT
+  create a do-nothing subscene that only `self.wait`s — its voiceover simply
+  plays over the neighbouring beats' framework holds. Still COUNT it when zipping
+  the columns (so later beats stay aligned), but skip it when emitting subscenes.
+  Removing a subscene shifts every LATER subscene's letter, which orphans the
+  old highest-letter video (`resolve --clean` only cleans the slot of a letter
+  you actually render, so the now-out-of-range last letter never gets swept) —
+  delete that orphaned `NN<letter>_*.mp4` by hand after the change.
 - **Start from a blank scene** (the setup_scene/@subscene pattern below), not a
   copy — but informed by what you read above.
 - **Build from the script.** Stick to what `Script.md` (column 2) calls for:
