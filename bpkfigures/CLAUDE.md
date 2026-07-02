@@ -447,6 +447,24 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   two columns still don't pin it down, FLAG-and-ASK rather than guessing. (This
   rule exists because reading column 2 in isolation repeatedly produced the wrong
   state/quantity for such beats.)
+- **Beats within a scene are delimited by a literal `---` in BOTH columns — split
+  on it to recover the beat↔voiceover↔animation mapping.** `Script.md` is a
+  2-column Google-Doc table exported to Markdown, and that export FLATTENS each
+  cell to ONE space-joined line (no `<br>`/newlines), which would otherwise leave a
+  scene's voiceover and animation as two run-on blobs with all beat boundaries
+  lost. The user separates beats with `---` in EACH cell; parse a scene by
+  splitting BOTH cells on `---` and zipping them, so segment *i* of the voiceover
+  pairs with segment *i* of the animation = one beat = one subscene (order a, b,
+  c…). If segments are letter-tagged (e.g. `a)` … `b)` …), pair by the tag instead
+  of by position. This is what makes items (3)/(4) above actually possible.
+- **If a multi-beat scene's row has NO `---` delimiters, STOP and ASK the user to
+  add them before building — do NOT guess the beat boundaries.** Without them the
+  mapping is unrecoverable from the flattened export (the root cause of the beat-h
+  mess). A genuinely single-beat scene needs none; the trigger is several beats'
+  worth of content crammed into one run-on cell. Watch too for a MISMATCHED count
+  of `---` between the two columns (an empty beat should still be an empty segment,
+  e.g. `… --- (no change) --- …`) — a mismatch silently shifts the pairing, so
+  flag it rather than zipping blindly.
 - **Start from a blank scene** (the setup_scene/@subscene pattern below), not a
   copy — but informed by what you read above.
 - **Build from the script.** Stick to what `Script.md` (column 2) calls for:
