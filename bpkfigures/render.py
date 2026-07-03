@@ -13,9 +13,10 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01                        # full scene
     render 01 sub                    # all subscenes, in order
     render 01 all                    # all subscenes, then the full scene
-    render 01bf                      # subscenes b through f
+    render 01b-f                     # subscenes b through f (ranges are DASH-delimited)
     render 01b-                      # subscene b through the end
     render 01-f                      # the beginning through subscene f
+    render 06za                      # a multi-char subscene label (a..z, then za..zz, ...)
     render 01g --recompute           # ignore the snapshot cache
     render 01g --frames "1.0,2.0,-0.3"   # render then extract those frames
     render 01g --frames 5            # 5 evenly-spaced frames
@@ -156,12 +157,12 @@ def _print_state(path, classname, letter):
     if not letter:
         print("--state needs a subscene letter (e.g. 01h --state)")
         return 1
-    idx = ord(letter) - ord("a")
+    idx = resolve.label_to_index(letter)
     if idx == 0:
         print(f"subscene '{letter}' is the first — starts from an empty scene.")
         return 0
     import pickle
-    prev = chr(ord("a") + idx - 1)
+    prev = resolve.index_to_label(idx - 1)
     pkl = os.path.join("cache", "snapshots", f"{classname}_{prev}.pkl")
     if not os.path.exists(pkl):
         print(f"no snapshot for subscene '{prev}' at {pkl} — render up to "
@@ -196,20 +197,16 @@ def _print_state(path, classname, letter):
 # ── target expansion (ranges + all/sub) ───────────────────────────────────────
 def _expand_one(prefix, spec, letters):
     """Expand a single NN token's `spec` (the part after the 2-digit prefix) into
-    concrete targets. "" → full scene; "g" → that subscene; "bf" → b..f; "b-" →
-    b..last; "-f" → first..f."""
+    concrete targets. "" → full scene; "za" → that subscene. Ranges are
+    DASH-delimited (labels can be multi-char now, so `06za` must mean the single
+    subscene za): "a-c" → a..c; "a-" → a..last; "-c" → first..c."""
     if spec == "":
         return [prefix]                                  # full scene
-    if len(spec) == 1 and spec.isalpha():
+    if "-" not in spec:
         return [prefix + spec]                           # single subscene
-    if len(spec) == 2 and spec.endswith("-") and spec[0].isalpha():
-        lo, hi = spec[0], letters[-1]                    # "b-"  → b..last
-    elif len(spec) == 2 and spec.startswith("-") and spec[1].isalpha():
-        lo, hi = letters[0], spec[1]                     # "-f"  → first..f
-    elif len(spec) == 2 and spec.isalpha():
-        lo, hi = spec[0], spec[1]                        # "bf"  → b..f
-    else:
-        return [prefix + spec]                           # leave odd specs to resolve
+    lo_s, hi_s = spec.split("-", 1)
+    lo = lo_s if lo_s else letters[0]                    # "-c" → first..c
+    hi = hi_s if hi_s else letters[-1]                   # "a-" → a..last
     if lo not in letters or hi not in letters:
         raise IndexError(f"range {prefix}{spec} out of {prefix}'s subscenes "
                          f"({letters[0]}..{letters[-1]})")
@@ -234,10 +231,10 @@ def _expand_targets(rest):
             targets += [prefix + L for L in letters]
             if mode == "all":
                 targets.append(prefix)                   # full scene last
-        elif len(spec) == 2 or (len(spec) == 1 and spec in "-"):
+        elif "-" in spec:                                # dash-delimited range
             targets += _expand_one(prefix, spec, resolve.subscene_letters(prefix))
         else:
-            targets.append(tok)                          # NN or NNx — as-is
+            targets.append(tok)                          # NN (full) or NN<label> — as-is
     return targets, passthrough
 
 
@@ -374,14 +371,14 @@ def main(argv=None):
             tail_n = None
 
     # every NN[letter] arg is a target — supports `render 01g 01h 01i`, plus
-    # ranges (01bf, 01b-, 01-f) and the `all`/`sub` keywords.
+    # dash ranges (01b-f, 01b-, 01-f) and the `all`/`sub` keywords.
     try:
         targets, passthrough = _expand_targets(rest)
     except Exception as e:
         print(str(e), file=sys.stderr)
         return 2
     if not targets:
-        print("usage: render NN[letter] [NN[letter] ...] [NN all|sub] [NNbf|NNb-|NN-f] "
+        print("usage: render NN[label] [NN[label] ...] [NN all|sub] [NNa-c|NNb-|NN-f] "
               "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
               "[--state] [--check]")
         return 2

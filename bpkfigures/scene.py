@@ -8,6 +8,7 @@ import types
 from manim import Scene
 from bpkfigures.style import *
 from bpkfigures.highlight import *
+from bpkfigures.resolve import index_to_label, label_to_index
 
 # ── Render-hang workaround (manim + Python 3.14) ──────────────────────────────
 # manim's SceneFileWriter spawns a NON-daemon thread per partial movie
@@ -199,7 +200,7 @@ def _ordered_subscenes(cls):
 
 
 def _letter(i):
-    return chr(ord("a") + i)
+    return index_to_label(i)
 
 
 class BpkScene(Scene):
@@ -292,7 +293,7 @@ class BpkScene(Scene):
                 self._save_snapshot(i, names)
             return
 
-        idx = ord(target) - ord("a")
+        idx = label_to_index(target)
         if not (0 <= idx < len(names)):
             raise IndexError(f"Subscene '{target}' out of range (have {len(names)})")
 

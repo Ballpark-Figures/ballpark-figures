@@ -7,6 +7,23 @@ import sys
 def _snake(name):
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
+# ── subscene labels ───────────────────────────────────────────────────────────
+# Index (0-based) <-> label. First 26 are a..z; past that we prepend another 'z'
+# (the maximal letter) to a single trailing a..z: za..zz, then zza..zzz, etc.
+# This keeps labels in LEXICOGRAPHIC order (a<b<...<z<za<...<zz<zza<...), so the
+# rendered NN<label>_*.mp4 files sort into scene order in a file listing. (Plain
+# a..z,aa,ab would put "aa" before "b".) 26 single + 26 z*+letter = 52 before a
+# 3rd tier — see yahtzee scene 06 (38 subscenes: a..z, za..zl).
+def index_to_label(i):
+    return "z" * (i // 26) + chr(ord("a") + i % 26)
+
+def label_to_index(label):
+    if not label or not label.isalpha() or not label.islower() \
+            or label[:-1] != "z" * (len(label) - 1):
+        raise ValueError(f"bad subscene label {label!r} "
+                         f"(want (tier) leading 'z's + one a-z, e.g. 'zl')")
+    return 26 * (len(label) - 1) + (ord(label[-1]) - ord("a"))
+
 def _find_file(prefix):
     matches = sorted(glob.glob(f"{prefix}*.py"))
     if not matches:
@@ -42,17 +59,18 @@ def resolve(target):
     classname, subs = _parse(path)
     if not letter:
         return path, classname, f"{prefix}_{_snake(classname)}", ""
-    idx = ord(letter) - ord("a")
+    idx = label_to_index(letter)
     if not (0 <= idx < len(subs)):
         raise IndexError(f"Subscene '{letter}' out of range for {path}")
     return path, classname, f"{prefix}{letter}_{subs[idx]}", letter
 
 def subscene_letters(prefix):
-    """The subscene letters (['a','b',...]) defined in the NN-prefixed scene
-    file, in order. Empty list if the scene has no @subscene methods."""
+    """The subscene labels (['a','b',...,'z','za',...]) defined in the
+    NN-prefixed scene file, in order. Empty list if the scene has no @subscene
+    methods."""
     path = _find_file(prefix)
     _classname, subs = _parse(path)
-    return [chr(ord("a") + i) for i in range(len(subs))]
+    return [index_to_label(i) for i in range(len(subs))]
 
 def clean_stale(classname, prefix, letter, keep_output):
     """Remove stale rendered videos for this NN<letter> slot whose subscene was
