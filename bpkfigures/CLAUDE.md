@@ -400,6 +400,20 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   computed-time guesses (`Succession(Wait(t_guess), …)`). Guessed timings are
   fragile and cause repeated rework; a value-/dt-driven effect fires correctly
   regardless of how the surrounding animation is paced.
+- **Manim gotchas that each cost real render round-trips (scene 05):**
+  - **`mob.animate(rate_func=…).set_value(…)` — the CALL form — silently fails to
+    animate a `ValueTracker` inside a multi-animation `play()`.** The tracker just
+    doesn't move (reads as a jump at the very end). Use plain
+    `mob.animate.set_value(…)`; put the rate_func on the `play()` if you need one.
+  - **Two separate `ValueTracker`s driving ONE visual desync.** If a number's
+    VALUE is on one tracker and its POSITION/SCALE on another, the motion finishes
+    while the value lags (looks like it jumps, then moves). Drive linked
+    properties from ONE tracker (value = `lerp(v0, v1, t)`, pos/scale from the same
+    `t`).
+  - **`scene.remove(submobject)` restructures the submobject's PARENT group** (it
+    detaches it, with side effects, and can leave the parent group itself behind).
+    Only `remove()` TOP-LEVEL mobjects; to drop an in-group text, rebuild the group
+    or hard-clear everything (`for m in list(self.mobjects): self.remove(m)`).
 
 ### Keep commands allowlist-friendly (avoid permission prompts)
 The permission allowlist already covers the core loop (`render`, `manim`,
@@ -423,11 +437,19 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   to allow; arbitrary `python -c`/`python3 -c` is real code execution, stays
   gated, and prompts every time. General rule: reach for a FIXED, safe
   invocation (a stdlib `-m` module, a wrapper script) over ad-hoc `-c`.
-- **Run renders via `run_in_background`, then READ the task's `.output` file with
-  the Read tool** — NOT `tail`/`grep`/`sed`/`| head` on it (those pipes prompt
-  every time; the Read tool never does). Don't build `cd … && render … > log; grep`
-  chains or `until grep …; do sleep; done` poll loops — the harness notifies on
-  completion.
+- **The thing that forces a `render`/pipe to prompt is a REDIRECTION, not the
+  pipe (verified).** `render *`, `tail *`, `grep *`, `head *` are all allowlisted
+  and rules match per-subcommand, so `render … | tail -3` and `render … --frames
+  … | tail` AUTO-APPROVE. But append `2>/dev/null` (or any `>`/`2>`/`>>`) and the
+  WHOLE line prompts every time — a redirection can write a file, so the matcher
+  bails regardless of the target (even `/dev/null`). So: pipe freely to
+  `tail`/`grep`/`head`, but NEVER add `2>/dev/null` to a command you want
+  auto-approved. (For a foreground `render … --frames …`, you don't even need the
+  pipe — the frame-PNG paths are deterministic; just Read them by path.)
+- **For a BACKGROUND render, READ the task's `.output` file with the Read tool**
+  rather than shelling out to inspect it. Don't build `cd … && render … > log; grep`
+  chains (the `> log` redirect prompts) or `until grep …; do sleep; done` poll
+  loops — the harness notifies on completion.
   - **Confirm the cwd is `scenes/` before firing a background render.** The Bash
     cwd persists across calls, so a `cd <repo-root>` done for a git commit leaves
     you at the repo root; a later `render NN` then fails silently-ish with "No file
