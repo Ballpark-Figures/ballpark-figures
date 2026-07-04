@@ -58,6 +58,17 @@ traceable to the user's OWN computations, never re-derived by the agent.
 ## Shared visual vocabulary — USE THESE, don't hand-pick (read before styling)
 Keep every video visually consistent by pulling colours and surfaces from the
 shared package instead of inventing ad-hoc hex values:
+- **The frame is 16 wide × 9 tall (units), NOT manim's default 14.22 × 8.** Every
+  video's `manim.cfg` (both `animations/` and `animations/scenes/`) sets
+  `frame_width = 16`, `frame_height = 9` — and `/new-video` scaffolds the same — so
+  the useful half-extents are **x-radius 8.0, y-radius 4.5** (left edge −8.0, top
+  edge +4.5). When positioning against the frame, READ them at runtime
+  (`from manim import config; config.frame_x_radius / config.frame_y_radius`) — do
+  NOT hardcode or assume manim's default 7.11/4.0. Assuming the default (from
+  memory, because 16:9 renders "look" standard — the aspect IS 16:9, only the unit
+  size differs) made every margin/centring calc in scene 06 wrong and cost a huge
+  number of rounds. If a layout calc needs a frame bound, the bound comes from
+  `config`, never from your head.
 - **Colours come from `style.py`, picked in a fixed hierarchy** (the canonical
   version, with rationale, is the header block in `style.py` — read it before
   styling):
@@ -385,6 +396,21 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   reason from real numbers. And NEVER pronounce how something LOOKS as fine or
   correct: show the user and let them judge. Objective = a number you measured,
   not an impression from a thumbnail.
+- **"Measuring" means numbers YOU pulled from the render, compared to the RIGHT
+  reference — not eyeballing, and not real coords checked against a made-up
+  constant.** Two ways this went wrong in scene 06: (a) calling a squint at a 480p
+  thumbnail a "measurement" — it isn't, say "I looked" not "I measured"; (b)
+  reading true mobject coords but comparing them to an ASSUMED frame size (7.11/4.0
+  instead of the real 8.0/4.5), so a correct ruler pointed at the wrong zero and
+  "confirmed" nonsense. Any constant a spatial claim rests on (frame bounds, a
+  known width) must itself be READ from config/source, not recalled.
+- **A conclusion that contradicts what the render plainly shows means a wrong
+  ASSUMPTION — STOP and find it, don't assert past it.** Claiming "the card is
+  taller than the frame" while the frame clearly shows the whole card with margins
+  is impossible; the impossibility is the signal that an input (here, the frame
+  size) is wrong. When your numbers and the picture disagree, one of your inputs is
+  false — hunt it down before making any more edits, rather than repeating the
+  claim with more confidence.
 - **After changing a beat, render THAT beat and glance at its NEIGHBOURS.** Beats
   carry shared state (same dice, label, running number), so a change often reads
   wrong only in the beat before/after — a value that equals the previous beat's, a
