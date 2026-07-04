@@ -96,6 +96,8 @@ def get_histogram(
     bar_label_color=BLACK,
     bar_label_buff=0.12,
     bar_label_weight="NORMAL",
+    x_label_weight="NORMAL",
+    x_axis_label_weight="NORMAL",
 ):
     # bar_labels: put a label at each bar's tip. "percent" -> % of total,
     # "count"/"value" -> the raw magnitude, or a {value: str} dict for custom
@@ -210,7 +212,8 @@ def get_histogram(
         else:
             y = (i - n / 2 + 0.5) * bar_width
             pos = np.array([-0.3, y, 0])
-        label = crisp_text(str(val), font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
+        label = crisp_text(str(val), font=FONT, font_size=FONT_SIZE_SM, color=BLACK,
+                           weight=x_label_weight)
         label.move_to(pos)
         labels.add(label)
     elements.add(labels)
@@ -220,6 +223,7 @@ def get_histogram(
             x_axis_label,
             font=FONT,
             font_size=FONT_SIZE_SM,
+            weight=x_axis_label_weight,
             color=BLACK
         )
         axis_label_text.next_to(labels, DOWN, buff=0.3)
