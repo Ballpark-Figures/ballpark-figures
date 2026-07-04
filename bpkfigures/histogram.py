@@ -95,6 +95,7 @@ def get_histogram(
     bar_label_font_size=None,
     bar_label_color=BLACK,
     bar_label_buff=0.12,
+    bar_label_weight="NORMAL",
 ):
     # bar_labels: put a label at each bar's tip. "percent" -> % of total,
     # "count"/"value" -> the raw magnitude, or a {value: str} dict for custom
@@ -244,7 +245,8 @@ def get_histogram(
                 s = ""
             if not s:
                 continue
-            lab = crisp_text(s, font=FONT, font_size=fs, color=bar_label_color)
+            lab = crisp_text(s, font=FONT, font_size=fs, color=bar_label_color,
+                             weight=bar_label_weight)
             if not is_vertical:
                 x = (i - n / 2 + 0.5) * bar_width
                 lab.next_to(np.array([x, h, 0]), UP, buff=bar_label_buff)
