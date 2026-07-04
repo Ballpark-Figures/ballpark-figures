@@ -91,7 +91,14 @@ def get_histogram(
     median=None,
     median_color=ACCENT_GOLD,
     median_label="Median",
+    bar_labels=None,
+    bar_label_font_size=None,
+    bar_label_color=BLACK,
+    bar_label_buff=0.12,
 ):
+    # bar_labels: put a label at each bar's tip. "percent" -> % of total,
+    # "count"/"value" -> the raw magnitude, or a {value: str} dict for custom
+    # text. Positioned above the bar (standing bars) or to its right (horizontal).
     # ── magnitudes: either supplied directly ({value: prob/weight}) or counted
     #    from raw samples. ``total`` (sum over the FULL set, pre-trim) anchors the
     #    percent y-axis. ──────────────────────────────────────────────────────
@@ -217,6 +224,36 @@ def get_histogram(
         axis_label_text.next_to(labels, DOWN, buff=0.3)
         elements.add(axis_label_text)
 
+    # ── optional per-bar value labels (e.g. percentages at each bar's tip) ────
+    bar_label_grp = None
+    if bar_labels:
+        fs = bar_label_font_size if bar_label_font_size is not None else FONT_SIZE_SM
+        bar_label_grp = VGroup()
+        for i, val in enumerate(values):
+            c = mag.get(val, 0)
+            if c <= 0 or max_mag <= 0:
+                continue
+            h = (c / max_mag) * height
+            if bar_labels == "percent":
+                s = f"{(c / total * 100):.0f}%" if total > 0 else ""
+            elif bar_labels in ("count", "value"):
+                s = f"{c:g}"
+            elif isinstance(bar_labels, dict):
+                s = str(bar_labels.get(val, ""))
+            else:
+                s = ""
+            if not s:
+                continue
+            lab = crisp_text(s, font=FONT, font_size=fs, color=bar_label_color)
+            if not is_vertical:
+                x = (i - n / 2 + 0.5) * bar_width
+                lab.next_to(np.array([x, h, 0]), UP, buff=bar_label_buff)
+            else:
+                y = (i - n / 2 + 0.5) * bar_width
+                lab.next_to(np.array([h, y, 0]), RIGHT, buff=bar_label_buff)
+            bar_label_grp.add(lab)
+        elements.add(bar_label_grp)
+
     if title is not None:
         title_text = crisp_paragraph(
             title,
@@ -283,6 +320,7 @@ def get_histogram(
     elements.y_axis_label_text = y_axis_text
     elements.x_labels = labels
     elements.x_axis_label_text = axis_label_text
+    elements.bar_labels = bar_label_grp
     elements.title_text = title_text
 
     # ── optional median highlight + label (built in ABSOLUTE coords, so add it
