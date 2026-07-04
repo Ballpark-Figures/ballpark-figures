@@ -298,6 +298,18 @@ calls for; no titles/labels/narration that weren't asked for.
   sits). If you're re-deriving something an asset already provides, stop and call
   the asset — reading code only to copy its *look* is how reinvention, and
   "wrong-box"/"wrong-dice" mistakes, sneak in.
+- **Check the ASSET *and* the reference SCENES before hand-rolling a gameplay
+  motion — a reusable primitive may live in a scene, not the asset.** The dice
+  "keep-illustration" convention (push a keep forward, reroll dice to the right,
+  band-per-reroll) existed only as scene 04's private `_show_keep`, so it was
+  invisible when building scene 06 — which reinvented it wrong. So: (a) grep the
+  scenes, not just the asset, for an existing helper; and (b) **when a gameplay/
+  animation motion is reusable, it belongs in the shared asset, not a scene.** If
+  you catch yourself writing a scene-private helper another scene would want (or
+  you find one already buried in a scene), PROMOTE it to the asset (with the
+  convention documented) and flag it — don't leave a convention where the next
+  scene can't find it. Hand-rolling a motion an asset/scene already does is itself
+  the red flag that a shared primitive is missing.
 - **Don't override a helper's default args** unless asked or genuinely required
   — defaults are deliberate and shared. If a layout seems to "need" a non-default
   value, the layout is probably wrong; fix the layout.
