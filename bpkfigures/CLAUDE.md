@@ -347,6 +347,16 @@ calls for; no titles/labels/narration that weren't asked for.
   leaves earlier snapshots valid; editing an asset/config/shared helper (or
   `scene.py`/`style.py`) invalidates them; editing `render.py`/`resolve.py` does
   NOT. Bump `SNAPSHOT_VERSION` to force-invalidate.
+- **A scene-file MODULE CONSTANT changed between renders does NOT reliably
+  invalidate the per-subscene digest.** The scene file is excluded from the
+  project hash, and the digest keys on each subscene's code closure — NOT the
+  runtime VALUES of module globals it reads. So tuning a top-of-file layout
+  constant (`COL4_W`, `DICE_DX`, a position vector) can leave you rendering the
+  OLD value straight from cache: the edit appears to do nothing (or something
+  contradictory), and you "verify" a STALE frame as if it reflected the change.
+  When iterating on layout/positioning driven by such constants, render with
+  `--recompute` (or bump `SNAPSHOT_VERSION`). This burned many scene-06 rounds —
+  frames judged "correct" were pre-edit output.
 - Don't build un-picklable objects (e.g. `always_redraw` with a lambda) in
   `setup_scene` — it breaks the whole scene's snapshot. Build those in the
   subscene; keep picklable parts (`ValueTracker`, static text) in setup.
@@ -365,6 +375,16 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the actual video far better
   and faster than the agent does from stills — don't frame-hunt.
+- **Even for OBJECTIVE geometry, don't EYEBALL a low-res still — MEASURE.**
+  Margins, centering, and fit read deceptively on a 480p frame; reading pixels
+  off it and pronouncing the layout "correct" is unreliable and repeatedly
+  shipped WRONG (the whole scene-06 layout saga — unequal margins, off-centre
+  dice, lines under the card, all declared "fine" from thumbnails). For any
+  spatial claim, pull the ACTUAL rendered coordinates — the relevant mobjects'
+  `get_left/right/top/bottom/center` (a one-off `print`, removed after) — and
+  reason from real numbers. And NEVER pronounce how something LOOKS as fine or
+  correct: show the user and let them judge. Objective = a number you measured,
+  not an impression from a thumbnail.
 - **After changing a beat, render THAT beat and glance at its NEIGHBOURS.** Beats
   carry shared state (same dice, label, running number), so a change often reads
   wrong only in the beat before/after — a value that equals the previous beat's, a
