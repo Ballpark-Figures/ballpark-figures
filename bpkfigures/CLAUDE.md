@@ -628,6 +628,22 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   two columns still don't pin it down, FLAG-and-ASK rather than guessing. (This
   rule exists because reading column 2 in isolation repeatedly produced the wrong
   state/quantity for such beats.)
+  (5) **each on-screen element → the shared helper/value it renders through — a
+  STYLING pass, not just a content one.** Before writing an element, name what it
+  comes from: text → `crisp_text` (defaults to `FONT`; still give it the right
+  `font_size`/`color`), never a raw `Text` or ad-hoc size; colours → the specific
+  `style.py` / video-`config.py` name (semantic score green/red, the gold
+  highlight, `ACCENT_FILL`…), never a hand-picked hex or manim default; a prop's
+  ENTRANCE or a box fill/flash → the existing asset method other scenes use
+  (`Scorecard.slide_in`, `flash_rows`, the dice helpers), never a hand-rolled
+  FadeIn/opacity. A cell you can't map to a shared helper is the flag to STOP and
+  find it (or ask). **Re-run this pass at handoff:** on a verification frame,
+  actively read the STYLING — is the text in `FONT`? are highlights/colours the
+  semantic ones? do reused props (dice, scorecard) render as they do elsewhere? —
+  not just position/overlap. (This exists because a scene built "from scratch"
+  shipped wrong fonts, wrong-count dice pips, and off-palette highlights that all
+  had to be corrected in review — the conventions were documented; the miss was
+  not checking each element against them, up front AND on the render.)
 - **Beats within a scene are delimited by a literal `---` in BOTH columns — split
   on it to recover the beat↔voiceover↔animation mapping.** `Script.md` is a
   2-column Google-Doc table exported to Markdown, and that export FLATTENS each
