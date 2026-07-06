@@ -398,24 +398,22 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the actual video far better
   and faster than the agent does from stills — don't frame-hunt.
-- **Even for OBJECTIVE geometry, don't EYEBALL a low-res still — MEASURE.**
-  Margins, centering, and fit read deceptively on a 480p frame; reading pixels
-  off it and pronouncing the layout "correct" is unreliable and repeatedly
-  shipped WRONG (the whole scene-06 layout saga — unequal margins, off-centre
-  dice, lines under the card, all declared "fine" from thumbnails). For any
-  spatial claim, pull the ACTUAL rendered coordinates — the relevant mobjects'
-  `get_left/right/top/bottom/center` (a one-off `print`, removed after) — and
-  reason from real numbers. And NEVER pronounce how something LOOKS as fine or
-  correct: show the user and let them judge. Objective = a number you measured,
-  not an impression from a thumbnail.
-- **"Measuring" means numbers YOU pulled from the render, compared to the RIGHT
-  reference — not eyeballing, and not real coords checked against a made-up
-  constant.** Two ways this went wrong in scene 06: (a) calling a squint at a 480p
-  thumbnail a "measurement" — it isn't, say "I looked" not "I measured"; (b)
-  reading true mobject coords but comparing them to an ASSUMED frame size (7.11/4.0
-  instead of the real 8.0/4.5), so a correct ruler pointed at the wrong zero and
-  "confirmed" nonsense. Any constant a spatial claim rests on (frame bounds, a
-  known width) must itself be READ from config/source, not recalled.
+- **Every spatial/quantitative claim carries its SOURCE inline — the printed
+  number you pulled, or the explicit words "eyeballed, not verified."** A bare
+  spatial claim with no number ("margins look even", "it's centred") is itself the
+  violation: the missing number is the tell that you LOOKED instead of measured.
+  This is the enforceable core of measure-don't-eyeball — it makes "did you
+  actually measure?" visible in the handoff, where the user can catch it. Two ways
+  a "measurement" is really a guess (both shipped WRONG in scene 06): (a) squinting
+  at a 480p thumbnail — that's "I looked," not "I measured"; MEASURE means real
+  coordinates (`get_left/right/top/bottom/center` via a one-off `print`, removed
+  after), because margins/centering/fit read deceptively at low res; (b) reading
+  true coords but comparing them to a MADE-UP constant (frame bounds recalled as
+  7.11/4.0 instead of the real 8.0/4.5) — a correct ruler at the wrong zero
+  "confirms" nonsense, so any constant a claim rests on must be READ from
+  config/source, not recalled. And NEVER pronounce how something LOOKS as
+  fine/correct — show the user and let them judge; objective = a number you
+  measured, not an impression.
 - **A conclusion that contradicts what the render plainly shows means a wrong
   ASSUMPTION — STOP and find it, don't assert past it.** Claiming "the card is
   taller than the frame" while the frame clearly shows the whole card with margins
