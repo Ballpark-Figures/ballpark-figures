@@ -83,6 +83,7 @@ class ScrollList(VGroup):
                 mob = it
                 key = None
             mob._cur_scale = 1.0
+            mob._cur_opacity = 1.0
             mob._parked = False
             self.rows.append(mob)
             self._keys.append(key)
@@ -119,6 +120,7 @@ class ScrollList(VGroup):
             if abs(d) > self.radius + 1.5:
                 if not mob._parked:
                     _set_opacity(mob, 0.0)
+                    mob._cur_opacity = 0.0
                     mob._parked = True
                 continue
             mob._parked = False
@@ -127,7 +129,9 @@ class ScrollList(VGroup):
             if abs(factor - 1.0) > 1e-6:
                 mob.scale(factor)
                 mob._cur_scale = s
-            _set_opacity(mob, self._opacity_of(d))
+            o = self._opacity_of(d)
+            _set_opacity(mob, o)
+            mob._cur_opacity = o
             mob.move_to(self._home + self._y_of(d) * self.axis)
 
     # ── public API ───────────────────────────────────────────────────────────
@@ -157,12 +161,52 @@ class ScrollList(VGroup):
 
         return UpdateFromAlphaFunc(self, _upd)
 
-    def enter(self, *, shift=0.4 * DOWN):
-        """Fade the wheel in (visible rows only; parked rows stay hidden)."""
-        return FadeIn(self, shift=shift)
+    def hide_all(self):
+        """Instantly hide every row (dice-safe). Pair with fade_in() to reveal
+        rows without a raw FadeIn/set_opacity (which would reveal a Die's hidden
+        pips)."""
+        for mob in self.rows:
+            _set_opacity(mob, 0.0)
+            mob._cur_opacity = 0.0
+        return self
 
-    def exit(self, *, shift=0.4 * UP):
-        return FadeOut(self, shift=shift)
+    def fade_in(self, indices=None):
+        """Animation fading rows from their CURRENT opacity to their layout
+        opacity — dice-safe (dice keep the right pips throughout). `indices`
+        defaults to every currently-visible row (so it reveals whatever's hidden
+        and leaves already-shown rows put)."""
+        pos = self._pos_value
+        if indices is None:
+            indices = [i for i in range(len(self.rows))
+                       if self._opacity_of(i - pos) > 0.01]
+        starts = {i: self.rows[i]._cur_opacity for i in indices}
+        targets = {i: self._opacity_of(i - pos) for i in indices}
+        return self._fade_to(indices, starts, targets)
+
+    def fade_out(self, indices=None):
+        """Animation fading rows to 0 (dice-safe)."""
+        if indices is None:
+            indices = list(range(len(self.rows)))
+        starts = {i: self.rows[i]._cur_opacity for i in indices}
+        targets = {i: 0.0 for i in indices}
+        return self._fade_to(indices, starts, targets)
+
+    def _fade_to(self, indices, starts, targets):
+        def _upd(mob, alpha):
+            for i in indices:
+                o = interpolate(starts[i], targets[i], alpha)
+                _set_opacity(self.rows[i], o)
+                self.rows[i]._cur_opacity = o
+        return UpdateFromAlphaFunc(self, _upd)
+
+    def enter(self):
+        """Hide every row, then return a dice-safe fade-in of the visible ones."""
+        self.hide_all()
+        return self.fade_in()
+
+    def exit(self):
+        """Dice-safe fade-out of the whole wheel."""
+        return self.fade_out()
 
     @property
     def focused(self):
