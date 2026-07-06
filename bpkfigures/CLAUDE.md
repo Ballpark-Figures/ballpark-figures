@@ -290,22 +290,26 @@ calls for; no titles/labels/narration that weren't asked for.
   boundary holds; a subscene body must NOT begin or end with a `self.wait(...)` (it
   would stack on the framework's hold / double the between-subscene pause). Waits in
   the MIDDLE of a subscene (pacing between its own steps) are fine and expected.
-- **Every animation/wait's `run_time` lives as an editable value in the subscene
-  BODY** — a local variable (or inline literal) the user can see and tweak right
-  there — so timing is retunable without digging into helpers. Concretely: pass an
+- **Every animation/wait's `run_time` is an explicit NUMBER inlined in the call —
+  do NOT bind it to a one-use local first.** Write `self.play(…, run_time=1.2)`,
+  NOT `rt = 1.2` … `run_time=rt`. The intermediate variable is pure indirection:
+  the literal is already right there in the body (that's the point — the user sees
+  and tweaks it in place), so naming it just adds a line to read past. Pass an
   explicit `run_time=` to every `self.play(...)` (don't rely on manim's default
   1.0); `self.wait(t)` already shows its duration. If a subscene calls a HELPER
   that plays animations (e.g. `_grow_step`, or a local `roll()`/`count_in()`
-  closure), give that HELPER a `run_time` PARAMETER and pass the value from the
-  subscene body — never bury a hardcoded run_time inside a helper where it can't be
-  reached.
+  closure), give that HELPER a `run_time` PARAMETER and pass the LITERAL at the
+  call site — never bury a hardcoded run_time inside a helper where it can't be
+  reached. (The ONE case a named local is fine: the SAME value must drive several
+  plays in lockstep — e.g. a loop whose every step is the same length — where the
+  name keeps them in sync. A value used once is always inlined.)
 - **Do NOT put timing (or any tunable) on the @subscene method's own signature.**
   Subscenes are invoked with NO arguments (`getattr(self, name)()` in `scene.py`),
   so a `def beat(self, run_time=3.0)` param is NEVER overridden — it's a dead,
-  misleading "knob" that looks callable but isn't. Put the value in the BODY:
-  `def beat(self):` then `run_time = 3.0` at the top, used below. "Expose at the
-  subscene level" means in the subscene's BODY, not its signature — the signature
-  of an `@subscene` is always just `(self)`.
+  misleading "knob" that looks callable but isn't. Put the number in the BODY,
+  inlined in the call: `def beat(self):` … `self.play(…, run_time=3.0)`. "Expose at
+  the subscene level" means in the subscene's BODY, not its signature — the
+  signature of an `@subscene` is always just `(self)`.
 
 ## Reuse over reinvention
 - Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
