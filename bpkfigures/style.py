@@ -53,11 +53,15 @@ def _supersample(font_size):
     return max(1.0, min(TEXT_SS, TEXT_SS_MAX_FONT / font_size))
 
 def crisp_text(text, **kwargs):
+    # Default to our brand FONT so callers can't accidentally render in manim's
+    # built-in font by forgetting font=FONT (that was a real, repeated bug).
+    kwargs.setdefault("font", FONT)
     fs = kwargs.pop("font_size", DEFAULT_FONT_SIZE)
     ss = _supersample(fs)
     return Text(text, font_size=fs * ss, **kwargs).scale(1 / ss)
 
 def crisp_paragraph(*lines, **kwargs):
+    kwargs.setdefault("font", FONT)
     fs = kwargs.pop("font_size", DEFAULT_FONT_SIZE)
     ss = _supersample(fs)
     return Paragraph(*lines, font_size=fs * ss, **kwargs).scale(1 / ss)

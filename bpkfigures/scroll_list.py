@@ -30,6 +30,21 @@ from manim import *
 from bpkfigures.style import crisp_text, FONT_SIZE_MD
 
 
+def _set_opacity(mob, o):
+    """Set opacity, but let sub-mobjects that OVERRIDE set_opacity own their own
+    subtree (e.g. a Die that keeps a fixed pool of pips and hides the inactive
+    ones — manim's family propagation would bypass that override and reveal all
+    the phantom pips). Anything using the standard Mobject/VMobject set_opacity is
+    recursed normally."""
+    st = getattr(type(mob), "set_opacity", None)
+    if st is not None and st is not VMobject.set_opacity:
+        mob.set_opacity(o)                 # custom handler owns its whole subtree
+        return
+    for sm in mob.submobjects:
+        _set_opacity(sm, o)
+    mob.set_opacity(o, family=False)       # this level's own points only
+
+
 class ScrollList(VGroup):
     def __init__(self, items, *, focus=0, radius=3, gap=0.8, falloff=0.72,
                  fade_span=1.0, font_size=FONT_SIZE_MD, keys=None,
@@ -103,7 +118,7 @@ class ScrollList(VGroup):
             # the fade edge — just make sure they're parked invisible once.
             if abs(d) > self.radius + 1.5:
                 if not mob._parked:
-                    mob.set_opacity(0.0)
+                    _set_opacity(mob, 0.0)
                     mob._parked = True
                 continue
             mob._parked = False
@@ -112,7 +127,7 @@ class ScrollList(VGroup):
             if abs(factor - 1.0) > 1e-6:
                 mob.scale(factor)
                 mob._cur_scale = s
-            mob.set_opacity(self._opacity_of(d))
+            _set_opacity(mob, self._opacity_of(d))
             mob.move_to(self._home + self._y_of(d) * self.axis)
 
     # ── public API ───────────────────────────────────────────────────────────

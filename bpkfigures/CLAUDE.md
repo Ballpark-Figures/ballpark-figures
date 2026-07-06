@@ -96,6 +96,16 @@ shared package instead of inventing ad-hoc hex values:
   - Reuse these; do NOT introduce new one-off hex colours unless the user asks. If
     a new shade is genuinely needed, add it to `style.py` (so it's reusable) rather
     than burying it in a scene.
+- **ALL text goes through `crisp_text` / `crisp_paragraph`** (from `style.py`) —
+  never a raw `Text(...)`. They render at the brand `FONT` (they now default it,
+  so you can't forget) and supersample for crispness. Match a neighbouring
+  element's `font_size`/`color` rather than inventing values; a number that sits
+  in an asset (e.g. a scorecard cell) must use that asset's `font_size` and
+  colour, not your own. Symptom this prevents: text rendered in manim's built-in
+  font because a hand-built `Text` (or an old `crisp_text` call) omitted the font
+  — it looks subtly wrong next to everything else. If you catch yourself styling
+  text from scratch, stop and pull the size/colour/font from `style.py` (or the
+  asset you're drawing into).
 - **Panels sit on a card.** Use `bpkfigures/card.py` (`get_card` / `card_behind`)
   for the standard rounded surface (matches the scorecard look) — prefer it over
   a raw `RoundedRectangle`. Lean toward putting free-floating text/tables/plots
@@ -300,6 +310,16 @@ calls for; no titles/labels/narration that weren't asked for.
 ## Reuse over reinvention
 - Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
   BEFORE building a gameplay-style beat. Use the existing helpers.
+- **A recurring ENTRANCE/EXIT/emphasis is an asset too — grep other scenes before
+  hand-rolling one.** Bringing a shared prop on screen (the scorecard, a card, a
+  board), flashing a cell, filling a box: if you're about to write the animation
+  inline, first grep the OTHER scenes for how they do it. If it's already
+  consistent, call the same thing; if several scenes each reinvent it, that's the
+  signal to PROMOTE it to a shared method and use it everywhere. Concretely: the
+  scorecard entrance was hand-written three different ways across scenes until it
+  became `Scorecard.slide_in`; the synced red/green "demo fill" flash is
+  `Scorecard.flash_rows`. Prefer these over re-deriving the motion. "It's just a
+  FadeIn" is exactly the thought that produces four different entrances.
 - **Read assets to CALL them, not just to imitate their look.** The reference
   scene shows *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep`
   + `roll_rest` (exactly what `99test.py` shows), not hand-placed coordinates.
