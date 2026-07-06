@@ -47,6 +47,16 @@ traceable to the user's OWN computations, never re-derived by the agent.
 - **Provenance on handoff.** When a scene shows numbers, report each one → its
   source (file / helper / solver field). If the honest source is "the agent worked
   it out," the rule was already broken — surface it.
+- **Getting pipeline numbers INTO a scene — cache, don't compute at render.** The
+  house pattern: a per-scene data module (`animations/assets/<name>_data.py`)
+  computes the handful of numbers by calling the SHARED solver/pipeline helpers
+  (never reinventing the math) and persists them to a COMMITTED cache file
+  (`<name>_cache.json`) beside it; the SCENE imports the data module and the RENDER
+  never imports the solver (it reads the cache, so renders need no heavy deps and
+  the numbers sync between machines via git). Keep a runnable provenance script
+  that PRINTS where each number comes from, separate from the render path. The
+  video-specific specifics (which venv, which solver module, exact file names) live
+  in that video's CLAUDE.md — yahtzee `assets/line_data.py` is the reference user.
 
 ## Repo layout
 - `Ballpark-Figures/` umbrella repo: one sub-project per video plus the shared
