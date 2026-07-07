@@ -689,6 +689,18 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and
   flag deviations.
+- **When an iteration changes WHAT'S DEPICTED — a game/card STATE, a value, which
+  box is filled vs. open — RE-READ that beat's `Script.md` row FIRST.** Timing,
+  layout, and colour polish can be reasoned from the code, but a change to the
+  depicted state must be checked against the script, because such a detail is
+  often the POINT of the beat, not a free cosmetic choice. The failure mode: deep
+  in polish you stop consulting the script and reason LOCALLY from the scene's
+  constants ("opening this box makes the highlight read better"), silently
+  breaking the beat's meaning. (Scene 11 c: col 2 says "everything filled except
+  yahtzee and small straight," so Ones is FULL — highlighting the *used* Ones box
+  red is the whole lesson; opening Ones to tidy the score bar broke it.) The build
+  PREFLIGHT reads column 1+2 for every beat; this keeps that grounding alive
+  through the ITERATION passes, where it tends to lapse.
 - Implement specific requests **literally** — exact wording is the spec
   ("disappear" ≠ "fade", "centered" = measure-and-center).
 - For animation FEEL/timing: build a quick ROUGH version, render + grab frames,
