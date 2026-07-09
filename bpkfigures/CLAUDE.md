@@ -61,7 +61,17 @@ traceable to the user's OWN computations, never re-derived by the agent.
 ## Repo layout
 - `Ballpark-Figures/` umbrella repo: one sub-project per video plus the shared
   `bpkfigures/` package. Each video is its own git repo nested in the umbrella.
-- Each video: `animations/{config.py, assets/, scenes/NN<name>.py}`.
+- Each video has TWO sides — know which one a file belongs to:
+  - `math/` — the DATA / COMPUTATION pipeline: `math/data/` (source data, solver
+    outputs, datasets, wordlists — tracked and synced between machines),
+    `math/notebooks/` (Jupyter exploration), plus solver/helper modules beside
+    them. **A NEW data file, dataset, or wordlist goes HERE.**
+  - `animations/{config.py, assets/, scenes/NN<name>.py}` — the RENDER side:
+    scene code, visual assets, and per-scene render caches
+    (`assets/<name>_data.py` + `<name>_cache.json` that a SCENE imports at render
+    time). `assets/` is NOT a home for raw source data.
+  - **Rule of thumb:** raw/pipeline data → `math/data/`; a small precomputed cache
+    a scene reads at render → `animations/assets/`. When unsure, it's `math/`.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
 
