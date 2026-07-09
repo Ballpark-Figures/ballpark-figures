@@ -1,4 +1,5 @@
 # Per-video sub-repos (each is its own git repo)
+hangman/
 battleship/
 yahtzee/
 mastermind/
