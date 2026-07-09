@@ -585,6 +585,11 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   workflow: checkpoint WIP, commit before a major rewrite, push when a chunk is
   done. Still branch off `main` for non-trivial work (don't pile experimental
   commits straight onto `main`), and keep the commit-message footer convention.
+- **Commit at each working checkpoint — do NOT batch a multi-step change into one
+  big commit at the end.** The user prefers frequent, granular commits (one per
+  working step that leaves the code in a good state) over a single squashed
+  commit. When a change lands in several iterations, commit each as it works,
+  staging only that step's files by explicit path.
 - Each video is its own git repo. The FIRST thing to do when creating a new
   video repo is add a `.gitignore` — otherwise generated renders get committed.
   Per-repo `.gitignore` must cover at minimum:
