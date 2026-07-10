@@ -313,6 +313,27 @@ calls for; no titles/labels/narration that weren't asked for.
   reached. (The ONE case a named local is fine: the SAME value must drive several
   plays in lockstep — e.g. a loop whose every step is the same length — where the
   name keeps them in sync. A value used once is always inlined.)
+- **A DENSE, multi-phase subscene → split each phase into a private helper that
+  takes its `run_time`s as PARAMETERS, so the BODY reads as a timeline of
+  `self._phase(1.0)` calls.** The inline-literal rule above is the default and
+  stays that way for a SIMPLE subscene (little around each `self.play`, so nothing
+  to hunt for). But when a body grows long — many phases interleaved with
+  `ValueTracker`/`always_redraw`/closure machinery that can't move to `_setup`
+  (yahtzee scene 01's `grand_total`/1j is the motivating case: ~120 lines, and the
+  `run_time` knobs you actually edit are scattered through the machinery) — pull
+  each phase into a helper and let the subscene body become a short score:
+  `self._gt_count_up(2.2)` / `self._gt_cull(1.0)` / …, one line per beat. This is
+  NOT a competing convention: each `run_time` is still a call-site LITERAL (so the
+  no-one-use-local rule holds), and the method NAME labels which animation it
+  drives — so, unlike a top-of-body `t_cull = 1.0` timing block, there's no
+  name→play lookup to maintain (that indirection is exactly what makes such a block
+  hard to edit). Every knob is visible in one screen; the dense machinery hides in
+  the helpers. Caveat: this is a BUILD-TIME pattern — clean when you write the scene
+  phase-by-phase from the start, fiddly and render-risky to RETROFIT onto a working
+  scene (phases share live state — an `always_redraw` built in one phase is removed
+  in a later one — so retrofitting means threading that state across helpers without
+  perturbing the render). So adopt it when building; don't refactor existing scenes
+  into it just for tidiness.
 - **Do NOT put timing (or any tunable) on the @subscene method's own signature.**
   Subscenes are invoked with NO arguments (`getattr(self, name)()` in `scene.py`),
   so a `def beat(self, run_time=3.0)` param is NEVER overridden — it's a dead,
@@ -389,7 +410,7 @@ calls for; no titles/labels/narration that weren't asked for.
   grab frames from a heavy subscene without rebuilding it. Then READ the PNGs with
   the Read tool; never hand-roll `ffmpeg … && ffmpeg …` chains.
 - `render 01 sub --padded` writes, beside each rendered mp4, a copy with its FIRST
-  frame frozen at the head and LAST frame frozen at the tail (default 5s/side;
+  frame frozen at the head and LAST frame frozen at the tail (default 10s/side;
   `--padded 3` = 3s) into a `padded_videos/` tree mirroring `videos/` — an editing
   aid (handles around each subscene). Composes: `--padded --extract` pads an EXISTING
   mp4 with no re-render. Re-encodes (crf 18); renders are silent so no audio sync.

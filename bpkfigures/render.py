@@ -23,7 +23,7 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g --frames "1.0,-0.3" --extract  # extract from the EXISTING mp4
                                               # (no re-render); then Read the PNGs
     render 01 sub --padded           # render each subscene + a first/last-frame-
-                                     # padded copy (5s/side) under padded_videos/
+                                     # padded copy (10s/side) under padded_videos/
     render 01g --padded 3            # render, then pad with 3s each side
     render 01g --padded --extract    # pad the EXISTING mp4 (no re-render)
     render 01h --state               # print mobjects at h's start (no render)
@@ -347,9 +347,9 @@ def main(argv=None):
             i += 1
             frames_spec = argv[i] if i < len(argv) else None
         elif a == "--padded":
-            # optional numeric arg = seconds per side (default 5); a non-number next
+            # optional numeric arg = seconds per side (default 10); a non-number next
             # token (e.g. a target) is left alone
-            padded = 5.0
+            padded = 10.0
             if i + 1 < len(argv):
                 try:
                     padded = float(argv[i + 1])
