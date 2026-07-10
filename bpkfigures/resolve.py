@@ -76,21 +76,27 @@ def clean_stale(classname, prefix, letter, keep_output):
     """Remove stale rendered videos for this NN<letter> slot whose subscene was
     renamed/reordered (e.g. an old 01b_all_outcomes.mp4 left behind when 01b is
     now 01b_pairs). Keeps `keep_output`. Scans every quality dir under the
-    scene's media/videos/<scene_module>/ folder. Returns the files removed."""
-    # videos live under media/videos/<scene_file_stem>/<quality>/<output>.mp4
+    scene's media/videos/<scene_module>/ folder AND the parallel
+    media/padded_videos/<scene_module>/ tree (--padded copies). Returns the files
+    removed."""
+    # main renders live under media/videos/<stem>/<quality>/<output>.mp4; --padded
+    # copies mirror them under media/padded_videos/<stem>/<quality>/ (see
+    # render._pad_video). Sweep BOTH so a renamed beat's stale padded copy is
+    # removed too — not just its videos/ one.
     stem = _find_file(prefix)[:-3]  # NNname.py -> NNname
-    base = os.path.join("media", "videos", stem)
     slot = f"{prefix}{letter}_" if letter else f"{prefix}_"
     removed = []
-    for quality_dir in glob.glob(os.path.join(base, "*")):
-        for mp4 in glob.glob(os.path.join(quality_dir, f"{slot}*.mp4")):
-            name = os.path.basename(mp4)[:-4]
-            if name != keep_output:
-                try:
-                    os.remove(mp4)
-                    removed.append(mp4)
-                except OSError:
-                    pass
+    for tree in ("videos", "padded_videos"):
+        base = os.path.join("media", tree, stem)
+        for quality_dir in glob.glob(os.path.join(base, "*")):
+            for mp4 in glob.glob(os.path.join(quality_dir, f"{slot}*.mp4")):
+                name = os.path.basename(mp4)[:-4]
+                if name != keep_output:
+                    try:
+                        os.remove(mp4)
+                        removed.append(mp4)
+                    except OSError:
+                        pass
     return removed
 
 def main():
