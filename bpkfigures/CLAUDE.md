@@ -75,6 +75,48 @@ traceable to the user's OWN computations, never re-derived by the agent.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
 
+## Canonical patterns index — BEFORE you hand-roll, check here
+A quick lookup of the recurring visual jobs and the ONE shared thing each goes
+through. If you're about to place, `.scale()`, or animate one of these BY HAND,
+stop and use the listed helper — hand-rolling is exactly how conventions drift
+(three scenes ended up with three different two-card positions before this index
+existed; a scaled-down two-card layout and a wrong-style number readout shipped
+in scene 04 because the convention lived only in other scenes, uncallable). The
+detail for each row is in the section/asset named; this is just the "where do I
+look" map.
+
+- **Any on-screen text** → `crisp_text` / `crisp_paragraph` (style.py). Never a
+  raw `Text(...)`. (§ Shared visual vocabulary.)
+- **Any colour** → a name from `style.py` (ACCENT_FILL/GOLD/CATEGORICAL…) or the
+  video's `config.py` (semantic score green/red). Never a one-off hex. (§ Shared
+  visual vocabulary.)
+- **A free-floating panel/table/plot** → sit it on a card: `get_card` /
+  `card_behind` (card.py). Not a raw RoundedRectangle.
+- **Spotlight element(s)** → `highlight()` (highlight.py, holds by default).
+  **Emphasise one OF a group** → dim the rest (save_state/Restore; scenes 07/08).
+- **A frame-edge position** → read `config.frame_x_radius/​y_radius` (8.0 / 4.5)
+  at runtime. Never hardcode / recall 7.11/4.0.
+- **Every `run_time`** → an inlined literal at the call site (named local only for
+  a lockstep loop). (§ Scene structure.)
+- **Any displayed number** → SOURCED from the pipeline (data module + committed
+  cache), never computed at render. (§ The numbers are the product.)
+- **A prop's entrance / exit / flash / a multi-prop layout** → the existing asset
+  method other scenes already use — GREP the scenes before hand-rolling. Reusable
+  motions belong in the asset, not a scene. (§ Reuse over reinvention.) Yahtzee
+  reference implementations: single scorecard enters with `Scorecard.slide_in`;
+  **two scorecards side-by-side use `get_two_scorecards` + `slide_two_in`** (full
+  size, canonical centres, slide up from below — never `.scale()`/hand-place; ref
+  scenes 04/05/12); demo fill flash = `Scorecard.flash_rows`; row emphasis =
+  `Scorecard.highlight_rows`; dice keep/reroll = `DiceBoard.keep`/`roll_rest` +
+  `show_keep_anims`/`regroup_anims`; a big right-side number + caption beside a
+  left-sat card follows scene 05's `perfect_average` (caption above, big number
+  below — a promote candidate, not yet a shared helper).
+
+**When a job ISN'T listed and you catch yourself copying from another scene, that
+IS the signal** — grep the scenes, then PROMOTE the pattern into the shared asset
+(see "a recurring ENTRANCE/EXIT/emphasis is an asset too") and add a row here.
+Each video also keeps its own prop-specific index in its own CLAUDE.md.
+
 ## Shared visual vocabulary — USE THESE, don't hand-pick (read before styling)
 Keep every video visually consistent by pulling colours and surfaces from the
 shared package instead of inventing ad-hoc hex values:
