@@ -392,6 +392,26 @@ calls for; no titles/labels/narration that weren't asked for.
   inlined in the call: `def beat(self):` … `self.play(…, run_time=3.0)`. "Expose at
   the subscene level" means in the subscene's BODY, not its signature — the
   signature of an `@subscene` is always just `(self)`.
+- **Make every new scene fast to NAVIGATE and RE-TIME — the user's main edit loop
+  is tuning waits/run_times, so the beat and its knobs must be trivial to find.**
+  On EVERY new scene, alongside the run_time-inline rule above:
+  - a **`# <letter> : <one-liner>` banner directly above every `@subscene`**, so a
+    beat is findable by its rendered letter (the one `render`/the video uses; scene
+    04 is the reference — a boxed banner is the fuller style, a single comment line
+    the minimum). Fix the letters when you insert/reorder beats.
+  - a **BEAT MAP in the scene's class docstring** — one `<method> — <one-liner>`
+    line per subscene, in order (scenes 04/05 are the reference); the index you
+    scan to find the beat to tune.
+  - a trailing **`# VO`** on any long `self.wait(…)` that exists to cover a
+    voiceover paragraph (not to pace the animation), so those big, frequently
+    re-timed holds stand out from mid-beat pacing waits.
+- **Apply these navigability conventions GOING FORWARD, not retroactively.** New
+  scenes — and any NEW subscene/code you add to any scene — follow all of the
+  above; but do NOT sweep or reformat an existing pre-convention scene just because
+  you touched it. (Yahtzee scenes 01–07 predate the banner/beat-map/VO conventions
+  and still carry some `run_time =` locals; leave their existing beats as-is unless
+  the user explicitly asks to sweep.) "Migrate on touch" = new code matches
+  convention, NOT a whole-file churn.
 
 ## Reuse over reinvention
 - Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
