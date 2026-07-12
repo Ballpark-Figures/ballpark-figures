@@ -333,6 +333,15 @@ calls for; no titles/labels/narration that weren't asked for.
   right call is to restore any mid-scene emphasis (dimmed/hidden elements) to the
   full, clean end state. Check the script's segment order to know which case
   applies.
+- **A transient annotation you ADD (a footnote, callout, one-off caption/note)
+  has a BOUNDED lifetime by default — fade it OUT by the end of the scene (or when
+  its section/context ends); do NOT leave it lingering into unrelated later
+  beats.** This holds even when the scene's PERSISTENT content (a card, a board)
+  legitimately stays on screen through a following talking head — a one-off note
+  you dropped in to make a point is not that persistent content, so plan its exit
+  when you add it. When you catch yourself adding such an overlay and wondering
+  "should this come out?", the default answer is YES, by scene end — only leave it
+  if the user says it stays.
 - **Every subscene is auto-framed by a static hold — do NOT add your own start/end
   wait.** `scene.py` plays one leading `self.wait(SUBSCENE_HOLD)` at the very start
   of a render plus one trailing hold after each subscene (`SUBSCENE_HOLD = 1.0s`).
