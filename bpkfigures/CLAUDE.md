@@ -364,6 +364,19 @@ calls for; no titles/labels/narration that weren't asked for.
   reached. (The ONE case a named local is fine: the SAME value must drive several
   plays in lockstep — e.g. a loop whose every step is the same length — where the
   name keeps them in sync. A value used once is always inlined.)
+- **Do NOT hide a series of DISTINCT script beats inside a `for` loop — UNROLL it,
+  one explicit step per beat.** A loop over `steps`/`EXAMPLES` reads tidily, but the
+  moment its iterations correspond to different things the VOICEOVER talks through
+  one at a time (three example turns, a walk through several cases), the single
+  shared `run_time`/`wait` in the loop body becomes one knob controlling beats that
+  each need their OWN timing to land with what's being said — which is exactly the
+  timing the user re-tunes most, and the loop makes it impossible without splitting
+  it back out. So a loop is only for the lockstep case above (identical steps, one
+  continuous thing being narrated); when each iteration is a separate beat, write it
+  as consecutive `self._step(...)` / `self.wait(...)` lines with per-step literals
+  (keep any SOURCED numbers referenced from their data list — unroll the timing, not
+  the provenance). Reference: yahtzee scene 12a (`expected_score`) unrolls its three
+  example turns; scene 05 unrolls `EX_TOPS` the same way.
 - **A DENSE, multi-phase subscene → split each phase into a private helper that
   takes its `run_time`s as PARAMETERS, so the BODY reads as a timeline of
   `self._phase(1.0)` calls.** The inline-literal rule above is the default and
