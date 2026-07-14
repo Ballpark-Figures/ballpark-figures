@@ -628,6 +628,15 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   overflows a column. A `--check` (syntax) is NOT a render: render the beat, look,
   then scan the seams with its neighbours. (Each of those examples shipped in
   scene-04 because the change was made but the beat/neighbour wasn't looked at.)
+- **ALWAYS run `render NN --check` before handing off a scene you touched — it's the
+  mechanical safety net.** It's instant, and it now also LINTS (warn-only) for the
+  convention slips prose can't be trusted to catch mid-edit: a raw `Text(...)`, an
+  off-palette / inlined-hex colour, a one-use `run_time` local. Read every `[lint]
+  file:line` line and FIX it or explicitly flag why it stays — a lint line you
+  neither fixed nor mentioned is a miss you shipped. The catch only works if you run
+  it: `--check` is cheap, so run it on every edited scene at handoff (this is
+  additional to rendering the beat to LOOK, per the bullet above — not a substitute).
+  It's a nudge, never a gate (syntax errors still fail; warnings never do).
 - **TRIP-WIRE: a 2nd render of the same subscene to re-judge how it LOOKS means
   you're frame-hunting feel — STOP and hand off.** One objective-check render per
   change, then the user takes over. Stills judge only objective spatial facts
