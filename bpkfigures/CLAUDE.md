@@ -478,8 +478,9 @@ calls for; no titles/labels/narration that weren't asked for.
   before inventing; don't fill the gap with a new value. (And when a search concludes
   "the convention is X," check that X predates your own edits — code you just wrote
   is not a precedent; that circular read nearly let the grey `0` stand.)
-- Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
-  BEFORE building a gameplay-style beat. Use the existing helpers.
+- Read the existing assets and the video's gameplay REFERENCE scene (the one its
+  own CLAUDE.md names as the canonical example) BEFORE building a gameplay-style
+  beat. Use the existing helpers.
 - **A recurring ENTRANCE/EXIT/emphasis is an asset too — grep other scenes before
   hand-rolling one.** Bringing a shared prop on screen (the scorecard, a card, a
   board), flashing a cell, filling a box: if you're about to write the animation
@@ -492,7 +493,7 @@ calls for; no titles/labels/narration that weren't asked for.
   FadeIn" is exactly the thought that produces four different entrances.
 - **Read assets to CALL them, not just to imitate their look.** The reference
   scene shows *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep`
-  + `roll_rest` (exactly what `99test.py` shows), not hand-placed coordinates.
+  + `roll_rest` (exactly what the reference scene shows), not hand-placed coordinates.
   Before a gameplay beat, name the exact asset method each sub-beat calls, and
   trace the dice/card state through it (which boxes are open, where each die
   sits). If you're re-deriving something an asset already provides, stop and call
