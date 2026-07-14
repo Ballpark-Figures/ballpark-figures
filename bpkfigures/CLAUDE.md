@@ -364,6 +364,20 @@ calls for; no titles/labels/narration that weren't asked for.
   reached. (The ONE case a named local is fine: the SAME value must drive several
   plays in lockstep — e.g. a loop whose every step is the same length — where the
   name keeps them in sync. A value used once is always inlined.)
+- **EVERY animation we author exposes a `run_time` parameter — named exactly that.**
+  Any method or closure WE write that plays animations — a scene helper, a shared
+  ASSET method, a local `roll()`/`count_in()` closure — takes a `run_time` so the
+  caller tunes duration at the call site. A timing knob under any OTHER name (`fade`,
+  `dur`, `speed`, `t`) is the smell to fix: rename it `run_time`. It's the caller's
+  primary duration knob, so name it `run_time` even when the helper ALSO has
+  secondary timing knobs (a `hold`/pause, a per-phase override) — those keep their
+  descriptive names; the animation's own length is `run_time`. For a COMPOSITE helper
+  that fires several plays, `run_time` is either the WHOLE duration with the internal
+  parts scaling proportionally (the scorecard scoring methods — `upper(run_time=1.7)`
+  — are the model) or the duration of its primary play; either way there IS a
+  `run_time`. (Stronger than the helper clause above: this covers ASSET methods and
+  ANY new animation, not just subscene helpers — yahtzee `_zero_flash` had a `fade`
+  knob but no `run_time` until it was renamed.)
 - **Do NOT hide a series of DISTINCT script beats inside a `for` loop — UNROLL it,
   one explicit step per beat.** A loop over `steps`/`EXAMPLES` reads tidily, but the
   moment its iterations correspond to different things the VOICEOVER talks through
