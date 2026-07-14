@@ -74,6 +74,22 @@ traceable to the user's OWN computations, never re-derived by the agent.
     a scene reads at render → `animations/assets/`. When unsure, it's `math/`.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
+- **Reserved scene-number slots (prefixes are 2 DIGITS — `resolve` slices
+  `target[:2]`, so 1- or 3-digit prefixes break subscene addressing; stay 2-digit).**
+  `01`,`02`,… are the video's content scenes. Two META-files bookend them, each a
+  normal `BpkScene`-subclass with subscenes:
+  - **`00` = the transitions file** (`00transitions.py`, `class Transitions`) — the
+    part-title cards between scene groups: ONE `@subscene` per Part, in video order,
+    each a two-line card (`Part N` on line 1, the title on line 2) that STARTS on
+    screen, holds, then LEAVES (slides/fades) to reveal the blank background for the
+    cut. Text is built UNDER the ~24 crisp_text wrap threshold and `.scale()`d up so
+    a long title never line-breaks. Yahtzee `00transitions.py` is the reference.
+  - **`99` = the thumbnails file** (`99thumbnails.py`) — one `@subscene` per
+    thumbnail, each a STATIC composition on `BpkScene` (gist modelled on battleship's
+    `00thumbnail.py`). *[Slot reserved; the file + its full convention get written +
+    codified when the first video actually builds thumbnails — not yet done.]*
+  - Tests / scratch scenes take `98` and DOWN (`98`,`97`,…) so they never collide
+    with the meta-files (a test at `99` would shadow the thumbnails file).
 
 ## Canonical patterns index — BEFORE you hand-roll, check here
 A quick lookup of the recurring visual jobs and the ONE shared thing each goes
