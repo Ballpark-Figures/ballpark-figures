@@ -242,30 +242,43 @@ def _expand_targets(rest):
 def _check_syntax(targets):
     """AST-parse the target scene file(s) plus every assets/*.py they sit next to,
     with NO manim import — an instant catch for syntax errors before paying for a
-    render. Returns 0 if all parse, 1 otherwise."""
+    render — then WARN-ONLY style-lint the scene file(s) (see bpkfigures/lint.py).
+    Returns 0 if all parse (lint warnings never fail the check), 1 on a syntax error."""
     import ast
-    paths = []
+    scene_paths = []
     for target in targets:
         try:
             scene_path = resolve.resolve(target)[0]
         except Exception as e:
             print(str(e), file=sys.stderr)
             return 1
-        paths.append(os.path.abspath(scene_path))
+        scene_paths.append(os.path.abspath(scene_path))
     # the shared assets the scenes import live in ../assets/ (run from scenes/)
-    paths += [os.path.abspath(p) for p in glob.glob(os.path.join("..", "assets", "*.py"))]
+    asset_paths = [os.path.abspath(p) for p in glob.glob(os.path.join("..", "assets", "*.py"))]
 
-    rc = 0
-    for p in dict.fromkeys(paths):     # dedup, keep order
+    for p in dict.fromkeys(scene_paths + asset_paths):   # dedup, keep order
         try:
             with open(p) as f:
                 ast.parse(f.read(), filename=p)
         except SyntaxError as e:
             print(f"{p}:{e.lineno}: {e.msg}", file=sys.stderr)
-            rc = 1
-    if rc == 0:
-        print("syntax OK")
-    return rc
+            return 1
+
+    # WARN-ONLY style lint of the SCENE file(s) only (assets/ legitimately define
+    # colours + use the text helpers). Never blocks a render — and a linter bug must
+    # never take down the syntax check, so it's wrapped defensively.
+    n = 0
+    try:
+        from bpkfigures import lint
+        for p in dict.fromkeys(scene_paths):
+            for lineno, msg in lint.lint_file(p):
+                print(f"[lint] {os.path.basename(p)}:{lineno}: {msg}")
+                n += 1
+    except Exception as e:                    # pragma: no cover — lint must not fail --check
+        print(f"[lint] skipped (linter error: {e})", file=sys.stderr)
+    print("syntax OK" + (f" — {n} lint warning{'s' * (n != 1)} (style, warn-only)"
+                         if n else ""))
+    return 0
 
 
 # ── per-scene render lock (avoid concurrent renders corrupting the cache) ──────

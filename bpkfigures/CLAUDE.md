@@ -687,7 +687,16 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   the git note below).
 - **Syntax check with `render NN --check`** (instant AST parse of the scene +
   `assets/*.py`, no manim) — NOT a separate `python -c "import ast …"`, which
-  isn't allowlisted and prompts every time.
+  isn't allowlisted and prompts every time. `--check` ALSO runs a **warn-only style
+  linter** (`bpkfigures/lint.py`) over the scene file: it flags the mechanical
+  convention slips prose rules rely on you remembering — a raw `Text(...)` (use
+  `crisp_text`), an inlined hex or raw manim palette colour (use a `style.py` /
+  `config.py` name), a one-use `run_time` local (inline the literal). It NEVER fails
+  the check or blocks a render (syntax errors still do); a `[lint] file:line: …`
+  line is a nudge, not a gate. It only catches the statically-checkable class — the
+  judgment conventions still live here. When you add a new mechanical convention,
+  prefer adding a check there over more prose (see the postmortem rationale under §
+  Reuse over reinvention's value-tripwire). Shared, so every video gets it.
 - **Validate JSON with `python3 -m json.tool <file>`** (allowlisted) — NOT
   `python -c "import json …"`. `json.tool` only parses/echoes JSON so it's safe
   to allow; arbitrary `python -c`/`python3 -c` is real code execution, stays
