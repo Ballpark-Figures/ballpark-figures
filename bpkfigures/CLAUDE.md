@@ -749,6 +749,17 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   arbitrary `python`/`python3` isn't (and shouldn't be) allowlisted, and file
   rewrites via heredoc are easy to get wrong.
 - Use `rg`/`ls` (allowed) instead of `find` for inspection.
+- **Explore/search with the Grep/Glob/Read TOOLS, not bash `find`/`grep -r`/`cat`/
+  `sed` — and NEVER delegate a broad bash sweep.** The dedicated tools don't touch
+  the shell allowlist, so they never prompt; bash `find`/`sed` (not allowlisted),
+  `xargs`/subshells/command-substitution (never auto-approve), and any absolute path
+  with spaces (`"My Documents"/…` — the quote can break an allowlist glob) each
+  prompt, one command at a time. This bites hardest CROSS-REPO — reading
+  `battleship/` from the yahtzee working dir needs absolute space-paths. A
+  general-purpose subagent (e.g. Explore) defaults to bash `find`/`grep`/`sed` and
+  will fire DOZENS of approval prompts in a row, quietly undoing the low-friction
+  loop — so do repo lookups INLINE with Grep/Read; if you must delegate, constrain
+  the subagent to ONLY the Grep/Glob/Read tools (no bash find/xargs/sed/cat).
 - `pkill`/`kill`/`rm` stay gated on purpose — don't reach for process-killing as a
   normal step; if a render seems stuck, prefer `run_in_background` + waiting.
 
