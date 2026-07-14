@@ -427,6 +427,22 @@ calls for; no titles/labels/narration that weren't asked for.
   convention, NOT a whole-file churn.
 
 ## Reuse over reinvention
+- **The convention-check is NOT a new-scene gate — it fires on every EDIT too, and
+  the tripwire is INVENTING A VALUE.** The new-scene PREFLIGHT's styling pass (§
+  Starting a new scene — each element → the shared helper/colour/value it renders
+  through) applies identically when you ADD an element to an EXISTING scene while
+  editing. The concrete trigger to catch yourself: **the moment you type a NEW
+  literal or constant — a colour/hex, an opacity, a font size, a run_time feel, a
+  positioned number — STOP and grep the scene (then its siblings) for how that KIND
+  of element is already rendered, and match it.** A fresh `X = <value>` is almost
+  never right when the scene already renders that element one grep away — this is
+  exactly how a scratched col-4 "0" got a new `ZERO_COLOR = GREY` when the scene
+  already drew a bonus "0" in its category's tier colour. Reusing the STRUCTURE (the
+  shared helper) but hand-picking the VALUE you pass it is the same miss in miniature
+  — the value is part of the convention. If you truly can't find a precedent, ASK
+  before inventing; don't fill the gap with a new value. (And when a search concludes
+  "the convention is X," check that X predates your own edits — code you just wrote
+  is not a precedent; that circular read nearly let the grey `0` stand.)
 - Read the existing assets and a reference scene (e.g. yahtzee `99test.py`)
   BEFORE building a gameplay-style beat. Use the existing helpers.
 - **A recurring ENTRANCE/EXIT/emphasis is an asset too — grep other scenes before
@@ -763,7 +779,10 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   not just position/overlap. (This exists because a scene built "from scratch"
   shipped wrong fonts, wrong-count dice pips, and off-palette highlights that all
   had to be corrected in review — the conventions were documented; the miss was
-  not checking each element against them, up front AND on the render.)
+  not checking each element against them, up front AND on the render.) **This pass
+  is NOT new-scene-only — it re-runs every time you ADD an element while EDITING an
+  existing scene; the tripwire is typing a new value/constant (see § Reuse over
+  reinvention).**
 - **Beats within a scene are delimited by a literal `---` in BOTH columns — split
   on it to recover the beat↔voiceover↔animation mapping.** `Script.md` is a
   2-column Google-Doc table exported to Markdown, and that export FLATTENS each
