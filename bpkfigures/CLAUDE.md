@@ -231,6 +231,23 @@ How the user wants the agent to record things worth remembering:
   ONLY for rules specific to THAT video (its script, layout, assets). When unsure
   whether a preference is general or video-specific, treat it as general and put
   it here.
+- **Be PROACTIVE about recording a video's conventions in its CLAUDE.md as they
+  emerge — don't wait to be told.** While building or editing a video's scenes, the
+  moment a reusable decision crystallizes — a recurring layout/colour/naming/helper
+  pattern, a "we always do X for this prop," an ambiguity the user just resolved
+  that the next scene will hit again — capture it: in that video's own `CLAUDE.md`
+  (its prop-specific index / conventions) if it's specific to that video's
+  script/layout/assets/props, or here if it's general (per the split above). The
+  tell you've found one: you just GREPPED another scene to copy how it did
+  something, or the user corrected/clarified a choice that ISN'T a one-off — that's
+  a convention, not a local detail. Default to recording the video-specific, factual
+  ones proactively and saying you did (a colour, a position, an ordering, which
+  helper a job routes through); for a new BEHAVIOURAL rule about how the agent works,
+  propose the text and ASK first (per § Following instructions — don't unilaterally
+  add those). Either way SURFACE it in the moment — the failure mode is a convention
+  that lived only in one scene's code, so the next scene re-derived or re-broke it
+  (the two-card layout was reinvented three different ways, and a bonus "0" got a
+  one-off grey, before each was written down).
 - **Default to CLAUDE.md** for anything the user wants the agent to know. It's
   loaded every session (guaranteed) and syncs across machines via git pull —
   unlike agent memory, which is local to one machine and only surfaces via recall.
