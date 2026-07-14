@@ -364,20 +364,24 @@ calls for; no titles/labels/narration that weren't asked for.
   reached. (The ONE case a named local is fine: the SAME value must drive several
   plays in lockstep — e.g. a loop whose every step is the same length — where the
   name keeps them in sync. A value used once is always inlined.)
-- **EVERY animation we author exposes a `run_time` parameter — named exactly that.**
-  Any method or closure WE write that plays animations — a scene helper, a shared
-  ASSET method, a local `roll()`/`count_in()` closure — takes a `run_time` so the
-  caller tunes duration at the call site. A timing knob under any OTHER name (`fade`,
-  `dur`, `speed`, `t`) is the smell to fix: rename it `run_time`. It's the caller's
-  primary duration knob, so name it `run_time` even when the helper ALSO has
-  secondary timing knobs (a `hold`/pause, a per-phase override) — those keep their
-  descriptive names; the animation's own length is `run_time`. For a COMPOSITE helper
-  that fires several plays, `run_time` is either the WHOLE duration with the internal
-  parts scaling proportionally (the scorecard scoring methods — `upper(run_time=1.7)`
-  — are the model) or the duration of its primary play; either way there IS a
-  `run_time`. (Stronger than the helper clause above: this covers ASSET methods and
-  ANY new animation, not just subscene helpers — yahtzee `_zero_flash` had a `fade`
-  knob but no `run_time` until it was renamed.)
+- **EVERY animation we author exposes a single `run_time` parameter that scales the
+  WHOLE animation.** Any method or closure WE write that plays animations — a scene
+  helper, a shared ASSET method, a local `roll()`/`count_in()` closure — takes ONE
+  `run_time` (named exactly that) so the caller tunes duration at the call site, and
+  it means the duration of the ENTIRE animation. When the helper fires several plays
+  with waits/holds between them, `run_time` is the TOTAL and EVERY part — each play
+  AND each hold/wait — scales proportionally with it: compute `r = run_time / <default
+  total>` once and multiply every sub-duration by `r` (the scorecard scoring methods —
+  `upper(run_time=1.7)`, whose internal `1.1·r` + `0.6·r` sum back to `run_time` — are
+  the model). Do NOT map `run_time` to just one of the plays and leave the rest fixed:
+  a `fade`-only knob with a hardcoded `hold` between is the anti-pattern (a mis-renamed
+  `_zero_flash` first did exactly this — `run_time` scaled the two fades but not the
+  hold, so it did NOT scale the animation). Prefer this single whole-animation knob
+  over exposing separate `hold`/`fade`/per-phase params; add a second timing knob only
+  when the caller genuinely needs one part independent of the rest, and say why. A
+  timing knob under any other name (`fade`, `dur`, `speed`, `t`) is the smell to fix.
+  (Stronger than the helper clause above: covers ASSET methods and ANY new animation,
+  not just subscene helpers.)
 - **Do NOT hide a series of DISTINCT script beats inside a `for` loop — UNROLL it,
   one explicit step per beat.** A loop over `steps`/`EXAMPLES` reads tidily, but the
   moment its iterations correspond to different things the VOICEOVER talks through
