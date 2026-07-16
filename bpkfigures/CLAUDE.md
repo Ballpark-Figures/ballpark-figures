@@ -77,6 +77,10 @@ traceable to the user's OWN computations, never re-derived by the agent.
   alongside the renders. The clips (`*.mp4`/`*.mov`) are gitignored (large binaries),
   so git tracks only the folder + its README, not the videos — they stay local, not
   synced. `/new-video` scaffolds it.
+- `music/` (video root) — background music / audio tracks laid under the final edit
+  alongside the renders + voiceover. Same convention as `footage/`: the tracks
+  (`*.mp3`/`*.wav`) are gitignored (large binaries), so git tracks only the folder +
+  its README, not the audio — local, not synced. `/new-video` scaffolds it.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
 - **Reserved scene-number slots (prefixes are 2 DIGITS — `resolve` slices
