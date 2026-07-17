@@ -26,9 +26,10 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
                                      # padded copy (10s/side) under padded_videos/
     render 01g --padded 3            # render, then pad with 3s each side
     render 01g --padded --extract    # pad the EXISTING mp4 (no re-render)
-    render 99a --thumb               # STATIC thumbnail: save last frame as a 4K PNG
+    render 99a                       # scene 99 = thumbnails: auto-renders a STATIC 4K PNG
                                      # (manim -s -qk) under media/images/; prints its path
-    render 99a --thumb --fast        # same, but a quick low-res PNG to check layout
+    render 99a --fast                # same, but a quick low-res PNG to check layout
+    render 07a --thumb               # force a still PNG for ANY scene (99 is automatic)
     render 01h --state               # print mobjects at h's start (no render)
     render 01 --check                # AST-parse the scene + assets only (no manim)
 
@@ -450,6 +451,10 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     except Exception as e:
         print(str(e), file=sys.stderr)
         return 1
+
+    # Scene `99` is the reserved THUMBNAILS slot (every video), so it always renders
+    # as a still image — no --thumb needed. --thumb still forces it for any scene.
+    thumb = thumb or target[:2] == "99"
 
     if state:
         return _print_state(path, classname, letter)
