@@ -589,13 +589,21 @@ calls for; no titles/labels/narration that weren't asked for.
   mp4 with no re-render. Re-encodes (crf 18); renders are silent so no audio sync.
 - **`render 99a` renders a STATIC thumbnail automatically** — scene `99` is the
   reserved thumbnails slot, so any `99*` target passes manim's `-s` (save the last
-  frame, no video) at `-qk` (4K, 3840×2160), prints the PNG path under
-  `media/images/**/`, and needs NO flag. This is the ONE path for thumbnails; don't
-  hand-roll `manim -s -qk`. It targets like any render, so a per-thumbnail `@subscene`
-  is just `render 99a`; `--fast` gives a quick low-res PNG to check layout, and the 4K
-  PNG is the upload asset (let YouTube do the single compression pass — don't
-  pre-compress). `media/` is gitignored, so the PNG stays local like every render. To
-  force a still PNG for a NON-99 scene, pass `--thumb` explicitly.
+  frame, no video) at `-qk` (4K, 3840×2160) and needs NO flag. This is the ONE path
+  for thumbnails; don't hand-roll `manim -s -qk`. It targets like any render, so a
+  per-thumbnail `@thumbnail` is just `render 99a`; `--fast` gives a quick low-res PNG
+  to check layout, and the 4K PNG is the upload asset (let YouTube do the single
+  compression pass — don't pre-compress). To force a still PNG for a NON-99 scene,
+  pass `--thumb`. `media/` is gitignored, so the PNG stays local like every render.
+  Two behaviours mirror the video pipeline:
+  - **Per-RESOLUTION subfolder** (`media/images/<scene>/2160p/`, `…/480p/`) — no fps
+    (meaningless for a still) — so a low-res `--fast` test can't be mistaken for or
+    overwrite the 4K upload asset. A slot keeps ONE PNG per quality: a renamed
+    subscene's old-named PNG is swept (like `resolve.clean_stale`).
+  - **Change-detection on `render 99 all`** — thumbnails are independent, so only the
+    ones whose code (or a shared helper/asset they reach) changed re-render; the rest
+    are skipped. Keyed per-subscene + per-quality in a gitignored `.render_keys.json`
+    beside the PNGs. `--recompute` forces a rebuild.
 - `render 01h --state` (no render) prints the mobjects on screen at subscene h's
   START (from the prior snapshot) — use to reason about starting state cheaply.
 - **`render` takes a per-scene lockfile** (`cache/locks/`), so a SECOND render of
@@ -603,6 +611,13 @@ calls for; no titles/labels/narration that weren't asked for.
   partial movies / the snapshot cache — don't do it). A stale lock from a dead
   process is auto-taken-over, so there's nothing to clean up by hand. `--check`,
   `--state`, and `--extract` don't lock (they don't render).
+- **You're WELCOME to HALT the user's in-progress render when you need to render**
+  (e.g. to verify a fix) — the user prefers that over you waiting or deferring. The
+  refusing message names the live pid, and `cache/locks/render-<NN>.lock` holds it;
+  kill that pid to free the lock, then render. For thumbnails / independent renders
+  this is always safe (just re-render); for a long animated-scene render a mid-render
+  kill only costs that subscene's snapshot (rebuilt next time), so it's fine too.
+  (`kill` is gated, so it prompts — that's expected; go ahead and take over.)
 
 ## Snapshot cache (`bpkfigures/scene.py`)
 - Rendering one subscene loads the LATEST VALID snapshot at or before the prior

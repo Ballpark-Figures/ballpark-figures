@@ -27,8 +27,9 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g --padded 3            # render, then pad with 3s each side
     render 01g --padded --extract    # pad the EXISTING mp4 (no re-render)
     render 99a                       # scene 99 = thumbnails: auto-renders a STATIC 4K PNG
-                                     # (manim -s -qk) under media/images/; prints its path
-    render 99a --fast                # same, but a quick low-res PNG to check layout
+                                     # (manim -s -qk) into media/images/<scene>/2160p/;
+                                     # prints its path
+    render 99a --fast                # same, but a quick low-res PNG (→ …/480p/)
     render 99 all                    # every thumbnail — but ONLY the ones whose inputs
                                      # changed re-render (unchanged ones are skipped)
     render 07a --thumb               # force a still PNG for ANY scene (99 is automatic)
@@ -36,6 +37,9 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
 Thumbnails are independent images, so `render 99 all` skips any whose code (or a
 shared helper/asset it uses) is unchanged since its PNG — keyed the same way the
 snapshot cache keys subscenes, with a quality tag. `--recompute` forces a rebuild.
+Each PNG lands in a per-RESOLUTION subfolder (`media/images/<scene>/2160p|480p/…`)
+so a low-res --fast test can't be mistaken for the 4K upload asset, and a slot
+keeps a single image per quality (a renamed subscene's old PNG is swept).
     render 01h --state               # print mobjects at h's start (no render)
     render 01 --check                # AST-parse the scene + assets only (no manim)
 
@@ -186,6 +190,16 @@ def _thumb_scene_module_name(scene_path):
     return os.path.splitext(os.path.basename(scene_path))[0]
 
 
+# Thumbnail PNGs go in a per-RESOLUTION subfolder (parallel to videos, but no fps —
+# meaningless for a still) so a low-res --fast test can't be mistaken for the 4K
+# upload asset: the real one is always 2160p/.
+_QTAG_DIR = {"hq": "2160p", "fast": "480p", "very_fast": "144p"}
+
+
+def _qtag(fast, very_fast):
+    return "very_fast" if very_fast else ("fast" if fast else "hq")
+
+
 def _load_scene_class(scene_path, classname):
     """Import the scene module (for its class + module namespace) so we can compute
     the per-subscene digest. Sets sys.modules[modname] so scene._scene_source_digest
@@ -222,14 +236,32 @@ def _thumb_key(cls, scene_path, name, qtag):
     return hashlib.md5("".join(srcs).encode()).hexdigest()
 
 
-def _thumb_png_path(scene_path, output):
+def _thumb_png_path(scene_path, output, qdir):
     return os.path.join("media", "images", _thumb_scene_module_name(scene_path),
-                        f"{output}.png")
+                        qdir, f"{output}.png")
 
 
 def _thumb_manifest_path(scene_path):
     return os.path.join("media", "images", _thumb_scene_module_name(scene_path),
                         ".render_keys.json")
+
+
+def _clean_stale_thumb(scene_path, prefix, letter, keep_output):
+    """Remove PNGs for this thumbnail SLOT (`<prefix><letter>_*`) whose subscene was
+    renamed — a different name than the current `keep_output` — across every
+    resolution subfolder AND the top level, so a slot keeps a single image per
+    quality. Mirrors resolve.clean_stale for videos. Returns the files removed."""
+    module_dir = os.path.join("media", "images", _thumb_scene_module_name(scene_path))
+    removed = []
+    for png in glob.glob(os.path.join(module_dir, "**", f"{prefix}{letter}_*.png"),
+                         recursive=True):
+        if os.path.splitext(os.path.basename(png))[0] != keep_output:
+            try:
+                os.remove(png)
+                removed.append(png)
+            except OSError:
+                pass
+    return removed
 
 
 def _load_manifest(path):
@@ -248,30 +280,34 @@ def _save_manifest(path, data):
 
 def _thumb_change_plan(targets, qtag):
     """For the 99 (thumbnail) targets, compute each one's change-key and decide
-    which are UP TO DATE (existing PNG + matching manifest key → skip). Returns
-    (skip:set, keys:{target:key}, outputs:{target:output}, manifest_path, manifest).
-    On any failure, returns an empty plan (render everything) — never blocks."""
+    which are UP TO DATE (existing PNG in this quality's folder + matching manifest
+    key → skip). Returns (skip:set, keys:{target:key}, mkeys:{target:manifest_key},
+    manifest_path, manifest). The manifest key is scoped by quality subfolder so a
+    --fast entry never satisfies a full-res render. Any failure → empty plan (render
+    everything); never blocks."""
     tt = [t for t in targets if _is_thumb_prefix(t[:2])]
     empty = (set(), {}, {}, None, {})
     if not tt:
         return empty
     try:
+        qdir = _QTAG_DIR[qtag]
         path0, classname0, _o, _l = resolve.resolve(tt[0])
         cls = _load_scene_class(path0, classname0)
         _cn, subs = resolve._parse(path0)
         manifest_path = _thumb_manifest_path(path0)
         manifest = _load_manifest(manifest_path)
-        skip, keys, outputs = set(), {}, {}
+        skip, keys, mkeys = set(), {}, {}
         for t in tt:
             letter = t[2:]
             name = subs[resolve.label_to_index(letter)]
             output = f"{t[:2]}{letter}_{name}"
             key = _thumb_key(cls, path0, name, qtag)
-            keys[t], outputs[t] = key, output
-            if manifest.get(output) == key and \
-                    os.path.exists(_thumb_png_path(path0, output)):
+            mkey = f"{qdir}/{output}"
+            keys[t], mkeys[t] = key, mkey
+            if manifest.get(mkey) == key and \
+                    os.path.exists(_thumb_png_path(path0, output, qdir)):
                 skip.add(t)
-        return skip, keys, outputs, manifest_path, manifest
+        return skip, keys, mkeys, manifest_path, manifest
     except Exception as e:
         print(f"[render] thumbnail change-check skipped "
               f"({type(e).__name__}: {e})", file=sys.stderr)
@@ -543,9 +579,10 @@ def main(argv=None):
 
     # Thumbnails (scene 99) are independent images — skip re-rendering the ones
     # whose inputs are unchanged since their PNG (unless --recompute forces a rebuild).
-    # The key includes a quality tag so a --fast PNG never satisfies a full-res run.
-    qtag = "very_fast" if very_fast else ("fast" if fast else "hq")
-    skip, thumb_keys, thumb_out, manifest_path, manifest = (
+    # The key (and PNG folder) is per-quality so a --fast PNG never satisfies a
+    # full-res run.
+    qtag = _qtag(fast, very_fast)
+    skip, thumb_keys, thumb_mkey, manifest_path, manifest = (
         (set(), {}, {}, None, {}) if (recompute or state or extract)
         else _thumb_change_plan(targets, qtag))
 
@@ -570,7 +607,7 @@ def main(argv=None):
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
                 if target in thumb_keys and manifest_path:   # record the new key
-                    manifest[thumb_out[target]] = thumb_keys[target]
+                    manifest[thumb_mkey[target]] = thumb_keys[target]
                     _save_manifest(manifest_path, manifest)
         return worst_rc
     finally:
@@ -662,10 +699,22 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         return rc
 
     if thumb:
-        # -s writes a still PNG (no mp4) under media/images/**/; print its path
-        png = _output_png(output)
-        if png:
-            print(png)
+        # -s writes the still to media/images/<module>/<output>.png (manim uses no
+        # per-quality subfolder for images). MOVE it into a resolution subfolder so a
+        # --fast test can't overwrite / be mistaken for the 4K upload asset.
+        module_dir = os.path.join("media", "images", _thumb_scene_module_name(path))
+        src = os.path.join(module_dir, f"{output}.png")
+        if not os.path.exists(src):
+            src = _output_png(output) or ""      # fallback if manim named it otherwise
+        if src and os.path.exists(src):
+            dest = os.path.join(module_dir, _QTAG_DIR[_qtag(fast, very_fast)],
+                                f"{output}.png")
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            os.replace(src, dest)
+            # keep a single image per slot: drop any renamed-slot PNGs (all qualities)
+            for f in _clean_stale_thumb(path, target[:2], letter, output):
+                print(f"[render] removed stale {f}", file=sys.stderr)
+            print(dest)
         else:
             print(f"[render] rendered but couldn't find output PNG for {output} "
                   f"under media/images/", file=sys.stderr)
