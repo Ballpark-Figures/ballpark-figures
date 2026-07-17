@@ -231,9 +231,19 @@ def _expand_one(prefix, spec, letters):
     return [prefix + L for L in letters[i0:i1 + step:step]]
 
 
+def _is_thumb_prefix(prefix):
+    """Scene `99` is the reserved thumbnails slot — every target is an individual
+    still image, and there is NO meaningful whole-scene render."""
+    return prefix == "99"
+
+
 def _expand_targets(rest):
     """Turn `rest` into (targets, passthrough). Handles the `all`/`sub` keywords
-    (all subscenes, plus the full scene for `all`) and the range forms above."""
+    (all subscenes, plus the full scene for `all`) and the range forms above.
+
+    Thumbnails (scene `99`) have no whole-scene image, so a bare `99` expands to
+    each thumbnail and `all` does NOT append the full-scene target (that produced a
+    meaningless combined `99_thumbnails.png`)."""
     mode = "all" if "all" in rest else ("sub" if "sub" in rest else None)
     toks = [a for a in rest if a not in ("all", "sub")]
     digit_toks = [a for a in toks if len(a) >= 2 and a[:2].isdigit()]
@@ -242,11 +252,14 @@ def _expand_targets(rest):
     targets = []
     for tok in digit_toks:
         prefix, spec = tok[:2], tok[2:]
+        thumb = _is_thumb_prefix(prefix)
         if mode and spec == "":
             letters = resolve.subscene_letters(prefix)
             targets += [prefix + L for L in letters]
-            if mode == "all":
+            if mode == "all" and not thumb:
                 targets.append(prefix)                   # full scene last
+        elif spec == "" and thumb:                       # bare `99`: each thumbnail
+            targets += [prefix + L for L in resolve.subscene_letters(prefix)]
         elif "-" in spec:                                # dash-delimited range
             targets += _expand_one(prefix, spec, resolve.subscene_letters(prefix))
         else:
