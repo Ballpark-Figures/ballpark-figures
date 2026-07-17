@@ -93,10 +93,22 @@ traceable to the user's OWN computations, never re-derived by the agent.
     screen, holds, then LEAVES (slides/fades) to reveal the blank background for the
     cut. Text is built UNDER the ~24 crisp_text wrap threshold and `.scale()`d up so
     a long title never line-breaks. Yahtzee `00transitions.py` is the reference.
-  - **`99` = the thumbnails file** (`99thumbnails.py`) — one `@subscene` per
-    thumbnail, each a STATIC composition on `BpkScene` (gist modelled on battleship's
-    `00thumbnail.py`). *[Slot reserved; the file + its full convention get written +
-    codified when the first video actually builds thumbnails — not yet done.]*
+  - **`99` = the thumbnails file** (`99thumbnails.py`) — one **`@thumbnail`** per
+    thumbnail (NOT `@subscene`), each a STATIC composition (`self.add`, no `self.play`)
+    modelled on battleship's `00thumbnail.py` (big bold black number/title up top + a
+    prop below, subtle gradient bg + a bold digit stroke to survive YouTube's
+    downscale/JPEG pass) in the brand `FONT`. The class keeps the video's normal base
+    (e.g. `class Thumbnails(YahtzeeScene)`) so it inherits the brand `BG_COLOR`.
+    **Why `@thumbnail` and not `@subscene`:** a thumbnail is a subscene (same
+    `99a`/`99b` addressing, render, resolve) but the framework renders each from a
+    CLEAN, EMPTY frame — no snapshot carry-over from the previous subscene (which would
+    GHOST the prior thumbnail behind this one) and no snapshot save/replay (each frame
+    is self-contained). The marker, not a special base class, drives this — so there's
+    no multiple-inheritance tangle with the video's Scene base. **Render a thumbnail as
+    a 4K PNG with `render 99a`** (scene `99` auto-detects still-image mode — manim
+    `-s -qk` — and prints the PNG path under `media/images/**/`; `--fast` for a quick
+    low-res layout check). Numbers on a thumbnail are still SOURCED, never invented.
+    Yahtzee `99thumbnails.py` is the reference user.
   - Tests / scratch scenes take `98` and DOWN (`98`,`97`,…) so they never collide
     with the meta-files (a test at `99` would shadow the thumbnails file).
 

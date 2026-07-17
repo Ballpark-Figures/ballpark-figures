@@ -40,9 +40,11 @@ def _parse(path):
         for item in node.body:
             if isinstance(item, ast.FunctionDef):
                 for dec in item.decorator_list:
-                    is_sub = (isinstance(dec, ast.Name) and dec.id == "subscene") or \
-                             (isinstance(dec, ast.Attribute) and dec.attr == "subscene")
-                    if is_sub:
+                    # @thumbnail is a subscene too (independent static frame) — it
+                    # shares the NNa/NNb addressing, so count it like @subscene.
+                    name = dec.id if isinstance(dec, ast.Name) else \
+                        dec.attr if isinstance(dec, ast.Attribute) else None
+                    if name in ("subscene", "thumbnail"):
                         subs.append(item.name)
         inherits = any(
             (isinstance(b, ast.Name) and b.id == "BpkScene") or

@@ -190,6 +190,21 @@ def subscene(fn):
     return fn
 
 
+def thumbnail(fn):
+    """An INDEPENDENT static-frame subscene (for a `99` thumbnails file).
+
+    A thumbnail IS a subscene — same `99a`/`99b` addressing, render, and resolve —
+    but the framework renders it from a CLEAN, EMPTY frame: no snapshot carry-over
+    from the previous subscene (which for a thumbnail would ghost the prior frame
+    behind this one) and no snapshot save/replay (each frame is self-contained, so
+    the whole prefix-replay machinery is unnecessary). Use `@thumbnail` instead of
+    `@subscene` on each frame; the scene can keep any base (e.g. YahtzeeScene) since
+    the behaviour rides on this marker, not on a special base class."""
+    fn._is_subscene = True
+    fn._is_thumbnail = True
+    return fn
+
+
 def _ordered_subscenes(cls):
     found = []
     for name, fn in inspect.getmembers(cls, predicate=inspect.isfunction):
@@ -279,6 +294,16 @@ class BpkScene(Scene):
             self.add(m)
         return True
 
+    def _is_thumb(self, name):
+        """True if subscene `name` is an INDEPENDENT thumbnail frame (@thumbnail)."""
+        return getattr(getattr(type(self), name), "_is_thumbnail", False)
+
+    def _clear_frame(self):
+        """Remove every top-level mobject — reset to an empty frame (used to give
+        each @thumbnail a clean slate with no carry-over from the previous one)."""
+        for m in list(self.mobjects):
+            self.remove(m)
+
     def construct(self):
         self._baseline_keys = set(self.__dict__.keys())
         names = _ordered_subscenes(type(self))
@@ -288,14 +313,28 @@ class BpkScene(Scene):
             self.setup_scene()
             self.wait(SUBSCENE_HOLD)             # leading hold (once, at scene start)
             for i, name in enumerate(names):
+                if self._is_thumb(name):
+                    self._clear_frame()          # independent frame: no carry-over
                 getattr(self, name)()
                 self.wait(SUBSCENE_HOLD)         # single shared pause between subscenes
-                self._save_snapshot(i, names)
+                if not self._is_thumb(name):     # thumbnails need no snapshot
+                    self._save_snapshot(i, names)
             return
 
         idx = label_to_index(target)
         if not (0 <= idx < len(names)):
             raise IndexError(f"Subscene '{target}' out of range (have {len(names)})")
+
+        # A thumbnail is self-contained: render it from an EMPTY frame with no
+        # prior-snapshot load / prefix replay (that carry-over is what ghosts the
+        # previous thumbnail behind this one).
+        if self._is_thumb(names[idx]):
+            self.setup_scene()
+            self._clear_frame()
+            self.wait(SUBSCENE_HOLD)             # leading hold
+            getattr(self, names[idx])()
+            self.wait(SUBSCENE_HOLD)             # trailing hold
+            return
 
         # Load the LATEST valid snapshot at or before idx-1, then replay only the
         # subscenes between it and idx (frames skipped). So editing subscene h
