@@ -29,7 +29,13 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 99a                       # scene 99 = thumbnails: auto-renders a STATIC 4K PNG
                                      # (manim -s -qk) under media/images/; prints its path
     render 99a --fast                # same, but a quick low-res PNG to check layout
+    render 99 all                    # every thumbnail — but ONLY the ones whose inputs
+                                     # changed re-render (unchanged ones are skipped)
     render 07a --thumb               # force a still PNG for ANY scene (99 is automatic)
+
+Thumbnails are independent images, so `render 99 all` skips any whose code (or a
+shared helper/asset it uses) is unchanged since its PNG — keyed the same way the
+snapshot cache keys subscenes, with a quality tag. `--recompute` forces a rebuild.
     render 01h --state               # print mobjects at h's start (no render)
     render 01 --check                # AST-parse the scene + assets only (no manim)
 
@@ -37,6 +43,9 @@ Negative frame times are seconds-from-end (like ffmpeg -sseof). If `render`
 isn't on PATH, use `<repo>/.venv/bin/python -m bpkfigures.render ...`.
 """
 import glob
+import hashlib
+import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -164,6 +173,109 @@ def _output_png(output):
         hits = glob.glob(os.path.join("media", "images", "**", "*.png"),
                          recursive=True)
     return max(hits, key=os.path.getmtime) if hits else None
+
+
+# ── thumbnail change-detection (skip re-rendering unchanged 99 images) ─────────
+# Thumbnails (scene 99) are INDEPENDENT static frames, so a `render 99 all` need
+# only re-render the ones whose inputs changed. We key each thumbnail's PNG by the
+# SAME per-subscene digest the snapshot cache uses (bpkfigures.scene), so a change
+# to one thumbnail's code (or a shared helper/asset it reaches) re-renders exactly
+# the affected thumbnails and skips the rest. Keys live in a committed-free JSON
+# manifest beside the PNGs under media/images/ (gitignored, machine-local).
+def _thumb_scene_module_name(scene_path):
+    return os.path.splitext(os.path.basename(scene_path))[0]
+
+
+def _load_scene_class(scene_path, classname):
+    """Import the scene module (for its class + module namespace) so we can compute
+    the per-subscene digest. Sets sys.modules[modname] so scene._scene_source_digest
+    can resolve module-level references."""
+    sys.path.insert(0, os.getcwd())
+    sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "..")))
+    modname = _thumb_scene_module_name(scene_path)
+    mod = sys.modules.get(modname)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(modname, scene_path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[modname] = mod
+        spec.loader.exec_module(mod)
+    return getattr(mod, classname)
+
+
+def _thumb_key(cls, scene_path, name, qtag):
+    """The change-key for one thumbnail subscene: the SAME three terms as the
+    snapshot prefix-key (bpkfigures.scene), but for this ONE independent subscene —
+    version + project-source hash (excluding the scene file + CLI tooling) + the
+    subscene's dependency-closure digest — plus the render QUALITY tag (so a quick
+    --fast PNG never satisfies a later full-res render)."""
+    from bpkfigures import scene as S
+    bpk = S._BPK_DIR
+    project_root = os.path.dirname(os.path.dirname(os.path.realpath(scene_path)))
+    tooling = {os.path.realpath(os.path.join(bpk, f)) for f in ("render.py", "resolve.py")}
+    srcs = [
+        f"v{S.SNAPSHOT_VERSION}",
+        f"q:{qtag}",
+        S._source_hash([bpk, project_root],
+                       exclude={os.path.realpath(scene_path)} | tooling),
+        S._scene_source_digest(cls, ["setup_scene", name]),
+    ]
+    return hashlib.md5("".join(srcs).encode()).hexdigest()
+
+
+def _thumb_png_path(scene_path, output):
+    return os.path.join("media", "images", _thumb_scene_module_name(scene_path),
+                        f"{output}.png")
+
+
+def _thumb_manifest_path(scene_path):
+    return os.path.join("media", "images", _thumb_scene_module_name(scene_path),
+                        ".render_keys.json")
+
+
+def _load_manifest(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_manifest(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=0, sort_keys=True)
+
+
+def _thumb_change_plan(targets, qtag):
+    """For the 99 (thumbnail) targets, compute each one's change-key and decide
+    which are UP TO DATE (existing PNG + matching manifest key → skip). Returns
+    (skip:set, keys:{target:key}, outputs:{target:output}, manifest_path, manifest).
+    On any failure, returns an empty plan (render everything) — never blocks."""
+    tt = [t for t in targets if _is_thumb_prefix(t[:2])]
+    empty = (set(), {}, {}, None, {})
+    if not tt:
+        return empty
+    try:
+        path0, classname0, _o, _l = resolve.resolve(tt[0])
+        cls = _load_scene_class(path0, classname0)
+        _cn, subs = resolve._parse(path0)
+        manifest_path = _thumb_manifest_path(path0)
+        manifest = _load_manifest(manifest_path)
+        skip, keys, outputs = set(), {}, {}
+        for t in tt:
+            letter = t[2:]
+            name = subs[resolve.label_to_index(letter)]
+            output = f"{t[:2]}{letter}_{name}"
+            key = _thumb_key(cls, path0, name, qtag)
+            keys[t], outputs[t] = key, output
+            if manifest.get(output) == key and \
+                    os.path.exists(_thumb_png_path(path0, output)):
+                skip.add(t)
+        return skip, keys, outputs, manifest_path, manifest
+    except Exception as e:
+        print(f"[render] thumbnail change-check skipped "
+              f"({type(e).__name__}: {e})", file=sys.stderr)
+        return empty
 
 
 # ── --state: peek at a subscene's starting mobjects (no render) ────────────────
@@ -429,6 +541,14 @@ def main(argv=None):
     if check:
         return _check_syntax(targets)
 
+    # Thumbnails (scene 99) are independent images — skip re-rendering the ones
+    # whose inputs are unchanged since their PNG (unless --recompute forces a rebuild).
+    # The key includes a quality tag so a --fast PNG never satisfies a full-res run.
+    qtag = "very_fast" if very_fast else ("fast" if fast else "hq")
+    skip, thumb_keys, thumb_out, manifest_path, manifest = (
+        (set(), {}, {}, None, {}) if (recompute or state or extract)
+        else _thumb_change_plan(targets, qtag))
+
     # lock per scene for actual renders (not the read-only --state/--extract modes)
     locks = None
     if not state and not extract:
@@ -438,6 +558,10 @@ def main(argv=None):
     try:
         worst_rc = 0
         for target in targets:
+            if target in skip:
+                print(f"[render] {target} up to date — skipped "
+                      f"(use --recompute to force)", file=sys.stderr)
+                continue
             rc = _render_one(target, passthrough, recompute, fast, state,
                              frames_spec, quiet=quiet, tail=tail_n,
                              extract=extract, very_fast=very_fast, padded=padded,
@@ -445,6 +569,9 @@ def main(argv=None):
             worst_rc = worst_rc or rc
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
+                if target in thumb_keys and manifest_path:   # record the new key
+                    manifest[thumb_out[target]] = thumb_keys[target]
+                    _save_manifest(manifest_path, manifest)
         return worst_rc
     finally:
         _release_locks(locks)
