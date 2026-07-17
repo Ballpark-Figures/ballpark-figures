@@ -575,6 +575,13 @@ calls for; no titles/labels/narration that weren't asked for.
   `--padded 3` = 3s) into a `padded_videos/` tree mirroring `videos/` — an editing
   aid (handles around each subscene). Composes: `--padded --extract` pads an EXISTING
   mp4 with no re-render. Re-encodes (crf 18); renders are silent so no audio sync.
+- **`render 99a --thumb` renders a STATIC thumbnail** — passes manim's `-s` (save the
+  last frame, no video) at `-qk` (4K, 3840×2160) and prints the PNG path under
+  `media/images/**/`. This is the ONE path for thumbnails (scene `99`); don't
+  hand-roll `manim -s -qk`. It targets like any render, so a per-thumbnail `@subscene`
+  is `render 99a --thumb`; `--fast` gives a quick low-res PNG to check layout, and the
+  4K PNG is the upload asset (let YouTube do the single compression pass — don't
+  pre-compress). `media/` is gitignored, so the PNG stays local like every render.
 - `render 01h --state` (no render) prints the mobjects on screen at subscene h's
   START (from the prior snapshot) — use to reason about starting state cheaply.
 - **`render` takes a per-scene lockfile** (`cache/locks/`), so a SECOND render of

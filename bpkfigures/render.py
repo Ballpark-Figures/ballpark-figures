@@ -26,6 +26,9 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
                                      # padded copy (10s/side) under padded_videos/
     render 01g --padded 3            # render, then pad with 3s each side
     render 01g --padded --extract    # pad the EXISTING mp4 (no re-render)
+    render 99a --thumb               # STATIC thumbnail: save last frame as a 4K PNG
+                                     # (manim -s -qk) under media/images/; prints its path
+    render 99a --thumb --fast        # same, but a quick low-res PNG to check layout
     render 01h --state               # print mobjects at h's start (no render)
     render 01 --check                # AST-parse the scene + assets only (no manim)
 
@@ -147,6 +150,18 @@ def _output_mp4(output):
     hits = glob.glob(os.path.join("media", "videos", "**", f"{output}.mp4"),
                      recursive=True)
     # newest wins if multiple qualities
+    return max(hits, key=os.path.getmtime) if hits else None
+
+
+def _output_png(output):
+    """Find the saved-last-frame PNG for `output` under media/images/**/ (what
+    manim's `-s` writes for a --thumb render). Prefers an exact `<output>.png`;
+    falls back to the newest PNG in the images tree if manim named it otherwise."""
+    hits = glob.glob(os.path.join("media", "images", "**", f"{output}.png"),
+                     recursive=True)
+    if not hits:
+        hits = glob.glob(os.path.join("media", "images", "**", "*.png"),
+                         recursive=True)
     return max(hits, key=os.path.getmtime) if hits else None
 
 
@@ -345,6 +360,7 @@ def main(argv=None):
     state = "--state" in argv
     check = "--check" in argv    # AST-parse the scene + assets (no manim, instant)
     extract = "--extract" in argv  # extract --frames from the EXISTING mp4 (no render)
+    thumb = ("--thumb" in argv) or ("--thumbnail" in argv)  # static -s PNG (4K by default)
     quiet = "--quiet" in argv    # pass -v WARNING to manim (drops per-animation INFO spam)
     frames_spec = None
     padded = None                # --padded [N]: also write a first/last-frame-padded copy
@@ -354,7 +370,7 @@ def main(argv=None):
     while i < len(argv):
         a = argv[i]
         if a in ("--recompute", "--hq", "--state", "--fast", "--very-fast", "-ql",
-                 "--quiet", "--check", "--extract"):
+                 "--quiet", "--check", "--extract", "--thumb", "--thumbnail"):
             pass
         elif a == "--frames":
             i += 1
@@ -393,7 +409,7 @@ def main(argv=None):
     if not targets:
         print("usage: render NN[label] [NN[label] ...] [NN all|sub] [NNa-c|NNb-|NN-f] "
               "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
-              "[--state] [--check]")
+              "[--thumb] [--state] [--check]")
         return 2
 
     if check:
@@ -410,7 +426,8 @@ def main(argv=None):
         for target in targets:
             rc = _render_one(target, passthrough, recompute, fast, state,
                              frames_spec, quiet=quiet, tail=tail_n,
-                             extract=extract, very_fast=very_fast, padded=padded)
+                             extract=extract, very_fast=very_fast, padded=padded,
+                             thumb=thumb)
             worst_rc = worst_rc or rc
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
@@ -420,7 +437,8 @@ def main(argv=None):
 
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,
-                quiet=False, tail=None, extract=False, very_fast=False, padded=None):
+                quiet=False, tail=None, extract=False, very_fast=False, padded=None,
+                thumb=False):
     """Resolve, (clean+render) or --state, and extract frames for one target.
 
     quiet -> pass `-v WARNING` to manim (suppresses its per-animation INFO log).
@@ -469,8 +487,17 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         env["RECOMPUTE"] = "1"
 
     manim = _find_venv_manim()
-    quality = "-ql" if (fast or very_fast) else "-qh"
+    # --thumb wants a high-res still (4K, -qk) to give YouTube's downscale the most
+    # data; --fast/--very-fast still win for a quick low-res layout check.
+    if fast or very_fast:
+        quality = "-ql"
+    elif thumb:
+        quality = "-qk"
+    else:
+        quality = "-qh"
     cmd = [manim, quality]
+    if thumb:
+        cmd += ["-s"]                            # save the LAST frame as a PNG (no video)
     if very_fast:
         cmd += ["-r", "256,144", "--fps", "3"]   # terrible res + 3 fps
     if quiet:
@@ -487,6 +514,16 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     else:
         rc = subprocess.run(cmd, env=env).returncode
     if rc != 0:
+        return rc
+
+    if thumb:
+        # -s writes a still PNG (no mp4) under media/images/**/; print its path
+        png = _output_png(output)
+        if png:
+            print(png)
+        else:
+            print(f"[render] rendered but couldn't find output PNG for {output} "
+                  f"under media/images/", file=sys.stderr)
         return rc
 
     if frames_spec is not None or padded is not None:
