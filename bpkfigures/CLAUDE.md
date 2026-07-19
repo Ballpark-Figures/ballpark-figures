@@ -81,6 +81,11 @@ traceable to the user's OWN computations, never re-derived by the agent.
   alongside the renders + voiceover. Same convention as `footage/`: the tracks
   (`*.mp3`/`*.wav`) are gitignored (large binaries), so git tracks only the folder +
   its README, not the audio — local, not synced. `/new-video` scaffolds it.
+- **Finishing & publishing a video** (assemble in DaVinci → export `.mov` → upload
+  to YouTube + thumbnail) is the post-`manim` pipeline — see `bpkfigures/PUBLISHING.md`.
+  The deliverable is `<Video>.mov` at the video repo root (H.264, 1080p, the
+  timeline's fps — Battleship 30, Yahtzee 60), gitignored like the other binaries; a
+  `.drp` is a Resolve project backup, never uploaded.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
 - **Reserved scene-number slots (prefixes are 2 DIGITS — `resolve` slices
