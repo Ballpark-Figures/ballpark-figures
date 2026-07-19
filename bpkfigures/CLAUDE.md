@@ -83,9 +83,12 @@ traceable to the user's OWN computations, never re-derived by the agent.
   its README, not the audio — local, not synced. `/new-video` scaffolds it.
 - **Finishing & publishing a video** (assemble in DaVinci → export `.mov` → upload
   to YouTube + thumbnail) is the post-`manim` pipeline — see `bpkfigures/PUBLISHING.md`.
-  The deliverable is `<Video>.mov` at the video repo root (H.264, 1080p, the
-  timeline's fps — Battleship 30, Yahtzee 60), gitignored like the other binaries; a
-  `.drp` is a Resolve project backup, never uploaded.
+  **Set the DaVinci project fps + resolution to match the video's `manim.cfg` BEFORE
+  importing any media** (1920×1080, Yahtzee 60 / Battleship 30) — DaVinci locks the
+  timeline fps once media is imported, and a mismatch (e.g. a 24 fps timeline for
+  60 fps renders) is a painful migration to fix. The deliverable is `<Video>.mov` at
+  the video repo root (H.264, 1080p, timeline fps), gitignored like the other
+  binaries; a `.drp` is a Resolve project backup, never uploaded.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
 - **Reserved scene-number slots (prefixes are 2 DIGITS — `resolve` slices
