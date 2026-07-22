@@ -44,6 +44,34 @@ Legend for coverage:
 
 ---
 
+## Classification pass (sample — nothing removed yet)
+
+Section-by-section tagging: **CHECK** (mechanically enforceable), **CORE**
+(load every session), **APPENDIX** (situational, relocate to a grep-able
+appendix), **DEAD** (superseded / redundant / done migration note).
+
+### Sample: "Snapshot cache" section (lines ~630–661)
+- **Bullet 1** (loads latest snapshot, replays gap) — **APPENDIX**. Explanatory
+  model; actionable consequence already in CORE at 665–667.
+- **Bullet 2** (snapshot key composition, what invalidates what) — **APPENDIX**.
+  Reference detail; "shared-asset edit invalidates all → batch" restated at 668.
+- **Bullet 3** (module-constant capture, rewritten 2026-07-22) — **CORE, trimmable**.
+  Accurate now, but ~80% is history. Once trusted, shrink to ~1 line: *constant
+  edits invalidate; if one seems ignored → `--recompute` (rare edge: address-repr
+  objects / huge arrays).*
+- **Bullet 4** (don't build un-picklable objects in `setup_scene`) — **CORE, but
+  CONFLICTS with line 378.** ⚠️ 378 lists `ValueTracker counters` as un-picklable
+  (→ body); 656 says keep `ValueTracker` in setup (picklable). Truth: a bare
+  ValueTracker IS picklable (setup fine); an `always_redraw`+lambda is NOT (body).
+  656 is closer; 378 is imprecise. **Needs reconciliation, not deletion** — a
+  behavioural rule, stays prose.
+- **Bullet 5** (auto-cleans stale / old `manim()` override removed / quality HIGH)
+  — **DEAD (redundant).** All three clauses restated at 569 and 580–581; the
+  "override removed" clause is a done past-tense migration note. Remove entirely.
+
+**Section verdict:** ~half the line-count is removable/relocatable; 1 contradiction
+surfaced (378↔656). Calibration looks right → extend to the rest of the doc.
+
 ## Observations for the broader audit (not yet acted on)
 
 - The highest-value promotions will be rules that are FULLY mechanical (a check
