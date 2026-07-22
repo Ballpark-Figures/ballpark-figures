@@ -656,9 +656,6 @@ calls for; no titles/labels/narration that weren't asked for.
 - Don't build un-picklable objects (e.g. `always_redraw` with a lambda) in
   `setup_scene` — it breaks the whole scene's snapshot. Build those in the
   subscene; keep picklable parts (`ValueTracker`, static text) in setup.
-- `render` auto-cleans stale `NN<letter>_*` videos (`resolve --clean`). Both the
-  user and agent now use `render` (the old `manim()` zsh override was removed).
-  Quality defaults to HIGH; `--fast` gives a quick `-ql` check.
 
 ## Rendering during iteration (agent — keep the loop fast)
 The slowest mistakes here are render round-trips, not thinking. Defaults:
@@ -757,16 +754,10 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 The permission allowlist already covers the core loop (`render`, `manim`,
 `ffmpeg`/`ffprobe`, `grep`/`rg`/`ls`/`cat`/`head`/`tail`/`wc`/`sort`/`tr`,
 `cd`/`echo`/`mkdir`). Friction comes from working AROUND it; so:
-- **Separators split and auto-approve; control-flow constructs never do.**
-  Plain separators — `&&`, `||`, `;`, `|` — are parsed and each subcommand is
-  matched independently, so a chain of *allowlisted* commands runs prompt-free.
-  But `for`/`while`/`until` loops, subshells `( … )`, and command-substitution
-  `$( … )` always prompt (the evaluator can't see inside them) — split those into
-  separate one-command tool calls. Terse one-liner verification loops
-  (`for x in …; do …; done`) and the `( cmd || fallback )` subshell idiom are the
-  classic traps. NB: a chain still prompts if ANY one subcommand isn't allowlisted
-  (e.g. ad-hoc `python`), or if it's the `cd`+`git` combo (always prompts — see
-  the git note below).
+- **Separators split and auto-approve; control-flow constructs never do** (full
+  rule in § Shell commands). The classic traps to split into separate calls: terse
+  one-liner verification loops (`for x in …; do …; done`) and the `( cmd || fallback )`
+  subshell idiom — the evaluator can't see inside a loop / subshell / `$( … )`.
 - **Syntax check with `render NN --check`** (instant AST parse of the scene +
   `assets/*.py`, no manim) — NOT a separate `python -c "import ast …"`, which
   isn't allowlisted and prompts every time. `--check` ALSO runs a **warn-only style
@@ -812,12 +803,8 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   (Read tool) — one allowlisted call, no re-render. NOT hand-rolled
   `M=… && ffmpeg … && ffmpeg …` chains (the `&&`, `$VAR`, and `select='eq(n\,N)'`
   quoting all force a prompt).
-- **Run git as STANDALONE calls — never `cd <repo> && git …`.** The `cd`+`git`
-  combo ALWAYS prompts (hardcoded safety block), and it was the #1 source of
-  needless prompts. The Bash cwd PERSISTS between calls, so `cd <repo>` once in
-  its own call (or just rely on the current dir — yahtzee is the primary working
-  dir) and then run `git add` / `git commit` / `git push` each standalone, with no
-  `cd` prefix, pipe, or `2>&1`.
+- **Run git as STANDALONE calls — never `cd <repo> && git …`** (the cd+git combo
+  always prompts; the full rule + cwd-persists mechanics are in § Shell commands).
 - **Edit files with the Edit/Write tools, never `python - <<'EOF'` splices** —
   arbitrary `python`/`python3` isn't (and shouldn't be) allowlisted, and file
   rewrites via heredoc are easy to get wrong.
@@ -957,10 +944,8 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   would benefit from a new/modified shared asset or package change, propose it
   before making the change; don't silently edit shared code.
 - **Timing:** make sensible run_time guesses and name them on handoff (see
-  Process). Every animation/wait must expose a tunable `run_time` as a value in the
-  subscene BODY (not on the @subscene signature — subscenes take no args), even when
-  it calls a helper that performs the animation (see the run_time note in the
-  scene-structure section).
+  Process). Every animation/wait exposes a tunable `run_time` in the subscene body —
+  see the run_time note in Scene structure.
 
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and
@@ -996,11 +981,10 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   is "enough") — the user judges that better/faster from the actual video. On
   handoff, the agent explicitly NAMES which timing/feel knobs it left at a guess
   so the user knows what to watch.
-- **Every animation/wait exposes its `run_time`** as a value in the subscene BODY —
-  NOT on the @subscene signature (subscenes are called with no args, so a signature
-  param is a dead knob). Pass explicit `run_time=` to every `self.play`; give helpers
-  that play a `run_time` param and pass the body's value in. So the user can retime
-  when editing the video. See the run_time note in the scene-structure section.
+- **Every animation/wait exposes its `run_time`** as a value in the subscene body,
+  so the user can retime when editing the video — full rule (inline the literal, no
+  `@subscene`-signature params, helpers take a `run_time`) in the run_time note under
+  Scene structure.
 - **Use extended thinking for scene-building** (geometry + animation sequencing).
   The costly mistakes here are spatial — overlaps, a label centered on the panel
   edge instead of the cell, dice rolling into a guide line — and timing/sequencing
