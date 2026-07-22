@@ -94,6 +94,48 @@ just **bullet 5 (DEAD)** and **bullet 3's history (TRIM)** — a modest shrink, 
 contradiction surfaced (378↔656) to reconcile. Lesson: DEAD+TRIM are the honest
 conservative levers; relocation is a bigger, hook-gated project.
 
+## DEAD/TRIM sweep — full doc (verified, nothing removed yet)
+
+Swept all 19 sections. Findings below; the high-confidence DEAD items were
+grep-VERIFIED against the file (line numbers exact ±1). The Canonical patterns
+index (123–163) and the new-scene PREFLIGHT (904–922) restate rules BY DESIGN
+(pointers/gates with explicit cross-refs) — deliberately NOT flagged.
+
+### DEAD — high confidence (verified duplication)
+1. **run_time-on-@subscene-signature** rule stated 3×: primary **481–487**;
+   restated at **961** (in 959–963) and **1000–1001** (in 999–1003). The two
+   restatements sit inside section-local lists (Starting a new scene / Process),
+   so the call is "point to 481–487 vs restate" — not a blind delete. ~6–9 lines.
+2. **`manim()` zsh override "is gone / was removed"** — DONE-MIGRATION note at
+   **569** and **660**. Not a rule; removable from both. ~2 lines.
+3. **cd+git always prompts / run git standalone** — full rule 2×: **322–327**
+   (§ Shell commands) and **815–820** (§ Keep commands). Drop one. (Line 768 is a
+   pointer — keep.) ~6 lines.
+4. **Chains auto-approve; separators split, control-flow never does** — full rule
+   2×: primary **317–336** (§ Shell commands, more complete), restated **760–769**
+   (§ Keep commands). Fold 760–769 into A. ~10 lines.
+5. **Quality defaults to HIGH / --fast / auto-cleans stale** — primary **580–582**
+   (+ 580 for auto-clean); restated at **659–661**. Remove 659–661. ~3 lines.
+
+### DEAD — medium confidence (needs your eye; the "dup" adds a nuance)
+- Recurring-motion-to-asset: **529–538** vs **547–558** (B is a superset w/ the
+  "check scenes too" nuance + scene-06 example → primary B; A candidate to merge).
+- Explicit-path staging: **850** vs **258–261** (258–261 fuller; 850 compact).
+- "Implement literally / exact wording is the spec": **980–981** vs **9–12**
+  (980–981 adds the "disappear ≠ fade" example).
+
+### TRIM — history/war-story tails to cut from rules that STAY
+173–178 (scene-06 frame calc) · 438–441 (`_zero_flash`) · 518–525 (grey `0`) ·
+549–551 (`_show_keep`) · 650–655 (scalar-whitelist backstory, from our own fix) ·
+680–685 (480p/wrong-constant) · 691–694 (card-taller-than-frame) · 702–703
+(scene-04 seams) · 724–727 (scene-04 montage) · 975–977 (scene-11c Ones).
+Each ~2–6 lines of history; the rule itself stays.
+
+### Rough totals
+DEAD-removable ≈ 35–45 lines (25–30 high-confidence). TRIM ≈ 30–40 lines. Net
+potential shrink ≈ 65–85 lines (~7% of the doc) with ZERO loss of a live rule —
+all of it is duplication, done-migration notes, or backstory.
+
 ## Observations for the broader audit (not yet acted on)
 
 - The highest-value promotions will be rules that are FULLY mechanical (a check
