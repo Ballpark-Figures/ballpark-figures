@@ -101,7 +101,12 @@ grep-VERIFIED against the file (line numbers exact ±1). The Canonical patterns
 index (123–163) and the new-scene PREFLIGHT (904–922) restate rules BY DESIGN
 (pointers/gates with explicit cross-refs) — deliberately NOT flagged.
 
-### DEAD — high confidence (verified duplication)
+> **BATCH 1 EXECUTED (commit `a344dff`, 2026-07-22).** All 5 high-confidence DEAD
+> items below are DONE — each restatement folded to a pointer, no rule lost;
+> 1006→993 lines. NB: line numbers for the medium-confidence + TRIM items below
+> shifted ~13 lines earlier past line 662 — re-verify before acting on them.
+
+### DEAD — high confidence (verified duplication) — ✅ DONE (batch 1)
 1. **run_time-on-@subscene-signature** rule stated 3×: primary **481–487**;
    restated at **961** (in 959–963) and **1000–1001** (in 999–1003). The two
    restatements sit inside section-local lists (Starting a new scene / Process),
