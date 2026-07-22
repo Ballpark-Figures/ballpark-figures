@@ -640,16 +640,19 @@ calls for; no titles/labels/narration that weren't asked for.
   leaves earlier snapshots valid; editing an asset/config/shared helper (or
   `scene.py`/`style.py`) invalidates them; editing `render.py`/`resolve.py` does
   NOT. Bump `SNAPSHOT_VERSION` to force-invalidate.
-- **A scene-file MODULE CONSTANT changed between renders does NOT reliably
-  invalidate the per-subscene digest.** The scene file is excluded from the
-  project hash, and the digest keys on each subscene's code closure — NOT the
-  runtime VALUES of module globals it reads. So tuning a top-of-file layout
-  constant (`COL4_W`, `DICE_DX`, a position vector) can leave you rendering the
-  OLD value straight from cache: the edit appears to do nothing (or something
-  contradictory), and you "verify" a STALE frame as if it reflected the change.
-  When iterating on layout/positioning driven by such constants, render with
-  `--recompute` (or bump `SNAPSHOT_VERSION`). This burned many scene-06 rounds —
-  frames judged "correct" were pre-edit output.
+- **A scene-file MODULE CONSTANT the subscene reads IS captured in its digest —
+  editing it invalidates the snapshot** (fixed 2026-07-22). The digest repr's the
+  VALUE of every module-level constant a subscene's code closure references, of ANY
+  stable-repr type — scalars, `np.ndarray` position vectors (`LEFT_SC`, a `COL4_W`),
+  enums, dataclasses — so tuning a top-of-file layout constant re-renders correctly.
+  (Earlier only a scalar whitelist was captured, so a position-vector constant went
+  stale from cache — the scene-06 "verified a pre-edit frame" trap; that gap is
+  closed.) Two residual edge cases where the digest can still miss a real change, so
+  reach for `--recompute` if a constant edit seems to do nothing: a constant whose
+  `repr` carries a memory address (`<Foo at 0x…>`, e.g. a module-level Mobject —
+  deliberately not captured, as the address would poison the cache) and a *huge*
+  numpy array (numpy truncates its repr with `…`, so two differ only past the
+  cutoff). Ordinary layout/position/size constants are safe.
 - Don't build un-picklable objects (e.g. `always_redraw` with a lambda) in
   `setup_scene` — it breaks the whole scene's snapshot. Build those in the
   subscene; keep picklable parts (`ValueTracker`, static text) in setup.
