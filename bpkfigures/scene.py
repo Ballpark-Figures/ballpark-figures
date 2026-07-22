@@ -36,7 +36,7 @@ SNAPSHOT_DIR = os.path.join("cache", "snapshots")
 
 # Bump this to manually invalidate every cached snapshot (e.g. after changing
 # the snapshot machinery itself or any dependency the source hash can't see).
-SNAPSHOT_VERSION = 4
+SNAPSHOT_VERSION = 5
 
 # Every subscene is framed by a static hold: the framework plays one leading
 # self.wait(SUBSCENE_HOLD) at the very start of a render, then one trailing hold
@@ -173,10 +173,22 @@ def _scene_source_digest(cls, method_names):
                             parts[key] = inspect.getsource(val)
                         except Exception:
                             parts[key] = key  # deterministic fallback (see above)
-                elif isinstance(val, (int, float, str, bytes, bool, tuple,
-                                      frozenset, type(None), dict, list, set)):
-                    # module-level constant the code depends on
-                    parts[f"const:{ref}"] = repr(val)
+                else:
+                    # a module-level constant the code depends on. Capture its
+                    # VALUE via repr so tuning it (a size, a position vector, a
+                    # colour) invalidates the digest — NOT just the scalar types:
+                    # numpy/manim position vectors (np.ndarray), enums, and
+                    # dataclasses all have stable reprs and were silently skipped
+                    # by an isinstance whitelist, so editing e.g. LEFT_SC left the
+                    # snapshot stale. The ONE thing that poisons the cache is a
+                    # repr carrying a memory address (`<Foo at 0x…>`) — it changes
+                    # every process (see _add_function's fallback note) — so for
+                    # those, fall back to the deterministic name key instead.
+                    try:
+                        r = repr(val)
+                    except Exception:
+                        r = f"const:{ref}"
+                    parts[f"const:{ref}"] = f"const:{ref}" if " at 0x" in r else r
 
     h = hashlib.md5()
     for qual in sorted(parts):
