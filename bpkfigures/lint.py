@@ -8,6 +8,8 @@ remembering (and that got missed while EDITING this-or-that scene):
   - a hex colour literal ("#B01E43") inlined in a scene  -> name it in style.py / config.py
   - a raw manim palette colour (GREY, RED, …)            -> use a semantic style.py/config.py colour
   - a one-use `run_time` local (`rt = 1.2` … run_time=rt) -> inline the literal at the call site
+  - a recalled manim DEFAULT frame bound (7.11 / 14.22)  -> read config.frame_x_radius/​y_radius
+  - `.scale(...)` chained on a get_scorecard()/get_two_scorecards() -> enters full-size via slide_in
 
 It is WARN-ONLY: it never changes the exit code and never blocks a render. The
 judgment-based conventions still live in CLAUDE.md; this only mechanises the few
@@ -27,6 +29,17 @@ _RAW_COLOR_RE = re.compile(
     r"(_[A-E])?$")
 _HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 _RAW_TEXT = {"Text", "Paragraph", "MarkupText"}
+# manim's DEFAULT frame half-width (7.11) and full-width (14.22). This repo's
+# frame is 16×9 (x-radius 8.0, y-radius 4.5), so these values are only ever a
+# mis-recalled default — the exact scene-06 bug (a correct ruler at the wrong
+# zero). Matched with a small tolerance to catch 7.1111…/14.2222…. NB the CORRECT
+# bounds (8.0/4.5/4.0) are NOT flagged — far too common as ordinary positions to
+# check without swamping the linter; the rule is "read them from config", but a
+# static check can only catch the unambiguous wrong-default smell.
+_FRAME_DEFAULT_BOUNDS = (7.11, 14.22)
+# scorecard factories whose result must NOT be `.scale()`d — they enter full-size
+# at canonical centres via slide_in / slide_two_in (a scaled card read tiny).
+_SCORECARD_FACTORIES = {"get_scorecard", "get_two_scorecards"}
 _LOOPS = (ast.For, ast.While, ast.ListComp, ast.SetComp, ast.DictComp,
           ast.GeneratorExp)
 
@@ -41,7 +54,7 @@ class _Linter(ast.NodeVisitor):
     def _warn(self, lineno, msg):
         self.warnings.append((lineno, msg))
 
-    # ── raw text mobjects ────────────────────────────────────────────────────
+    # ── raw text mobjects  +  scaled scorecard factory ───────────────────────
     def visit_Call(self, node):
         f = node.func
         name = (f.id if isinstance(f, ast.Name) else
@@ -50,14 +63,31 @@ class _Linter(ast.NodeVisitor):
             self._warn(node.lineno,
                        f"raw {name}(...) — use crisp_text/crisp_paragraph "
                        f"(bpkfigures.style), never a bare manim text mobject")
+        # `.scale(...)` chained DIRECTLY on a scorecard factory call
+        if (name == "scale" and isinstance(f, ast.Attribute)
+                and isinstance(f.value, ast.Call)):
+            inner = f.value.func
+            inner_name = (inner.id if isinstance(inner, ast.Name) else
+                          inner.attr if isinstance(inner, ast.Attribute) else None)
+            if inner_name in _SCORECARD_FACTORIES:
+                self._warn(node.lineno,
+                           f"{inner_name}(...).scale(...) — a scorecard enters "
+                           f"FULL size at its canonical centre via slide_in / "
+                           f"slide_two_in; don't .scale() it (it reads tiny)")
         self.generic_visit(node)
 
-    # ── inline hex colours ───────────────────────────────────────────────────
+    # ── inline hex colours  +  recalled default frame bounds ──────────────────
     def visit_Constant(self, node):
         if isinstance(node.value, str) and _HEX_RE.match(node.value):
             self._warn(node.lineno,
                        f"hex colour {node.value!r} inlined — name it in style.py / "
                        f"the video's config.py, don't hardcode a hex in a scene")
+        elif (isinstance(node.value, float)
+              and any(abs(node.value - b) < 0.01 for b in _FRAME_DEFAULT_BOUNDS)):
+            self._warn(node.lineno,
+                       f"{node.value} looks like manim's DEFAULT frame bound — this "
+                       f"repo's frame is 16×9 (x-radius 8.0, y-radius 4.5). Read "
+                       f"config.frame_x_radius / frame_y_radius, never a recalled default")
         self.generic_visit(node)
 
     # ── raw manim palette colours ────────────────────────────────────────────
