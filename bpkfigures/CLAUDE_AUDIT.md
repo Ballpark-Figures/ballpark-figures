@@ -46,31 +46,53 @@ Legend for coverage:
 
 ## Classification pass (sample — nothing removed yet)
 
-Section-by-section tagging: **CHECK** (mechanically enforceable), **CORE**
-(load every session), **APPENDIX** (situational, relocate to a grep-able
-appendix), **DEAD** (superseded / redundant / done migration note).
+**Correction (the appendix trap):** an "appendix" only read when the agent
+decides to grep it is subject to the exact unreliable-recall failure mode
+CLAUDE.md exists to avoid — the doc loads unconditionally *because* we can't
+count on on-demand lookup. So the split that matters is NOT importance, it's:
+- **PROACTIVE** — must fire unprompted (the trigger is the agent noticing the
+  situation). Can NEVER leave always-loaded context. Stays.
+- **REFERENCE** — consulted only when the agent already has a concrete question;
+  not knowing it proactively causes a lookup, not a silent error. Can leave
+  always-loaded context **only if a hook mechanically injects it** on a
+  deterministic trigger (e.g. touching `scenes/NN*.py` injects scene rules).
+  Without that hook, relocating it is a downgrade.
+
+So the safe shrink levers that DON'T weaken the load-everything guarantee:
+- **DEAD** — redundant (restated elsewhere) / superseded / done-migration text.
+  Removing a duplicate doesn't reduce coverage.
+- **TRIM** — cut history/verbosity from a rule that STAYS loaded; just shorter.
+- **CHECK** — mechanically enforceable (→ `lint.py`); prose stays until trusted.
+
+The CORE/APPENDIX relocation is gated on building the injection-hook — a separate,
+bigger decision, NOT part of the conservative shrink.
 
 ### Sample: "Snapshot cache" section (lines ~630–661)
-- **Bullet 1** (loads latest snapshot, replays gap) — **APPENDIX**. Explanatory
-  model; actionable consequence already in CORE at 665–667.
-- **Bullet 2** (snapshot key composition, what invalidates what) — **APPENDIX**.
-  Reference detail; "shared-asset edit invalidates all → batch" restated at 668.
-- **Bullet 3** (module-constant capture, rewritten 2026-07-22) — **CORE, trimmable**.
-  Accurate now, but ~80% is history. Once trusted, shrink to ~1 line: *constant
-  edits invalidate; if one seems ignored → `--recompute` (rare edge: address-repr
-  objects / huge arrays).*
-- **Bullet 4** (don't build un-picklable objects in `setup_scene`) — **CORE, but
+- **Bullet 1** (loads latest snapshot, replays gap) — **REFERENCE.** Its PROACTIVE
+  consequence ("render only the changed subscene") is already loaded at 665–667,
+  so the mechanism itself is consult-on-question. Relocatable ONLY via hook;
+  otherwise stays. No safe removal now.
+- **Bullet 2** (snapshot key composition, what invalidates what) — **REFERENCE.**
+  The proactive nugget ("shared-asset edit invalidates all → batch") is loaded at
+  668. Composition detail is consult-on-question. Same: hook-gated, else stays.
+- **Bullet 3** (module-constant capture, rewritten 2026-07-22) — **TRIM.** Rule
+  stays loaded; cut the ~80% that is history. Once trusted, shrink to ~1 line:
+  *constant edits invalidate; if one seems ignored → `--recompute` (rare edge:
+  address-repr objects / huge arrays).* SAFE removal (history only).
+- **Bullet 4** (don't build un-picklable objects in `setup_scene`) — **PROACTIVE,
   CONFLICTS with line 378.** ⚠️ 378 lists `ValueTracker counters` as un-picklable
   (→ body); 656 says keep `ValueTracker` in setup (picklable). Truth: a bare
   ValueTracker IS picklable (setup fine); an `always_redraw`+lambda is NOT (body).
-  656 is closer; 378 is imprecise. **Needs reconciliation, not deletion** — a
-  behavioural rule, stays prose.
+  656 is closer; 378 is imprecise. **Reconcile, don't delete** — stays loaded.
 - **Bullet 5** (auto-cleans stale / old `manim()` override removed / quality HIGH)
   — **DEAD (redundant).** All three clauses restated at 569 and 580–581; the
-  "override removed" clause is a done past-tense migration note. Remove entirely.
+  "override removed" clause is a done past-tense migration note. SAFE removal.
 
-**Section verdict:** ~half the line-count is removable/relocatable; 1 contradiction
-surfaced (378↔656). Calibration looks right → extend to the rest of the doc.
+**Section verdict (corrected):** the safe, load-guarantee-preserving wins are
+just **bullet 5 (DEAD)** and **bullet 3's history (TRIM)** — a modest shrink, not
+"half the section." Bullets 1–2 only shrink if we build the injection-hook. One
+contradiction surfaced (378↔656) to reconcile. Lesson: DEAD+TRIM are the honest
+conservative levers; relocation is a bigger, hook-gated project.
 
 ## Observations for the broader audit (not yet acted on)
 
