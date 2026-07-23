@@ -374,8 +374,10 @@ calls for; no titles/labels/narration that weren't asked for.
   construction. If it can go in setup, it should. Only THREE kinds of code
   legitimately stay in the body: (1) offscreen ENTRANCE positioning that depends
   on the carried-in geometry (build at home in setup, then `shift` offscreen and
-  animate back in the body); (2) un-picklable animation machinery (`always_redraw`
-  / `ValueTracker` counters — they can't live in a snapshot); (3) construction
+  animate back in the body); (2) a mobject carrying a LAMBDA updater
+  (`always_redraw(lambda …)` or `.add_updater(lambda …)`) — the lambda can't be
+  pickled, so it can't live in a snapshot (a BARE `ValueTracker` pickles fine and
+  belongs in setup — build it there, attach the updater in the body); (3) construction
   whose geometry only exists AFTER an earlier play in the same subscene. Building
   a mobject inline right next to its `play()` "because it's small" is the habit to
   break — extract it. `scenes/05reductions.py` is the current model of this shape;
@@ -649,9 +651,11 @@ calls for; no titles/labels/narration that weren't asked for.
   deliberately not captured, as the address would poison the cache) and a *huge*
   numpy array (numpy truncates its repr with `…`, so two differ only past the
   cutoff). Ordinary layout/position/size constants are safe.
-- Don't build un-picklable objects (e.g. `always_redraw` with a lambda) in
-  `setup_scene` — it breaks the whole scene's snapshot. Build those in the
-  subscene; keep picklable parts (`ValueTracker`, static text) in setup.
+- Don't build a mobject carrying a LAMBDA updater (`always_redraw(lambda …)` or
+  `.add_updater(lambda …)`) in `setup_scene` — the lambda can't be pickled, which
+  breaks the whole scene's snapshot. Build those in the subscene. A BARE
+  `ValueTracker` and static text pickle fine — keep them in setup and attach any
+  updater in the body.
 
 ## Rendering during iteration (agent — keep the loop fast)
 The slowest mistakes here are render round-trips, not thinking. Defaults:
