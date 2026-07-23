@@ -173,9 +173,8 @@ shared package instead of inventing ad-hoc hex values:
   (`from manim import config; config.frame_x_radius / config.frame_y_radius`) — do
   NOT hardcode or assume manim's default 7.11/4.0. Assuming the default (from
   memory, because 16:9 renders "look" standard — the aspect IS 16:9, only the unit
-  size differs) made every margin/centring calc in scene 06 wrong and cost a huge
-  number of rounds. If a layout calc needs a frame bound, the bound comes from
-  `config`, never from your head.
+  size differs) silently makes every margin/centring calc wrong. If a layout calc
+  needs a frame bound, the bound comes from `config`, never from your head.
 - **Colours come from `style.py`, picked in a fixed hierarchy** (the canonical
   version, with rationale, is the header block in `style.py` — read it before
   styling):
@@ -436,9 +435,9 @@ calls for; no titles/labels/narration that weren't asked for.
   total>` once and multiply every sub-duration by `r` (the scorecard scoring methods —
   `upper(run_time=1.7)`, whose internal `1.1·r` + `0.6·r` sum back to `run_time` — are
   the model). Do NOT map `run_time` to just one of the plays and leave the rest fixed:
-  a `fade`-only knob with a hardcoded `hold` between is the anti-pattern (a mis-renamed
-  `_zero_flash` first did exactly this — `run_time` scaled the two fades but not the
-  hold, so it did NOT scale the animation). Prefer this single whole-animation knob
+  a `fade`-only knob with a hardcoded `hold` between is the anti-pattern — `run_time`
+  scales the fades but not the hold, so it does NOT scale the animation. Prefer this
+  single whole-animation knob
   over exposing separate `hold`/`fade`/per-phase params; add a second timing knob only
   when the caller genuinely needs one part independent of the rest, and say why. A
   timing knob under any other name (`fade`, `dur`, `speed`, `t`) is the smell to fix.
@@ -515,14 +514,13 @@ calls for; no titles/labels/narration that weren't asked for.
   literal or constant — a colour/hex, an opacity, a font size, a run_time feel, a
   positioned number — STOP and grep the scene (then its siblings) for how that KIND
   of element is already rendered, and match it.** A fresh `X = <value>` is almost
-  never right when the scene already renders that element one grep away — this is
-  exactly how a scratched col-4 "0" got a new `ZERO_COLOR = GREY` when the scene
-  already drew a bonus "0" in its category's tier colour. Reusing the STRUCTURE (the
-  shared helper) but hand-picking the VALUE you pass it is the same miss in miniature
-  — the value is part of the convention. If you truly can't find a precedent, ASK
-  before inventing; don't fill the gap with a new value. (And when a search concludes
-  "the convention is X," check that X predates your own edits — code you just wrote
-  is not a precedent; that circular read nearly let the grey `0` stand.)
+  never right when the scene already renders that element one grep away (e.g. a
+  one-off `ZERO_COLOR = GREY` for a "0" the scene already drew in its tier colour).
+  Reusing the STRUCTURE (the shared helper) but hand-picking the VALUE you pass it is
+  the same miss — the value is part of the convention. If you truly can't find a
+  precedent, ASK before inventing; don't fill the gap with a new value. And when a
+  search concludes "the convention is X," check that X predates your own edits —
+  code you just wrote is not a precedent.
 - Read the existing assets and the video's gameplay REFERENCE scene (the one its
   own CLAUDE.md names as the canonical example) BEFORE building a gameplay-style
   beat. Use the existing helpers.
@@ -547,8 +545,8 @@ calls for; no titles/labels/narration that weren't asked for.
 - **Check the ASSET *and* the reference SCENES before hand-rolling a gameplay
   motion — a reusable primitive may live in a scene, not the asset.** The dice
   "keep-illustration" convention (push a keep forward, reroll dice to the right,
-  band-per-reroll) existed only as scene 04's private `_show_keep`, so it was
-  invisible when building scene 06 — which reinvented it wrong. So: (a) grep the
+  band-per-reroll) once lived only as a scene-private helper, so it was invisible to
+  the next scene, which reinvented it wrong. So: (a) grep the
   scenes, not just the asset, for an existing helper; and (b) **when a gameplay/
   animation motion is reusable, it belongs in the shared asset, not a scene.** If
   you catch yourself writing a scene-private helper another scene would want (or
@@ -641,13 +639,11 @@ calls for; no titles/labels/narration that weren't asked for.
   `scene.py`/`style.py`) invalidates them; editing `render.py`/`resolve.py` does
   NOT. Bump `SNAPSHOT_VERSION` to force-invalidate.
 - **A scene-file MODULE CONSTANT the subscene reads IS captured in its digest —
-  editing it invalidates the snapshot** (fixed 2026-07-22). The digest repr's the
-  VALUE of every module-level constant a subscene's code closure references, of ANY
-  stable-repr type — scalars, `np.ndarray` position vectors (`LEFT_SC`, a `COL4_W`),
-  enums, dataclasses — so tuning a top-of-file layout constant re-renders correctly.
-  (Earlier only a scalar whitelist was captured, so a position-vector constant went
-  stale from cache — the scene-06 "verified a pre-edit frame" trap; that gap is
-  closed.) Two residual edge cases where the digest can still miss a real change, so
+  editing it invalidates the snapshot.** The digest repr's the VALUE of every
+  module-level constant a subscene's code closure references, of ANY stable-repr
+  type — scalars, `np.ndarray` position vectors (`LEFT_SC`, a `COL4_W`), enums,
+  dataclasses — so tuning a top-of-file layout constant re-renders correctly. Two
+  residual edge cases where the digest can still miss a real change, so
   reach for `--recompute` if a constant edit seems to do nothing: a constant whose
   `repr` carries a memory address (`<Foo at 0x…>`, e.g. a module-level Mobject —
   deliberately not captured, as the address would poison the cache) and a *huge*
@@ -674,7 +670,7 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   violation: the missing number is the tell that you LOOKED instead of measured.
   This is the enforceable core of measure-don't-eyeball — it makes "did you
   actually measure?" visible in the handoff, where the user can catch it. Two ways
-  a "measurement" is really a guess (both shipped WRONG in scene 06): (a) squinting
+  a "measurement" is really a guess: (a) squinting
   at a 480p thumbnail — that's "I looked," not "I measured"; MEASURE means real
   coordinates (`get_left/right/top/bottom/center` via a one-off `print`, removed
   after), because margins/centering/fit read deceptively at low res; (b) reading
@@ -696,8 +692,7 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   wrong only in the beat before/after — a value that equals the previous beat's, a
   die that dips down then straight back up across a hand-off, text that now
   overflows a column. A `--check` (syntax) is NOT a render: render the beat, look,
-  then scan the seams with its neighbours. (Each of those examples shipped in
-  scene-04 because the change was made but the beat/neighbour wasn't looked at.)
+  then scan the seams with its neighbours.
 - **ALWAYS run `render NN --check` before handing off a scene you touched — it's the
   mechanical safety net.** It's instant, and it now also LINTS (warn-only) for the
   convention slips prose can't be trusted to catch mid-edit: a raw `Text(...)`, an
@@ -718,9 +713,9 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   ASK what it should depict — do NOT re-guess.** A repeated conceptual miss (wrong
   game state, wrong quantity, wrong turn) is a comprehension gap, not an
   implementation bug: the fix is a QUESTION, not another render. Re-iterating on a
-  misunderstood beat burns rounds and ships confidently-wrong output — it's what
-  turned scene-04's montage into many painful rounds (polishing a beat built on the
-  wrong state/quantity instead of asking what column 1 said it was). If you're
+  misunderstood beat burns rounds and ships confidently-wrong output — you polish a
+  beat built on the wrong state/quantity instead of asking what the script said it
+  was. If you're
   unsure what a beat IS, that uncertainty is itself the trigger to ask BEFORE
   building — don't treat a comprehension problem as an implementation one.
 - **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what
@@ -957,9 +952,7 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   often the POINT of the beat, not a free cosmetic choice. The failure mode: deep
   in polish you stop consulting the script and reason LOCALLY from the scene's
   constants ("opening this box makes the highlight read better"), silently
-  breaking the beat's meaning. (Scene 11 c: col 2 says "everything filled except
-  yahtzee and small straight," so Ones is FULL — highlighting the *used* Ones box
-  red is the whole lesson; opening Ones to tidy the score bar broke it.) The build
+  breaking the beat's meaning. The build
   PREFLIGHT reads column 1+2 for every beat; this keeps that grounding alive
   through the ITERATION passes, where it tends to lapse.
 - Implement specific requests **literally** — exact wording is the spec
