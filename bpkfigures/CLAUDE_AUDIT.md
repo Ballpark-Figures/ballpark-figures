@@ -176,13 +176,19 @@ example earns its place).
 
 Running total: **1006 → 771 (~23%)**. Tightening bucket essentially DONE.
 
-**Remaining: the render/shell CONSOLIDATION** (structural, higher-risk — reorders
-content, so its own reviewed step). Three overlapping sections all cover the
-render/verify/shell-prompt loop: **Shell commands** (~30) + **Rendering — use the
-render script** (~63) + **Keep commands allowlist-friendly** (~73). Merge into one
-home (drop the cross-section overlap). Est. another ~40-60 lines → lands near the
-~700 target. Snapshot cache + Rendering-during-iteration already tightened; leave
-them as their own sections.
+**Render/shell CONSOLIDATION — ✅ DONE (`d40beae`).** Merged the orphaned `###
+Keep commands allowlist-friendly` into `Shell commands` (both permission mechanics)
+→ one home; deduped the cd+git/chains/ad-hoc-python overlap; tightened the
+`Rendering` CLI reference. 19 → 18 sections. **Final: 1006 → 696 (~31%).**
+
+## AUDIT COMPLETE (2026-07-22)
+
+Conservative sweep + aggressive tightening + one structural consolidation, all
+faithful (every rule preserved; the one WRONG rule — ValueTracker pickling — fixed
+empirically). Crown-jewel sections (Following instructions, The numbers are the
+product) deliberately left near-full. Two prose→check promotions landed in `lint.py`.
+Remaining lever NOT taken (needs infra): the injection-hook that would let REFERENCE
+material leave always-loaded context — a separate project, not conservative.
 
 ## Observations for the broader audit (not yet acted on)
 
