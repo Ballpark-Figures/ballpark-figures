@@ -154,6 +154,29 @@ DEAD-removable ≈ 35–45 lines (25–30 high-confidence). TRIM ≈ 30–40 lin
 potential shrink ≈ 65–85 lines (~7% of the doc) with ZERO loss of a live rule —
 all of it is duplication, done-migration notes, or backstory.
 
+## Aggressive tightening pass (approved 2026-07-22) — IN PROGRESS
+
+Reframed after the "which is it" exchange: **total length is the dominant drag on
+compliance** (the original concern was right); the doc's verbosity is mostly
+un-pruned ACCRETION, not deliberate reinforcement. So tighten each bullet to
+claim + one why + (only where critical) one example, and consolidate overlapping
+section-clusters. Emphasis is preserved SELECTIVELY, not as the default. Target
+~980 → ~700. Every rule preserved; verified per section (rule/bullet count).
+
+Sections tightened (each its own commit; rules verified):
+- **Scene structure** 160 → 98 (`4672454`) — 14/14 bullets kept.
+- **Rendering during iteration** ~92 → ~71 (`2e1bbcc`) — 13 rules + 3 gotchas kept.
+- **Starting a new scene** 98 → 70 (`32cfee5`) — all 5 PREFLIGHT items kept.
+
+Running total: **1006 → 869**.
+
+Still to tighten (self-contained): Shared visual vocabulary (72), Repo layout (62),
+Where instructions live (46), Canonical patterns index (42), The numbers are the
+product (33), + smaller. Still to CONSOLIDATE (structural, higher-risk): the
+render/shell cluster — Rendering (63) + Keep commands allowlist-friendly (~73) +
+Shell commands (~30) — into one home; and fold Process's overlaps into the
+authoring cluster.
+
 ## Observations for the broader audit (not yet acted on)
 
 - The highest-value promotions will be rules that are FULLY mechanical (a check
