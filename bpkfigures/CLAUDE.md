@@ -241,35 +241,57 @@ How the user wants the agent to record things worth remembering:
   file** — `bpkfigures/` and the video repos are public; refer to "the user." Identity
   facts belong only in the private `dotclaude` repo (pulled in via `@CLAUDE.private.md`).
 
-## Shell commands (agent)
-- **Chains auto-approve when EVERY subcommand matches an allow rule.** Claude Code
-  splits on `&&`, `||`, `;`, `|`, `&` and newlines and checks each piece
-  independently, so chaining *allowlisted* read-only commands (`grep …`, `ls …`,
-  `git log …`) is fine and does NOT prompt. The earlier "any chain prompts" advice
-  was wrong. What actually forces prompts:
-  - **`cd` combined with `git` in one compound command ALWAYS prompts** — even
-    when both are individually allowed (a hardcoded safety rule). This was the #1
-    source of needless prompts here. The Bash tool's **cwd persists between
-    calls**, so NEVER write `cd "<repo>" && git commit …`. Instead `cd` once in
-    its own call (or just rely on the already-current dir) and run each `git add`
-    / `git commit` / `git push` as a STANDALONE command.
-  - **Any non-allowlisted subcommand drags the whole line into a prompt** — most
-    often an ad-hoc interpreter (`python3 <<EOF …`, `*/.venv/bin/python
-    script.py`). Don't shell out to throwaway python: use Edit/Write + the
-    dedicated tools, or a FIXED `-m` module. For peeking at solver `.npz` data use
-    `python -m bpkfigures.inspect_npz <path>` (allowlisted, safe — loads with
-    `allow_pickle=False`) instead of a probe script.
-  - **Subshells `( … )`, command-substitution `$( … )`, `for`/`while` loops, exec
-    wrappers (`watch`, `xargs -flags`), and `find -exec/-delete`** never
-    auto-approve — split them into separate simple calls.
-- There is NO syntax to allowlist a compound pattern (rules are per-subcommand),
-  so the fix is always behavioral: standalone calls + the right tool. Prefer the
-  clean single-command read form anyway: `rg PATTERN <path>` over `cat … | grep`;
-  `pip show X` over `pip list | grep X`; `git log -n N` over `git log | head`.
-- **Edits/Writes in the project tree auto-approve — so before a MAJOR rewrite of a
-  file, make sure it's committed (or commit it first).** That way the prior version
-  is recoverable from git if the edit goes wrong. Deletions (`rm`) stay gated and
-  prompt every time.
+## Shell commands — keep them allowlist-friendly (agent)
+The allowlist covers the core loop (`render`, `manim`, `ffmpeg`/`ffprobe`,
+`grep`/`rg`/`ls`/`cat`/`head`/`tail`/`wc`/`sort`/`tr`, `cd`/`echo`/`mkdir`). Friction
+comes from working AROUND it.
+- **Chains auto-approve when EVERY subcommand is allowlisted.** Claude Code splits on
+  `&&`, `||`, `;`, `|`, `&` and newlines and checks each piece independently, so a chain
+  of allowlisted read-only commands does NOT prompt. What DOES force a prompt:
+  - **`cd` + `git` in one compound command ALWAYS prompts** (a hardcoded safety rule) —
+    the #1 source of needless prompts here. The Bash **cwd persists between calls**, so
+    NEVER `cd "<repo>" && git …`; `cd` once in its own call (or rely on the current dir),
+    then run each `git add`/`commit`/`push` STANDALONE.
+  - **Any non-allowlisted subcommand drags the whole line into a prompt** — usually
+    ad-hoc python (`python3 <<EOF`, `.venv/bin/python script.py`). Don't shell out to
+    throwaway python: use Edit/Write + the tools, or a FIXED `-m` module — JSON via
+    `python3 -m json.tool <file>`, peek solver `.npz` via `python -m bpkfigures.inspect_npz
+    <path>` (safe, `allow_pickle=False`); NEVER ad-hoc `python -c`/heredoc.
+  - **Subshells `( … )`, `$( … )`, `for`/`while` loops, `watch`/`xargs`, `find
+    -exec/-delete`** never auto-approve — split into separate calls (classic traps: a
+    one-liner verification loop, the `( cmd || fallback )` idiom).
+  - **A REDIRECTION forces a prompt regardless of target** — `>`/`2>`/`>>`, even
+    `2>/dev/null`, because it can write a file. Pipes are fine (per-subcommand), so
+    `render … | tail` auto-approves; just never append `2>/dev/null` to a command you
+    want auto-approved.
+- No syntax allowlists a compound pattern (rules are per-subcommand), so the fix is
+  always behavioral: standalone calls + the right tool. Prefer the clean single-command
+  form (`rg PATTERN <path>` over `cat … | grep`; `pip show X` over `pip list | grep X`;
+  `git log -n N` over `git log | head`).
+- **Explore/search with the Grep/Glob/Read TOOLS, not bash `find`/`grep -r`/`cat`/`sed` —
+  and NEVER delegate a broad bash sweep.** The tools don't touch the allowlist so never
+  prompt; bash `find`/`sed`, `xargs`/subshells, and any space-path (`"My Documents"/…`,
+  the quote breaks the allowlist glob) prompt one at a time — worst CROSS-REPO (reading
+  `battleship/` needs space-paths). A general-purpose subagent defaults to bash and fires
+  DOZENS of prompts; do repo lookups INLINE with Grep/Read, or constrain a subagent to
+  ONLY Grep/Glob/Read.
+- **Edits/Writes in the project tree auto-approve** — so before a MAJOR rewrite, commit
+  first (the prior version is then recoverable). Deletions (`rm`) and `pkill`/`kill` stay
+  gated — don't reach for process-killing as a normal step; if a render seems stuck,
+  prefer `run_in_background` + waiting.
+- **Syntax-check a scene with `render NN --check`** (instant AST parse of the scene +
+  `assets/*.py`, no manim — not `python -c "import ast"`). It also runs the warn-only
+  `bpkfigures/lint.py` (flags a raw `Text(...)`, an inlined-hex/palette colour, a one-use
+  `run_time` local): a `[lint] file:line` is a nudge, never a gate. When you add a
+  mechanical convention, prefer a check there over more prose.
+- **For a BACKGROUND render, READ the task's `.output` file** (Read tool) — don't build
+  `render … > log; grep` chains (the redirect prompts) or `until grep …; do sleep; done`
+  polls (the harness notifies on completion). **Confirm cwd is `scenes/` before a
+  background render:** ANY git command (even `git -C`) leaves cwd at the repo root, so a
+  later `render NN` fails with "No file matching NN*.py" (visible only in `.output`) —
+  re-`cd scenes/` in its own call before every background render batch that follows git.
+- **Grab render frames with `render … --frames … --extract`, then READ the PNGs** (Read
+  tool) — one allowlisted call, no re-render, no hand-rolled `ffmpeg` chains.
 
 ## The Battleship video is the model
 Match its visual look and its **sparse on-screen text** — not necessarily its
@@ -416,67 +438,43 @@ calls for; no titles/labels/narration that weren't asked for.
   stub-and-flag it. See "The numbers are the product — NEVER invent a calculation".
 
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
-- **Render with `bpkfigures/render`, NOT hand-rolled `manim` calls.** It's the
-  single render path for user + agent (the old `manim()` zsh override is gone).
-  Run from the `scenes/` dir.
-- **Invoke it as BARE `render …` (the shell alias) — NOT the
-  `"<repo>/.venv/bin/python" -m bpkfigures.render` fallback.** Bare `render`
-  auto-approves (allowlist `render *`) and the alias expands fine in the agent
-  shell; the fallback needs the space-containing repo path QUOTED, and the quote
-  breaks the allowlist glob so it PROMPTS on every call. (That one slip made
-  ~every render in a whole scene prompt.) `cd` to `scenes/` in its OWN call, then
-  run `render …` standalone (a `cd && render` chain trips the cd-chain guard).
-  Only fall back to the venv-python form if bare `render` genuinely fails (it's
-  now allowlisted quoted too, but bare `render` is the default).
-- `render 01g` → subscene g, cleans stale, names `01g_<name>.mp4`. Quality
-  defaults to HIGH (`-qh`); add `--fast` for a quick `-ql` check (the agent
-  should usually use `--fast` for verification). `render 01g 01h 01i` → several
-  in sequence ("Finished rendering 01g" after each). `render 01` → full scene.
-  `--recompute` ignores the snapshot cache. Clears `SUBSCENE`/`RECOMPUTE` per run
-  (no leak into a later full render).
-- `render 01g --frames "1.0,2.0,-0.3"` renders THEN extracts those PNG frames
-  (negative = seconds-from-end) into a `frames/` dir beside the mp4 and prints
-  paths — one command instead of render+ffmpeg. `--frames N` = N evenly spaced.
-- `render 01g --frames "1.0,-0.3" --extract` extracts those frames from the
-  ALREADY-rendered mp4 (NO re-render) into `frames/` and prints paths — use it to
-  grab frames from a heavy subscene without rebuilding it. Then READ the PNGs with
-  the Read tool; never hand-roll `ffmpeg … && ffmpeg …` chains.
-- `render 01 sub --padded` writes, beside each rendered mp4, a copy with its FIRST
-  frame frozen at the head and LAST frame frozen at the tail (default 10s/side;
-  `--padded 3` = 3s) into a `padded_videos/` tree mirroring `videos/` — an editing
-  aid (handles around each subscene). Composes: `--padded --extract` pads an EXISTING
-  mp4 with no re-render. Re-encodes (crf 18); renders are silent so no audio sync.
-- **`render 99a` renders a STATIC thumbnail automatically** — scene `99` is the
-  reserved thumbnails slot, so any `99*` target passes manim's `-s` (save the last
-  frame, no video) at `-qk` (4K, 3840×2160) and needs NO flag. This is the ONE path
-  for thumbnails; don't hand-roll `manim -s -qk`. It targets like any render, so a
-  per-thumbnail `@thumbnail` is just `render 99a`; `--fast` gives a quick low-res PNG
-  to check layout, and the 4K PNG is the upload asset (let YouTube do the single
-  compression pass — don't pre-compress). To force a still PNG for a NON-99 scene,
-  pass `--thumb`. `media/` is gitignored, so the PNG stays local like every render.
-  Two behaviours mirror the video pipeline:
-  - **Per-RESOLUTION subfolder** (`media/images/<scene>/2160p/`, `…/480p/`) — no fps
-    (meaningless for a still) — so a low-res `--fast` test can't be mistaken for or
-    overwrite the 4K upload asset. A slot keeps ONE PNG per quality: a renamed
-    subscene's old-named PNG is swept (like `resolve.clean_stale`).
-  - **Change-detection on `render 99 all`** — thumbnails are independent, so only the
-    ones whose code (or a shared helper/asset they reach) changed re-render; the rest
-    are skipped. Keyed per-subscene + per-quality in a gitignored `.render_keys.json`
-    beside the PNGs. `--recompute` forces a rebuild.
-- `render 01h --state` (no render) prints the mobjects on screen at subscene h's
-  START (from the prior snapshot) — use to reason about starting state cheaply.
-- **`render` takes a per-scene lockfile** (`cache/locks/`), so a SECOND render of
-  the same scene while one is running is REFUSED (concurrent manim runs corrupt
-  partial movies / the snapshot cache — don't do it). A stale lock from a dead
-  process is auto-taken-over, so there's nothing to clean up by hand. `--check`,
-  `--state`, and `--extract` don't lock (they don't render).
-- **You're WELCOME to HALT the user's in-progress render when you need to render**
-  (e.g. to verify a fix) — the user prefers that over you waiting or deferring. The
-  refusing message names the live pid, and `cache/locks/render-<NN>.lock` holds it;
-  kill that pid to free the lock, then render. For thumbnails / independent renders
-  this is always safe (just re-render); for a long animated-scene render a mid-render
-  kill only costs that subscene's snapshot (rebuilt next time), so it's fine too.
-  (`kill` is gated, so it prompts — that's expected; go ahead and take over.)
+- **Render with `bpkfigures/render`, NOT hand-rolled `manim`.** Single render path for
+  user + agent (the old `manim()` zsh override is gone); run from the `scenes/` dir.
+- **Invoke it as BARE `render …` (the shell alias), NOT the `.venv/bin/python -m
+  bpkfigures.render` fallback.** Bare `render` auto-approves (allowlist `render *`); the
+  fallback needs the space-containing repo path QUOTED, and the quote breaks the allowlist
+  glob so it PROMPTS. `cd` to `scenes/` in its OWN call, then `render …` standalone (a `cd
+  && render` chain trips the cd-guard). Fall back to venv-python only if bare `render` fails.
+- `render 01g` → subscene g (cleans stale, names `01g_<name>.mp4`). Quality defaults to
+  HIGH; `--fast` for a quick `-ql` check (the agent should usually use `--fast`). `render
+  01g 01h 01i` → several in sequence; `render 01` → full scene. `--recompute` ignores the
+  snapshot cache.
+- `render 01g --frames "1.0,2.0,-0.3"` renders THEN extracts those PNG frames (negative =
+  seconds-from-end) beside the mp4 and prints paths (`--frames N` = N evenly spaced). Add
+  `--extract` to pull frames from the ALREADY-rendered mp4 with NO re-render — then READ the
+  PNGs; never hand-roll `ffmpeg` chains.
+- `render 01 sub --padded` writes, beside each mp4, a copy with its first/last frame frozen
+  at head/tail (default 10s/side, `--padded 3` = 3s) into `padded_videos/` — an editing aid.
+  Composes with `--extract` (pad an existing mp4, no re-render); re-encodes (crf 18).
+- **`render 99a` renders a STATIC thumbnail automatically** — scene `99` is the reserved
+  slot, so any `99*` target passes manim `-s -qk` (4K) with NO flag (the ONE path for
+  thumbnails; don't hand-roll `manim -s -qk`). `--fast` gives a quick low-res PNG; the 4K
+  PNG is the upload asset (let YouTube do the single compression pass). `--thumb` forces a
+  still for a NON-99 scene. Two behaviours: **per-resolution subfolder**
+  (`media/images/<scene>/2160p/`, `…/480p/`) so a `--fast` test can't overwrite the 4K
+  asset; **change-detection on `render 99 all`** — only thumbnails whose code/reachable
+  helpers changed re-render (keyed in a gitignored `.render_keys.json`; `--recompute` forces
+  a rebuild).
+- `render 01h --state` (no render) prints the mobjects on screen at subscene h's START —
+  reason about starting state cheaply.
+- **`render` takes a per-scene lockfile**, so a SECOND render of the same scene while one
+  runs is REFUSED (concurrent manim runs corrupt the cache); a stale lock from a dead
+  process is auto-taken-over. `--check`/`--state`/`--extract` don't lock.
+- **You're WELCOME to HALT the user's in-progress render when you need to render** (the user
+  prefers that over waiting). The refuse message names the live pid (also in
+  `cache/locks/render-<NN>.lock`); kill it to free the lock, then render. Safe for
+  thumbnails/independent renders; for a long scene render a mid-render kill only costs that
+  subscene's snapshot (rebuilt next time). (`kill` is gated → it prompts; go ahead.)
 
 ## Snapshot cache (`bpkfigures/scene.py`)
 - Rendering one subscene loads the LATEST VALID snapshot at or before the prior
@@ -578,79 +576,6 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
     with side effects, can leave the group behind). Only `remove()` TOP-LEVEL mobjects;
     to drop an in-group text, rebuild the group or hard-clear (`for m in
     list(self.mobjects): self.remove(m)`).
-
-### Keep commands allowlist-friendly (avoid permission prompts)
-The permission allowlist already covers the core loop (`render`, `manim`,
-`ffmpeg`/`ffprobe`, `grep`/`rg`/`ls`/`cat`/`head`/`tail`/`wc`/`sort`/`tr`,
-`cd`/`echo`/`mkdir`). Friction comes from working AROUND it; so:
-- **Separators split and auto-approve; control-flow constructs never do** (full
-  rule in § Shell commands). The classic traps to split into separate calls: terse
-  one-liner verification loops (`for x in …; do …; done`) and the `( cmd || fallback )`
-  subshell idiom — the evaluator can't see inside a loop / subshell / `$( … )`.
-- **Syntax check with `render NN --check`** (instant AST parse of the scene +
-  `assets/*.py`, no manim) — NOT a separate `python -c "import ast …"`, which
-  isn't allowlisted and prompts every time. `--check` ALSO runs a **warn-only style
-  linter** (`bpkfigures/lint.py`) over the scene file: it flags the mechanical
-  convention slips prose rules rely on you remembering — a raw `Text(...)` (use
-  `crisp_text`), an inlined hex or raw manim palette colour (use a `style.py` /
-  `config.py` name), a one-use `run_time` local (inline the literal). It NEVER fails
-  the check or blocks a render (syntax errors still do); a `[lint] file:line: …`
-  line is a nudge, not a gate. It only catches the statically-checkable class — the
-  judgment conventions still live here. When you add a new mechanical convention,
-  prefer adding a check there over more prose (see the postmortem rationale under §
-  Reuse over reinvention's value-tripwire). Shared, so every video gets it.
-- **Validate JSON with `python3 -m json.tool <file>`** (allowlisted) — NOT
-  `python -c "import json …"`. `json.tool` only parses/echoes JSON so it's safe
-  to allow; arbitrary `python -c`/`python3 -c` is real code execution, stays
-  gated, and prompts every time. General rule: reach for a FIXED, safe
-  invocation (a stdlib `-m` module, a wrapper script) over ad-hoc `-c`.
-- **The thing that forces a `render`/pipe to prompt is a REDIRECTION, not the
-  pipe (verified).** `render *`, `tail *`, `grep *`, `head *` are all allowlisted
-  and rules match per-subcommand, so `render … | tail -3` and `render … --frames
-  … | tail` AUTO-APPROVE. But append `2>/dev/null` (or any `>`/`2>`/`>>`) and the
-  WHOLE line prompts every time — a redirection can write a file, so the matcher
-  bails regardless of the target (even `/dev/null`). So: pipe freely to
-  `tail`/`grep`/`head`, but NEVER add `2>/dev/null` to a command you want
-  auto-approved. (For a foreground `render … --frames …`, you don't even need the
-  pipe — the frame-PNG paths are deterministic; just Read them by path.)
-- **For a BACKGROUND render, READ the task's `.output` file with the Read tool**
-  rather than shelling out to inspect it. Don't build `cd … && render … > log; grep`
-  chains (the `> log` redirect prompts) or `until grep …; do sleep; done` poll
-  loops — the harness notifies on completion.
-  - **Confirm the cwd is `scenes/` before firing a background render.** The Bash
-    cwd persists across calls, so a `cd <repo-root>` done for a git commit leaves
-    you at the repo root; a later `render NN` then fails silently-ish with "No file
-    matching NN*.py" (the error is only in `.output`, so you don't see it until you
-    read the file). After any git work, `cd` back to `scenes/` in its own call
-    first. **This happens even when you NEVER `cd` for git** — running `git -C
-    <repo> …` standalone (or just having a background task in between) still leaves
-    the next background `render` launching from the repo root. So don't reason "I
-    used `git -C`, so my cwd is safe": treat ANY git command as having reset the
-    cwd, and re-`cd scenes/` (its own call) immediately before EVERY background
-    render batch that follows git. (Cost ~3 failed renders in one session.)
-- **Grab render frames with `render … --frames … --extract`, then READ the PNGs**
-  (Read tool) — one allowlisted call, no re-render. NOT hand-rolled
-  `M=… && ffmpeg … && ffmpeg …` chains (the `&&`, `$VAR`, and `select='eq(n\,N)'`
-  quoting all force a prompt).
-- **Run git as STANDALONE calls — never `cd <repo> && git …`** (the cd+git combo
-  always prompts; the full rule + cwd-persists mechanics are in § Shell commands).
-- **Edit files with the Edit/Write tools, never `python - <<'EOF'` splices** —
-  arbitrary `python`/`python3` isn't (and shouldn't be) allowlisted, and file
-  rewrites via heredoc are easy to get wrong.
-- Use `rg`/`ls` (allowed) instead of `find` for inspection.
-- **Explore/search with the Grep/Glob/Read TOOLS, not bash `find`/`grep -r`/`cat`/
-  `sed` — and NEVER delegate a broad bash sweep.** The dedicated tools don't touch
-  the shell allowlist, so they never prompt; bash `find`/`sed` (not allowlisted),
-  `xargs`/subshells/command-substitution (never auto-approve), and any absolute path
-  with spaces (`"My Documents"/…` — the quote can break an allowlist glob) each
-  prompt, one command at a time. This bites hardest CROSS-REPO — reading
-  `battleship/` from the yahtzee working dir needs absolute space-paths. A
-  general-purpose subagent (e.g. Explore) defaults to bash `find`/`grep`/`sed` and
-  will fire DOZENS of approval prompts in a row, quietly undoing the low-friction
-  loop — so do repo lookups INLINE with Grep/Read; if you must delegate, constrain
-  the subagent to ONLY the Grep/Glob/Read tools (no bash find/xargs/sed/cat).
-- `pkill`/`kill`/`rm` stay gated on purpose — don't reach for process-killing as a
-  normal step; if a render seems stuck, prefer `run_in_background` + waiting.
 
 ## Git / new repos
 - **Commit and push WITHOUT asking — this OVERRIDES Claude Code's default.** In this
