@@ -125,7 +125,12 @@ index (123–163) and the new-scene PREFLIGHT (904–922) restate rules BY DESIG
 5. **Quality defaults to HIGH / --fast / auto-cleans stale** — primary **580–582**
    (+ 580 for auto-clean); restated at **659–661**. Remove 659–661. ~3 lines.
 
-### DEAD — medium confidence (needs your eye; the "dup" adds a nuance)
+### DEAD — medium confidence (needs your eye; the "dup" adds a nuance) — ✅ DONE (batch 3)
+> **BATCH 3 EXECUTED.** Recurring-motion: MERGED (commit `3709f69`) — kept both
+> nuances. Implement-literally: DEDUPED into Following instructions (commit `6155f46`).
+> Explicit-path staging: SKIPPED — on inspection it's a 6-word contextual reminder
+> inside a commit-cadence rule, not a real restatement; deduping saves nothing.
+
 - Recurring-motion-to-asset: **529–538** vs **547–558** (B is a superset w/ the
   "check scenes too" nuance + scene-06 example → primary B; A candidate to merge).
 - Explicit-path staging: **850** vs **258–261** (258–261 fuller; 850 compact).
