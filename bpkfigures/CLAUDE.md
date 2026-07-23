@@ -61,179 +61,126 @@ traceable to the user's OWN computations, never re-derived by the agent.
 
 ## Repo layout
 - `Ballpark-Figures/` umbrella repo: one sub-project per video plus the shared
-  `bpkfigures/` package. Each video is its own git repo nested in the umbrella.
+  `bpkfigures/` package; each video is its own nested git repo.
 - Each video has TWO sides — know which one a file belongs to:
-  - `math/` — the DATA / COMPUTATION pipeline: `math/data/` (source data, solver
-    outputs, datasets, wordlists — tracked and synced between machines),
-    `math/notebooks/` (Jupyter exploration), plus solver/helper modules beside
-    them. **A NEW data file, dataset, or wordlist goes HERE.**
-  - `animations/{config.py, assets/, scenes/NN<name>.py}` — the RENDER side:
-    scene code, visual assets, and per-scene render caches
-    (`assets/<name>_data.py` + `<name>_cache.json` that a SCENE imports at render
-    time). `assets/` is NOT a home for raw source data.
-  - **Rule of thumb:** raw/pipeline data → `math/data/`; a small precomputed cache
-    a scene reads at render → `animations/assets/`. When unsure, it's `math/`.
-- `footage/` (video root) — the NON-MANIM video clips (talking-head segments,
-  b-roll, screen recordings — e.g. yahtzee's THA–THL) cut into the final edit
-  alongside the renders. The clips (`*.mp4`/`*.mov`) are gitignored (large binaries),
-  so git tracks only the folder + its README, not the videos — they stay local, not
-  synced. `/new-video` scaffolds it.
-- `music/` (video root) — background music / audio tracks laid under the final edit
-  alongside the renders + voiceover. Same convention as `footage/`: the tracks
-  (`*.mp3`/`*.wav`) are gitignored (large binaries), so git tracks only the folder +
-  its README, not the audio — local, not synced. `/new-video` scaffolds it.
-- **Finishing & publishing a video** (assemble in DaVinci → export `.mov` → upload
-  to YouTube + thumbnail) is the post-`manim` pipeline — see `bpkfigures/PUBLISHING.md`.
-  **Set the DaVinci project fps + resolution to match the video's `manim.cfg` BEFORE
-  importing any media** (1920×1080, Yahtzee 60 / Battleship 30) — DaVinci locks the
-  timeline fps once media is imported, and a mismatch (e.g. a 24 fps timeline for
-  60 fps renders) is a painful migration to fix. The deliverable is `<Video>.mov` at
-  the video repo root (H.264, 1080p, timeline fps), gitignored like the other
-  binaries; a `.drp` is a Resolve project backup, never uploaded.
+  - `math/` — the DATA/COMPUTATION pipeline: `math/data/` (source data, solver
+    outputs, datasets, wordlists — tracked + synced), `math/notebooks/` (Jupyter),
+    plus solver/helper modules. **A NEW data file/dataset/wordlist goes HERE.**
+  - `animations/{config.py, assets/, scenes/NN<name>.py}` — the RENDER side: scene
+    code, visual assets, per-scene render caches (`assets/<name>_data.py` +
+    `<name>_cache.json`). `assets/` is NOT a home for raw source data.
+  - **Rule of thumb:** raw/pipeline data → `math/data/`; a small render-time cache →
+    `animations/assets/`. When unsure, `math/`.
+- `footage/` and `music/` (video root) — the non-manim clips (talking heads, b-roll,
+  e.g. yahtzee's THA–THL) and background audio cut into the final edit. Both gitignore
+  their binaries (`*.mp4`/`*.mov`/`*.mp3`/`*.wav`), tracking only the folder + README
+  (local, not synced); `/new-video` scaffolds them.
+- **Finishing & publishing** (assemble in DaVinci → export `.mov` → YouTube) is the
+  post-`manim` pipeline — see `bpkfigures/PUBLISHING.md`. **Set the DaVinci project fps
+  + resolution to match the video's `manim.cfg` BEFORE importing any media** (1920×1080,
+  Yahtzee 60 / Battleship 30) — DaVinci locks timeline fps once media is imported, and a
+  mismatch is a painful migration. Deliverable: `<Video>.mov` at the repo root (H.264,
+  1080p, timeline fps), gitignored; a `.drp` is a Resolve backup, never uploaded.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
-  `crisp_text`/`crisp_paragraph`). NB: battleship defines its own `BOARD_FILL`.
-- **Reserved scene-number slots (prefixes are 2 DIGITS — `resolve` slices
-  `target[:2]`, so 1- or 3-digit prefixes break subscene addressing; stay 2-digit).**
-  `01`,`02`,… are the video's content scenes. Two META-files bookend them, each a
-  normal `BpkScene`-subclass with subscenes:
-  - **`00` = the transitions file** (`00transitions.py`, `class Transitions`) — the
-    part-title cards between scene groups: ONE `@subscene` per Part, in video order,
-    each a two-line card (`Part N` on line 1, the title on line 2) that STARTS on
-    screen, holds, then LEAVES (slides/fades) to reveal the blank background for the
-    cut. Text is built UNDER the ~24 crisp_text wrap threshold and `.scale()`d up so
-    a long title never line-breaks. Yahtzee `00transitions.py` is the reference.
-  - **`99` = the thumbnails file** (`99thumbnails.py`) — one **`@thumbnail`** per
-    thumbnail (NOT `@subscene`), each a STATIC composition (`self.add`, no `self.play`)
-    modelled on battleship's `00thumbnail.py` (big bold black number/title up top + a
-    prop below, subtle gradient bg + a bold digit stroke to survive YouTube's
-    downscale/JPEG pass) in the brand `FONT`. The class keeps the video's normal base
-    (e.g. `class Thumbnails(YahtzeeScene)`) so it inherits the brand `BG_COLOR`.
-    **Why `@thumbnail` and not `@subscene`:** a thumbnail is a subscene (same
-    `99a`/`99b` addressing, render, resolve) but the framework renders each from a
-    CLEAN, EMPTY frame — no snapshot carry-over from the previous subscene (which would
-    GHOST the prior thumbnail behind this one) and no snapshot save/replay (each frame
-    is self-contained). The marker, not a special base class, drives this — so there's
-    no multiple-inheritance tangle with the video's Scene base. **Render a thumbnail as
-    a 4K PNG with `render 99a`** (scene `99` auto-detects still-image mode — manim
-    `-s -qk` — and prints the PNG path under `media/images/**/`; `--fast` for a quick
-    low-res layout check). Numbers on a thumbnail are still SOURCED, never invented.
-    Yahtzee `99thumbnails.py` is the reference user.
-  - Tests / scratch scenes take `98` and DOWN (`98`,`97`,…) so they never collide
-    with the meta-files (a test at `99` would shadow the thumbnails file).
+  `crisp_text`/`crisp_paragraph`). NB battleship defines its own `BOARD_FILL`.
+- **Reserved scene-number slots (2-DIGIT prefixes — `resolve` slices `target[:2]`, so
+  1/3-digit prefixes break subscene addressing).** `01`,`02`,… are content scenes; two
+  META-files bookend them, each a normal `BpkScene` subclass:
+  - **`00` = transitions** (`00transitions.py`, `class Transitions`) — part-title cards
+    between scene groups: ONE `@subscene` per Part, a two-line card (`Part N` / title)
+    that starts on screen, holds, then LEAVES to reveal blank bg. Text built under the
+    ~24 crisp_text wrap threshold and `.scale()`d up so a long title never breaks.
+    Yahtzee is the reference.
+  - **`99` = thumbnails** (`99thumbnails.py`) — one **`@thumbnail`** each (NOT
+    `@subscene`), a STATIC composition (`self.add`, no `self.play`) modelled on
+    battleship's `00thumbnail.py` (bold black number/title + a prop, gradient bg, bold
+    digit stroke to survive YouTube's JPEG pass) in brand `FONT`; keep the video's
+    normal base (`class Thumbnails(YahtzeeScene)`) for `BG_COLOR`. **Why `@thumbnail`:**
+    same `99a`/`99b` addressing, but the framework renders each from a CLEAN frame — no
+    snapshot carry-over (would GHOST the prior thumbnail) and no save/replay. **Render
+    with `render 99a`** (scene `99` auto-detects still mode → manim `-s -qk` 4K PNG under
+    `media/images/**/`; `--fast` for a quick check). Numbers are still SOURCED. Yahtzee
+    is the reference.
+  - Tests/scratch take `98` and DOWN so they never collide with the meta-files.
 
 ## Canonical patterns index — BEFORE you hand-roll, check here
-A quick lookup of the recurring visual jobs and the ONE shared thing each goes
-through. If you're about to place, `.scale()`, or animate one of these BY HAND,
-stop and use the listed helper — hand-rolling is exactly how conventions drift
-(three scenes ended up with three different two-card positions before this index
-existed; a scaled-down two-card layout and a wrong-style number readout shipped
-in scene 04 because the convention lived only in other scenes, uncallable). The
-detail for each row is in the section/asset named; this is just the "where do I
-look" map.
+The recurring visual jobs and the ONE shared thing each routes through. About to
+place, `.scale()`, or animate one of these BY HAND? Stop and use the listed helper —
+hand-rolling is how conventions drift. Detail is in the named section/asset; this is
+the "where do I look" map.
 
-- **Any on-screen text** → `crisp_text` / `crisp_paragraph` (style.py). Never a
-  raw `Text(...)`. (§ Shared visual vocabulary.)
-- **Any colour** → a name from `style.py` (ACCENT_FILL/GOLD/CATEGORICAL…) or the
-  video's `config.py` (semantic score green/red). Never a one-off hex. (§ Shared
-  visual vocabulary.)
-- **A free-floating panel/table/plot** → sit it on a card: `get_card` /
-  `card_behind` (card.py). Not a raw RoundedRectangle.
+- **Any on-screen text** → `crisp_text`/`crisp_paragraph` (style.py). Never raw
+  `Text(...)`. (§ Shared visual vocabulary.)
+- **Any colour** → a `style.py` name (ACCENT_FILL/GOLD/CATEGORICAL…) or the video's
+  `config.py` (semantic score green/red). Never a one-off hex. (§ Shared visual
+  vocabulary.)
+- **A free-floating panel/table/plot** → sit it on a card: `get_card`/`card_behind`
+  (card.py). Not a raw RoundedRectangle.
 - **Spotlight element(s)** → `highlight()` (highlight.py, holds by default).
   **Emphasise one OF a group** → dim the rest (save_state/Restore; scenes 07/08).
-- **A frame-edge position** → read `config.frame_x_radius/​y_radius` (8.0 / 4.5)
-  at runtime. Never hardcode / recall 7.11/4.0.
-- **Every `run_time`** → an inlined literal at the call site (named local only for
-  a lockstep loop). (§ Scene structure.)
-- **Any displayed number** → SOURCED from the pipeline (data module + committed
-  cache), never computed at render. (§ The numbers are the product.)
-- **A prop's entrance / exit / flash / a multi-prop layout** → the existing asset
-  method other scenes already use — GREP the scenes before hand-rolling. Reusable
-  motions belong in the asset, not a scene. (§ Reuse over reinvention.) Yahtzee
-  reference implementations: single scorecard enters with `Scorecard.slide_in`;
-  **two scorecards side-by-side use `get_two_scorecards` + `slide_two_in`** (full
-  size, canonical centres, slide up from below — never `.scale()`/hand-place; ref
-  scenes 04/05/12); demo fill flash = `Scorecard.flash_rows`; row emphasis =
-  `Scorecard.highlight_rows`; dice keep/reroll = `DiceBoard.keep`/`roll_rest` +
-  `show_keep_anims`/`regroup_anims`; a big right-side number + caption beside a
-  left-sat card follows scene 05's `perfect_average` (caption above, big number
-  below — a promote candidate, not yet a shared helper).
+- **A frame-edge position** → read `config.frame_x_radius/​y_radius` (8.0/4.5) at
+  runtime. Never hardcode/recall 7.11/4.0.
+- **Every `run_time`** → an inlined literal at the call site (named local only for a
+  lockstep loop). (§ Scene structure.)
+- **Any displayed number** → SOURCED from the pipeline (data module + committed cache),
+  never computed at render. (§ The numbers are the product.)
+- **A prop's entrance/exit/flash / multi-prop layout** → the existing asset method
+  other scenes use — GREP the scenes first; reusable motions belong in the asset. (§
+  Reuse over reinvention.) Yahtzee: single scorecard `Scorecard.slide_in`; **two
+  side-by-side `get_two_scorecards` + `slide_two_in`** (full size, canonical centres —
+  never `.scale()`/hand-place; scenes 04/05/12); demo flash `Scorecard.flash_rows`; row
+  emphasis `Scorecard.highlight_rows`; dice keep/reroll `DiceBoard.keep`/`roll_rest` +
+  `show_keep_anims`/`regroup_anims`; a big right-side number + caption beside a left-sat
+  card follows scene 05's `perfect_average` (caption above, number below — a promote
+  candidate).
 
-**When a job ISN'T listed and you catch yourself copying from another scene, that
-IS the signal** — grep the scenes, then PROMOTE the pattern into the shared asset
-(see "a recurring ENTRANCE/EXIT/emphasis is an asset too") and add a row here.
-Each video also keeps its own prop-specific index in its own CLAUDE.md.
+**A job that ISN'T listed and you're copying from another scene IS the signal** — grep,
+PROMOTE the pattern into the shared asset, add a row here. Each video keeps its own
+prop-specific index too.
 
 ## Shared visual vocabulary — USE THESE, don't hand-pick (read before styling)
-Keep every video visually consistent by pulling colours and surfaces from the
-shared package instead of inventing ad-hoc hex values:
-- **The frame is 16 wide × 9 tall (units), NOT manim's default 14.22 × 8.** Every
-  video's `manim.cfg` (both `animations/` and `animations/scenes/`) sets
-  `frame_width = 16`, `frame_height = 9` — and `/new-video` scaffolds the same — so
-  the useful half-extents are **x-radius 8.0, y-radius 4.5** (left edge −8.0, top
-  edge +4.5). When positioning against the frame, READ them at runtime
-  (`from manim import config; config.frame_x_radius / config.frame_y_radius`) — do
-  NOT hardcode or assume manim's default 7.11/4.0. Assuming the default (from
-  memory, because 16:9 renders "look" standard — the aspect IS 16:9, only the unit
-  size differs) silently makes every margin/centring calc wrong. If a layout calc
-  needs a frame bound, the bound comes from `config`, never from your head.
-- **Colours come from `style.py`, picked in a fixed hierarchy** (the canonical
-  version, with rationale, is the header block in `style.py` — read it before
-  styling):
-  1. **Primary** `ACCENT_FILL` (deep blue) — data/bars/fills; a one-colour scene
-     uses this.
-  2. **Highlight** `ACCENT_GOLD` — the "notice this" accent (highlights, medians,
-     peaks, the emphasised element). Reserve it for that; don't spend gold as a
-     generic categorical fill when the scene also needs a highlight colour.
-  3. **Categorical** — when several colours must differ AT ONCE, pull from
-     `CATEGORICAL_PALETTE` in order (warm `ACCENT_GOLD`/`ACCENT_ORANGE`/`ACCENT_RED`,
-     then cool `ACCENT_GREEN`/`ACCENT_PURPLE`/`ACCENT_PINK`). No fixed meaning.
-  - **Semantic score/status colours are NOT accents:** points = green, zeroed/loss
-    = red live in the *video's* `config.py` (e.g. yahtzee `SCORE_GREEN`/`SCORE_RED`),
-    deliberately darker — don't reuse `ACCENT_GREEN`/`ACCENT_RED` for "good/bad".
-  - Reuse these; do NOT introduce new one-off hex colours unless the user asks. If
-    a new shade is genuinely needed, add it to `style.py` (so it's reusable) rather
-    than burying it in a scene.
-- **ALL text goes through `crisp_text` / `crisp_paragraph`** (from `style.py`) —
-  never a raw `Text(...)`. They render at the brand `FONT` (they now default it,
-  so you can't forget) and supersample for crispness. Match a neighbouring
-  element's `font_size`/`color` rather than inventing values; a number that sits
-  in an asset (e.g. a scorecard cell) must use that asset's `font_size` and
-  colour, not your own. Symptom this prevents: text rendered in manim's built-in
-  font because a hand-built `Text` (or an old `crisp_text` call) omitted the font
-  — it looks subtly wrong next to everything else. If you catch yourself styling
-  text from scratch, stop and pull the size/colour/font from `style.py` (or the
-  asset you're drawing into).
-- **Panels sit on a card.** Use `bpkfigures/card.py` (`get_card` / `card_behind`)
-  for the standard rounded surface (matches the scorecard look) — prefer it over
-  a raw `RoundedRectangle`. Lean toward putting free-floating text/tables/plots
-  on a card rather than straight on the background.
-- **To spotlight specific element(s), use the shared `highlight()`; don't
-  hand-roll it per scene.** `bpkfigures/highlight.py`'s `highlight(scene,
-  targets, …)` fades a tinted (`ACCENT_GOLD`) overlay onto the targets, HOLDS it
-  (default ~1 s), then fades out. It's exported through `from config import *`.
-  Targets are Mobjects (their bounding box) or `(center, w, h)` regions (for a
-  span no single mobject covers). **Default to HOLD, not a flash** — a held
-  highlight reads far better; the user's near-universal preference is "let it sit
-  for a second or two." Only pass `pulse=True` when you specifically want a
-  there-and-back flash (e.g. a highlight that WALKS across rows with `lag_ratio`);
-  `persist=True` fades in and leaves it (caller removes the returned rects). The
-  scorecard's richer row version (`Scorecard.highlight_rows`, adds a thick border
-  + bold label) follows the same rule: holds by default, `pulse=True` to walk.
-  Do NOT write bespoke `FadeIn(rect, rate_func=there_and_back)` highlight code in
-  a scene — reach for `highlight()`.
-- **Emphasise by DIMMING THE REST, not just bolding the focus.** To spotlight
-  element(s) in a group (lines in a chart, rows in a bar graph, items in a list),
-  fade every OTHER member to ~0.2 opacity while the focused one(s) stay full — the
-  dimmed field makes the focus pop far better than only bolding/recolouring it.
-  `save_state()` each element before dimming and `Restore` after, so each keeps
-  its own original opacity (e.g. a 0.85-tint bar comes back to 0.85, not 1.0). Now
-  the house move in scenes 07 (bar-graph rows) and 08 (lines). (Dimming-the-rest
-  and `highlight()`-the-target are complementary: dim when emphasising one OF a
-  group; overlay when calling out element(s) against an un-dimmed field.)
-- These are shared defaults; changing them still follows the "ASK before editing
-  `bpkfigures/`" rule.
-- You can reference any video's files even if it's not in the open workspace —
-  the agent reads them on disk. "Do this like the Battleship video" always works.
+Pull colours and surfaces from the shared package instead of inventing ad-hoc values:
+- **The frame is 16 wide × 9 tall, NOT manim's default 14.22 × 8.** Every video's
+  `manim.cfg` sets `frame_width=16`/`frame_height=9` (and `/new-video` scaffolds the
+  same), so the half-extents are **x-radius 8.0, y-radius 4.5**. READ them at runtime
+  (`config.frame_x_radius`/`frame_y_radius`) — do NOT assume manim's default 7.11/4.0
+  (16:9 renders look standard, but the unit size differs, so a recalled default silently
+  makes every margin calc wrong). A frame bound comes from `config`, never your head.
+- **Colours come from `style.py`, in a fixed hierarchy** (canonical version + rationale
+  in `style.py`'s header block):
+  1. **Primary** `ACCENT_FILL` (deep blue) — data/bars/fills; a one-colour scene uses this.
+  2. **Highlight** `ACCENT_GOLD` — the "notice this" accent (highlights, medians, peaks).
+     Reserve it; don't spend gold as a generic categorical fill.
+  3. **Categorical** — several colours at once: pull `CATEGORICAL_PALETTE` in order (warm
+     GOLD/ORANGE/RED, then cool GREEN/PURPLE/PINK). No fixed meaning.
+  - **Semantic score colours are NOT accents:** points=green, zeroed/loss=red live in the
+    *video's* `config.py` (`SCORE_GREEN`/`SCORE_RED`, deliberately darker) — don't reuse
+    `ACCENT_GREEN`/`ACCENT_RED` for good/bad.
+  - Don't introduce one-off hex unless asked; a genuinely new shade goes in `style.py`,
+    not buried in a scene.
+- **ALL text goes through `crisp_text`/`crisp_paragraph`** — never raw `Text(...)`. They
+  render at brand `FONT` (defaulted now) and supersample. Match a neighbouring element's
+  `font_size`/`color`; a number in an asset (e.g. a scorecard cell) uses that asset's
+  size/colour, not your own. (Symptom this prevents: text in manim's built-in font
+  because a hand-built `Text` omitted the font — subtly wrong next to everything.)
+- **Panels sit on a card** — `get_card`/`card_behind` (`bpkfigures/card.py`) for the
+  standard rounded surface, over a raw `RoundedRectangle`.
+- **To spotlight element(s), use the shared `highlight()`** (`bpkfigures/highlight.py`,
+  exported via `from config import *`): fades a tinted (`ACCENT_GOLD`) overlay onto the
+  targets, HOLDS ~1s, fades out. Targets are Mobjects or `(center, w, h)` regions.
+  **Default to HOLD, not a flash** (the user's near-universal preference); `pulse=True`
+  for a there-and-back flash (e.g. a highlight that WALKS across rows), `persist=True` to
+  fade in and leave it. `Scorecard.highlight_rows` (thick border + bold label) follows
+  the same hold-by-default rule. Don't hand-roll `FadeIn(rect, rate_func=there_and_back)`.
+- **Emphasise by DIMMING THE REST, not just bolding the focus.** To spotlight element(s)
+  in a group (chart lines, bar rows, list items), fade every OTHER member to ~0.2 opacity
+  while the focus stays full. `save_state()` each before dimming, `Restore` after, so each
+  returns to its own opacity (a 0.85-tint bar comes back to 0.85). The house move in
+  scenes 07/08. (Complementary to `highlight()`: dim when emphasising one OF a group;
+  overlay against an un-dimmed field.)
+- Changing these shared defaults still follows the "ASK before editing `bpkfigures/`" rule.
+- You can reference any video's files on disk even if not in the workspace — "Do this
+  like the Battleship video" always works.
 
 ## New video / new machine
 Use `/new-video <name>` to scaffold a new video, and `/sync-videos` to set up a
