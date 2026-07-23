@@ -168,14 +168,21 @@ Sections tightened (each its own commit; rules verified):
 - **Rendering during iteration** ~92 → ~71 (`2e1bbcc`) — 13 rules + 3 gotchas kept.
 - **Starting a new scene** 98 → 70 (`32cfee5`) — all 5 PREFLIGHT items kept.
 
-Running total: **1006 → 869**.
+Also tightened: Repo layout, Canonical patterns index, Shared visual vocabulary
+(`7f75a03`); Where-instructions, Concurrent, Reuse, Git, Process (`0eda91f`).
+Deliberately LEFT near-full (selective emphasis on crown-jewel rules): Following
+instructions + The numbers are the product (the "hand-rolled EV shipped wrong"
+example earns its place).
 
-Still to tighten (self-contained): Shared visual vocabulary (72), Repo layout (62),
-Where instructions live (46), Canonical patterns index (42), The numbers are the
-product (33), + smaller. Still to CONSOLIDATE (structural, higher-risk): the
-render/shell cluster — Rendering (63) + Keep commands allowlist-friendly (~73) +
-Shell commands (~30) — into one home; and fold Process's overlaps into the
-authoring cluster.
+Running total: **1006 → 771 (~23%)**. Tightening bucket essentially DONE.
+
+**Remaining: the render/shell CONSOLIDATION** (structural, higher-risk — reorders
+content, so its own reviewed step). Three overlapping sections all cover the
+render/verify/shell-prompt loop: **Shell commands** (~30) + **Rendering — use the
+render script** (~63) + **Keep commands allowlist-friendly** (~73). Merge into one
+home (drop the cross-section overlap). Est. another ~40-60 lines → lands near the
+~700 target. Snapshot cache + Rendering-during-iteration already tightened; leave
+them as their own sections.
 
 ## Observations for the broader audit (not yet acted on)
 
