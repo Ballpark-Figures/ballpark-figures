@@ -349,164 +349,102 @@ exact animation primitives. Render ONLY text the script's column 2 explicitly
 calls for; no titles/labels/narration that weren't asked for.
 
 ## Scene structure (LAZY per-subscene building)
-- **Build lazily, in the OWNER subscene — not all up front in `setup_scene`.**
-  Each subscene builds (as `self.<name>`) the mobjects it OWNS = the ones that
-  first appear in it, typically via a `_setup_<name>()` helper it calls at its
-  start; then it animates. `setup_scene` holds ONLY things on screen from frame 0
-  (a persistent background/scorecard) — often it's empty. Why this over the old
-  "build everything in setup_scene" pattern: a snapshot pickles the whole scene
-  state, so front-loading made every snapshot heavy AND made any setup edit
-  invalidate EVERY subscene's snapshot. Lazy building keeps snapshots light and
-  makes a setup edit invalidate only its owner subscene onward. (See the snapshot
-  cache + render notes.)
-- **Carry-over is automatic — don't rebuild.** An object built in subscene N and
-  left in `self` is restored (same object, same mutated state) when N+1 loads N's
-  snapshot, so later subscenes just REFERENCE `self.<name>`. Two rules: (1) every
-  reused object needs a `self.` handle (a local mobject can't be named next
-  subscene); (2) ONE owner per object — if two subscenes both `self.foo = …`, the
-  second silently replaces the carried one (a real bug). When a carry-over is
-  consumed/no longer needed, drop it (`self.foo = None`) so later snapshots stay
+- **Build lazily, in the OWNER subscene — not up front in `setup_scene`.** Each
+  subscene builds the mobjects it OWNS (the ones that first appear in it) as
+  `self.<name>`, via a `_setup_<name>()` helper called at its start; `setup_scene`
+  holds ONLY things on screen from frame 0 (often empty). Why: a snapshot pickles
+  the whole scene state, so front-loading makes every snapshot heavy and makes any
+  `setup_scene` edit invalidate EVERY subscene — lazy building keeps snapshots light
+  and localizes invalidation to the owner subscene onward.
+- **Carry-over is automatic — don't rebuild.** An object left in `self` is restored
+  (same object + mutated state) when the next subscene loads the snapshot, so later
+  subscenes just REFERENCE `self.<name>`. Rules: every reused object needs a `self.`
+  handle; ONE owner per object (a second `self.foo = …` silently replaces the carried
+  one — a real bug); drop a consumed carry-over (`self.foo = None`) to keep snapshots
   light.
 - **A `@subscene` BODY should read as ANIMATION — push construction into
-  `_setup_<name>()`.** The subscene calls `self._setup_<name>()` at its top to
-  build every mobject it OWNS (cards, tables, labels, example states, props),
-  then the body is just `self.play(...)` / `self.wait(...)` with each `run_time`
-  as a local variable — so the user can retune timing without wading through
-  construction. If it can go in setup, it should. Only THREE kinds of code
-  legitimately stay in the body: (1) offscreen ENTRANCE positioning that depends
-  on the carried-in geometry (build at home in setup, then `shift` offscreen and
-  animate back in the body); (2) a mobject carrying a LAMBDA updater
-  (`always_redraw(lambda …)` or `.add_updater(lambda …)`) — the lambda can't be
-  pickled, so it can't live in a snapshot (a BARE `ValueTracker` pickles fine and
-  belongs in setup — build it there, attach the updater in the body); (3) construction
-  whose geometry only exists AFTER an earlier play in the same subscene. Building
-  a mobject inline right next to its `play()` "because it's small" is the habit to
-  break — extract it. `scenes/05reductions.py` is the current model of this shape;
-  older scenes (02, 04, 07) still build inline and can be migrated when touched.
-  (They never rebuild a carried-over object — see carry-over above.)
+  `_setup_<name>()`** (called at the body's top to build every mobject it OWNS); the
+  body is then just `self.play`/`self.wait`. If it can go in setup, it should. Only
+  THREE kinds of code stay in the body: (1) offscreen ENTRANCE positioning that
+  depends on carried-in geometry (build at home in setup, `shift` offscreen, animate
+  back in the body); (2) a mobject carrying a LAMBDA updater (`always_redraw(lambda …)`
+  / `.add_updater(lambda …)`) — the lambda can't be pickled (a BARE `ValueTracker`
+  pickles fine → build in setup, attach the updater in the body); (3) construction
+  whose geometry only exists AFTER an earlier play in the same subscene.
+  `scenes/05reductions.py` is the model.
 - **Subscene continuity:** a subscene starts from the previous one's END state.
-  Anything not on screen at the end of the previous subscene must be ANIMATED IN
-  at the start of the next (don't silently `add` — it pops). Things appearing
-  together should animate in together.
-- **How a scene ENDS depends on what follows it in the script.** If a scene is NOT
-  immediately followed by a talking-head segment (`THA`–`THL`) — i.e. it cuts
-  straight to the next animated scene — its last subscene must end with NOTHING on
-  screen (fade/clear everything out), so animated scenes never hard-cut between two
-  full frames. If a scene IS followed by a talking head, it may end with its final
-  content still on screen (the talking head covers the transition) — often the
-  right call is to restore any mid-scene emphasis (dimmed/hidden elements) to the
-  full, clean end state. Check the script's segment order to know which case
-  applies.
-- **A transient annotation you ADD (a footnote, callout, one-off caption/note)
-  has a BOUNDED lifetime by default — fade it OUT by the end of the scene (or when
-  its section/context ends); do NOT leave it lingering into unrelated later
-  beats.** This holds even when the scene's PERSISTENT content (a card, a board)
-  legitimately stays on screen through a following talking head — a one-off note
-  you dropped in to make a point is not that persistent content, so plan its exit
-  when you add it. When you catch yourself adding such an overlay and wondering
-  "should this come out?", the default answer is YES, by scene end — only leave it
-  if the user says it stays.
+  Anything not on screen at the previous subscene's end must be ANIMATED IN at the
+  next one's start (don't silently `add` — it pops); things appearing together animate
+  in together.
+- **How a scene ENDS depends on what follows in the script.** If it cuts straight to
+  another animated scene (NOT followed by a talking head `THA`–`THL`), the last
+  subscene must end with NOTHING on screen (fade/clear out) so animated scenes never
+  hard-cut between two full frames. If a talking head follows, it may end with content
+  on screen (the head covers the transition) — usually restore any mid-scene emphasis
+  (dimmed/hidden elements) to the clean end state. Check the script's segment order.
+- **A transient annotation you ADD (footnote, callout, one-off caption) has a BOUNDED
+  lifetime — fade it OUT by scene end (or when its context ends); don't leave it
+  lingering into unrelated beats.** This holds even when the scene's PERSISTENT content
+  (a card, a board) stays on through a following talking head — a one-off note isn't
+  that content, so plan its exit when you add it. Default answer to "should this come
+  out?" is YES, by scene end, unless the user says it stays.
 - **Every subscene is auto-framed by a static hold — do NOT add your own start/end
-  wait.** `scene.py` plays one leading `self.wait(SUBSCENE_HOLD)` at the very start
-  of a render plus one trailing hold after each subscene (`SUBSCENE_HOLD = 1.0s`).
-  So a single-subscene render is `HOLD·sub·HOLD` (a standalone clip padded 1s each
-  side, handy for editing) and a full-scene render is `HOLD·a·HOLD·b·…·N·HOLD` — a
-  SINGLE shared 1s pause between adjacent subscenes, not two. The framework OWNS the
-  boundary holds; a subscene body must NOT begin or end with a `self.wait(...)` (it
-  would stack on the framework's hold / double the between-subscene pause). Waits in
-  the MIDDLE of a subscene (pacing between its own steps) are fine and expected.
-- **Every animation/wait's `run_time` is an explicit NUMBER inlined in the call —
-  do NOT bind it to a one-use local first.** Write `self.play(…, run_time=1.2)`,
-  NOT `rt = 1.2` … `run_time=rt`. The intermediate variable is pure indirection:
-  the literal is already right there in the body (that's the point — the user sees
-  and tweaks it in place), so naming it just adds a line to read past. Pass an
-  explicit `run_time=` to every `self.play(...)` (don't rely on manim's default
-  1.0); `self.wait(t)` already shows its duration. If a subscene calls a HELPER
-  that plays animations (e.g. `_grow_step`, or a local `roll()`/`count_in()`
-  closure), give that HELPER a `run_time` PARAMETER and pass the LITERAL at the
-  call site — never bury a hardcoded run_time inside a helper where it can't be
-  reached. (The ONE case a named local is fine: the SAME value must drive several
-  plays in lockstep — e.g. a loop whose every step is the same length — where the
-  name keeps them in sync. A value used once is always inlined.)
-- **EVERY animation we author exposes a single `run_time` parameter that scales the
-  WHOLE animation.** Any method or closure WE write that plays animations — a scene
-  helper, a shared ASSET method, a local `roll()`/`count_in()` closure — takes ONE
-  `run_time` (named exactly that) so the caller tunes duration at the call site, and
-  it means the duration of the ENTIRE animation. When the helper fires several plays
-  with waits/holds between them, `run_time` is the TOTAL and EVERY part — each play
-  AND each hold/wait — scales proportionally with it: compute `r = run_time / <default
-  total>` once and multiply every sub-duration by `r` (the scorecard scoring methods —
-  `upper(run_time=1.7)`, whose internal `1.1·r` + `0.6·r` sum back to `run_time` — are
-  the model). Do NOT map `run_time` to just one of the plays and leave the rest fixed:
-  a `fade`-only knob with a hardcoded `hold` between is the anti-pattern — `run_time`
-  scales the fades but not the hold, so it does NOT scale the animation. Prefer this
-  single whole-animation knob
-  over exposing separate `hold`/`fade`/per-phase params; add a second timing knob only
-  when the caller genuinely needs one part independent of the rest, and say why. A
-  timing knob under any other name (`fade`, `dur`, `speed`, `t`) is the smell to fix.
-  (Stronger than the helper clause above: covers ASSET methods and ANY new animation,
-  not just subscene helpers.)
-- **Do NOT hide a series of DISTINCT script beats inside a `for` loop — UNROLL it,
-  one explicit step per beat.** A loop over `steps`/`EXAMPLES` reads tidily, but the
-  moment its iterations correspond to different things the VOICEOVER talks through
-  one at a time (three example turns, a walk through several cases), the single
-  shared `run_time`/`wait` in the loop body becomes one knob controlling beats that
-  each need their OWN timing to land with what's being said — which is exactly the
-  timing the user re-tunes most, and the loop makes it impossible without splitting
-  it back out. So a loop is only for the lockstep case above (identical steps, one
-  continuous thing being narrated); when each iteration is a separate beat, write it
-  as consecutive `self._step(...)` / `self.wait(...)` lines with per-step literals
-  (keep any SOURCED numbers referenced from their data list — unroll the timing, not
-  the provenance). Reference: yahtzee scene 12a (`expected_score`) unrolls its three
-  example turns; scene 05 unrolls `EX_TOPS` the same way.
-- **A DENSE, multi-phase subscene → split each phase into a private helper that
-  takes its `run_time`s as PARAMETERS, so the BODY reads as a timeline of
-  `self._phase(1.0)` calls.** The inline-literal rule above is the default and
-  stays that way for a SIMPLE subscene (little around each `self.play`, so nothing
-  to hunt for). But when a body grows long — many phases interleaved with
-  `ValueTracker`/`always_redraw`/closure machinery that can't move to `_setup`
-  (yahtzee scene 01's `grand_total`/1j is the motivating case: ~120 lines, and the
-  `run_time` knobs you actually edit are scattered through the machinery) — pull
-  each phase into a helper and let the subscene body become a short score:
-  `self._gt_count_up(2.2)` / `self._gt_cull(1.0)` / …, one line per beat. This is
-  NOT a competing convention: each `run_time` is still a call-site LITERAL (so the
-  no-one-use-local rule holds), and the method NAME labels which animation it
-  drives — so, unlike a top-of-body `t_cull = 1.0` timing block, there's no
-  name→play lookup to maintain (that indirection is exactly what makes such a block
-  hard to edit). Every knob is visible in one screen; the dense machinery hides in
-  the helpers. Caveat: this is a BUILD-TIME pattern — clean when you write the scene
-  phase-by-phase from the start, fiddly and render-risky to RETROFIT onto a working
-  scene (phases share live state — an `always_redraw` built in one phase is removed
-  in a later one — so retrofitting means threading that state across helpers without
-  perturbing the render). So adopt it when building; don't refactor existing scenes
-  into it just for tidiness.
-- **Do NOT put timing (or any tunable) on the @subscene method's own signature.**
-  Subscenes are invoked with NO arguments (`getattr(self, name)()` in `scene.py`),
-  so a `def beat(self, run_time=3.0)` param is NEVER overridden — it's a dead,
-  misleading "knob" that looks callable but isn't. Put the number in the BODY,
-  inlined in the call: `def beat(self):` … `self.play(…, run_time=3.0)`. "Expose at
-  the subscene level" means in the subscene's BODY, not its signature — the
-  signature of an `@subscene` is always just `(self)`.
-- **Make every new scene fast to NAVIGATE and RE-TIME — the user's main edit loop
-  is tuning waits/run_times, so the beat and its knobs must be trivial to find.**
-  On EVERY new scene, alongside the run_time-inline rule above:
-  - a **`# <letter> : <one-liner>` banner directly above every `@subscene`**, so a
-    beat is findable by its rendered letter (the one `render`/the video uses; scene
-    04 is the reference — a boxed banner is the fuller style, a single comment line
-    the minimum). Fix the letters when you insert/reorder beats.
-  - a **BEAT MAP in the scene's class docstring** — one `<method> — <one-liner>`
-    line per subscene, in order (scenes 04/05 are the reference); the index you
-    scan to find the beat to tune.
-  - a trailing **`# VO`** on any long `self.wait(…)` that exists to cover a
-    voiceover paragraph (not to pace the animation), so those big, frequently
-    re-timed holds stand out from mid-beat pacing waits.
-- **Apply these navigability conventions GOING FORWARD, not retroactively.** New
-  scenes — and any NEW subscene/code you add to any scene — follow all of the
-  above; but do NOT sweep or reformat an existing pre-convention scene just because
-  you touched it. (Yahtzee scenes 01–07 predate the banner/beat-map/VO conventions
-  and still carry some `run_time =` locals; leave their existing beats as-is unless
-  the user explicitly asks to sweep.) "Migrate on touch" = new code matches
-  convention, NOT a whole-file churn.
+  wait.** `scene.py` plays one leading `self.wait(SUBSCENE_HOLD=1.0s)` per render plus
+  one trailing hold after each subscene (so adjacent subscenes share a SINGLE 1s pause,
+  not two). A subscene body must NOT begin or end with `self.wait(...)` — it stacks on
+  the framework's hold and doubles the pause. Mid-subscene pacing waits are fine.
+- **Every `run_time` is an explicit NUMBER inlined at the call — not a one-use local.**
+  Write `self.play(…, run_time=1.2)`, not `rt = 1.2` … `run_time=rt` (the point is the
+  user tweaks the literal in place). Pass an explicit `run_time=` to every `self.play`
+  (don't rely on manim's 1.0 default); a HELPER that plays takes a `run_time` PARAMETER
+  passed the literal at the call site — never a hardcoded run_time buried where the
+  caller can't reach it. The ONE exception: a named local for the lockstep case (the
+  SAME value driving several same-length plays in sync).
+- **Every animation WE author exposes a single `run_time` that scales the WHOLE
+  animation.** Any method/closure we write that plays (scene helper, ASSET method,
+  local `roll()`/`count_in()`) takes ONE `run_time` meaning the ENTIRE duration: when
+  it fires several plays with holds between, compute `r = run_time / <default total>`
+  once and scale EVERY sub-duration — each play AND each hold — by `r` (the scorecard
+  scoring methods, `upper(run_time=1.7)` with internal `1.1·r`+`0.6·r`, are the model).
+  Do NOT scale only some plays and leave holds fixed (a `fade`-only knob with a
+  hardcoded `hold` does NOT scale the animation). Add a second timing knob only when a
+  part genuinely needs to be independent, and say why; a knob named anything but
+  `run_time` (`fade`/`dur`/`speed`/`t`) is the smell to fix.
+- **Do NOT hide DISTINCT script beats in a `for` loop — UNROLL it, one explicit step
+  per beat.** The moment iterations are different things the VOICEOVER walks through
+  one at a time (three example turns, several cases), the loop's single shared
+  `run_time`/`wait` can't give each beat its own timing — the timing the user re-tunes
+  most. Loops are only for the lockstep case (identical steps, one continuous
+  narration); otherwise write consecutive `self._step(...)` / `self.wait(...)` lines
+  with per-step literals (keep SOURCED numbers referenced from their data list). Ref:
+  scenes 12a, 05.
+- **A DENSE, multi-phase subscene → split each phase into a private helper taking its
+  `run_time`s as PARAMETERS, so the BODY reads as a timeline of `self._phase(1.0)`
+  calls.** The inline-literal rule above stays the default for a SIMPLE subscene; but
+  when a body grows long with `ValueTracker`/`always_redraw`/closure machinery that
+  can't move to `_setup`, pull each phase into a helper (`self._gt_count_up(2.2)` /
+  `self._gt_cull(1.0)` …). Each `run_time` is still a call-site literal and the method
+  name labels its animation — every knob visible in one screen, the machinery hidden.
+  Caveat: a BUILD-TIME pattern (adopt it writing a scene phase-by-phase) — don't
+  RETROFIT it onto a working scene (phases share live state; retrofitting risks the
+  render).
+- **Do NOT put timing (or any tunable) on the `@subscene` signature.** Subscenes are
+  invoked with NO args (`getattr(self, name)()`), so a `def beat(self, run_time=3.0)`
+  is a dead, misleading knob. Put the number in the BODY; an `@subscene`'s signature is
+  always just `(self)`.
+- **Make every new scene fast to NAVIGATE and RE-TIME** (the user's main edit loop is
+  tuning waits/run_times). On every new scene, alongside the run_time-inline rule:
+  - a **`# <letter> : <one-liner>` banner above every `@subscene`** (findable by
+    rendered letter; scene 04 is the reference) — fix letters when you reorder beats;
+  - a **BEAT MAP in the class docstring** (one `<method> — <one-liner>` per subscene,
+    in order; scenes 04/05);
+  - a trailing **`# VO`** on any long `self.wait(…)` that covers a voiceover paragraph,
+    so those big re-timed holds stand out from mid-beat pacing waits.
+- **Apply these navigability conventions GOING FORWARD, not retroactively.** New scenes
+  and any NEW code you add follow them; do NOT reformat an existing pre-convention scene
+  just because you touched it (yahtzee 01–07 predate them — leave their beats unless
+  asked to sweep). "Migrate on touch" = new code matches convention, not whole-file
+  churn.
 
 ## Reuse over reinvention
 - **The convention-check is NOT a new-scene gate — it fires on every EDIT too, and
