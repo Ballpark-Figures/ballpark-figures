@@ -9,7 +9,8 @@ load wherever you're working. Video-specific rules live in that video's own
 - **Do what the user explicitly asked, in the form they asked for.** When they
   name a file, format, or method ("put it in a CLAUDE.md", "use a tail flag"),
   that exact choice IS the spec — not a suggestion to improve on with your own
-  judgment.
+  judgment. Implement it literally ("disappear" ≠ "fade", "centered" =
+  measure-and-center).
 - **Disagreeing is fine; silently overriding is NOT.** If you think a different
   approach is better, FLAG IT AND ASK FIRST, then follow the user's decision.
   Willfully deviating from an explicit instruction — even when your alternative
@@ -950,8 +951,6 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   breaking the beat's meaning. The build
   PREFLIGHT reads column 1+2 for every beat; this keeps that grounding alive
   through the ITERATION passes, where it tends to lapse.
-- Implement specific requests **literally** — exact wording is the spec
-  ("disappear" ≠ "fade", "centered" = measure-and-center).
 - For animation FEEL/timing: build a quick ROUGH version, render + grab frames,
   iterate from the user's reaction. Don't over-build the first pass. Render and
   verify after every visual change.
