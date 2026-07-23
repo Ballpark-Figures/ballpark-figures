@@ -759,101 +759,73 @@ The permission allowlist already covers the core loop (`render`, `manim`,
 
 ## Starting a new scene
 How the user likes a brand-new `scenes/NN<name>.py` built:
-- **Orient before writing.** First read the OTHER scenes in this video to match
-  their structure and conventions. If this is the video's FIRST scene, read a
-  previous video's scenes instead. Also keep in mind what already exists: this
-  video's `animations/assets/` and the shared `bpkfigures/` package — reuse, don't
-  reinvent.
-- **PREFLIGHT before writing OR editing a scene — write the map down first.** This
-  operationalizes the sparse-text and reuse rules into a gate; skipping it is HOW
-  they get violated. Produce, in the chat, a short explicit map:
-  (1) each beat → the reference scene/section it must match and the exact
-  conventions to copy from it (grid shape, `flow_order`/ordering, sizes, buffs,
-  helpers). A beat that visually parallels another scene (e.g. "the 252 from
-  scene 1") MUST reuse that scene's actual layout, not a re-derivation.
-  (2) every on-screen text element → the literal column-2 phrase that licenses it.
-  Anything that doesn't map to column 2 (titles, counts, helper labels) gets
-  DROPPED or flagged to the user for approval — NEVER silently added.
-  (3) **the WHOLE of column 2 as a clause-by-clause checklist** — quote EVERY
-  clause verbatim, animation directions included ("move dice down a row", "remove
-  4kind", "3 other configurations", "counter to increase EV remaining"), and next
-  to each write the exact thing you'll build for it. A clause you intend to
-  deviate from, can't build, or would paraphrase gets FLAGGED-and-ASKED, never
-  silently changed or dropped. Paraphrasing column 2 into your own words is HOW
-  "wrong box" / "dropped instruction" / "ignored the row structure" errors happen
-  — the exact words ARE the spec (numbers, counts, "row", which box). Do this
-  before writing; **re-run the same table against the built scene at handoff** and
-  report every clause that still doesn't match.
-  (4) **each beat → the column-1 VOICEOVER sentence(s) it pairs with — READ
-  COLUMN 1, not column 2 alone.** Column 2 (animation notes) is often terse or
-  elliptical ("skip most of the stuff", "montage"); the VOICEOVER is what pins
-  down what a beat actually depicts, so quote the paired column-1 text next to
-  each beat BEFORE writing code. When column 2 is vague or you're unsure which
-  game state / turn / quantity a beat refers to, the voiceover disambiguates it —
-  e.g. a montage whose voiceover says "the second reroll of turn 12, then the
-  first reroll of turn 12" is the *specific* two-open-box turn-12 state (and its
-  numbers are rest-of-GAME EVs), NOT a generic single-box illustration. If the
-  two columns still don't pin it down, FLAG-and-ASK rather than guessing. (This
-  rule exists because reading column 2 in isolation repeatedly produced the wrong
-  state/quantity for such beats.)
-  (5) **each on-screen element → the shared helper/value it renders through — a
-  STYLING pass, not just a content one.** Before writing an element, name what it
-  comes from: text → `crisp_text` (defaults to `FONT`; still give it the right
-  `font_size`/`color`), never a raw `Text` or ad-hoc size; colours → the specific
-  `style.py` / video-`config.py` name (semantic score green/red, the gold
-  highlight, `ACCENT_FILL`…), never a hand-picked hex or manim default; a prop's
-  ENTRANCE or a box fill/flash → the existing asset method other scenes use
-  (`Scorecard.slide_in`, `flash_rows`, the dice helpers), never a hand-rolled
-  FadeIn/opacity. A cell you can't map to a shared helper is the flag to STOP and
-  find it (or ask). **Re-run this pass at handoff:** on a verification frame,
-  actively read the STYLING — is the text in `FONT`? are highlights/colours the
-  semantic ones? do reused props (dice, scorecard) render as they do elsewhere? —
-  not just position/overlap. (This exists because a scene built "from scratch"
-  shipped wrong fonts, wrong-count dice pips, and off-palette highlights that all
-  had to be corrected in review — the conventions were documented; the miss was
-  not checking each element against them, up front AND on the render.) **This pass
-  is NOT new-scene-only — it re-runs every time you ADD an element while EDITING an
-  existing scene; the tripwire is typing a new value/constant (see § Reuse over
-  reinvention).**
-- **Beats within a scene are delimited by a literal `---` in BOTH columns — split
-  on it to recover the beat↔voiceover↔animation mapping.** `Script.md` is a
-  2-column Google-Doc table exported to Markdown, and that export FLATTENS each
-  cell to ONE space-joined line (no `<br>`/newlines), which would otherwise leave a
-  scene's voiceover and animation as two run-on blobs with all beat boundaries
-  lost. The user separates beats with `---` in EACH cell; parse a scene by
-  splitting BOTH cells on `---` and zipping them, so segment *i* of the voiceover
-  pairs with segment *i* of the animation = one beat = one subscene (order a, b,
-  c…). If segments are letter-tagged (e.g. `a)` … `b)` …), pair by the tag instead
-  of by position. This is what makes items (3)/(4) above actually possible.
-- **If a multi-beat scene's row has NO `---` delimiters, STOP and ASK the user to
-  add them before building — do NOT guess the beat boundaries.** Without them the
-  mapping is unrecoverable from the flattened export (the root cause of the beat-h
-  mess). A genuinely single-beat scene needs none; the trigger is several beats'
-  worth of content crammed into one run-on cell. Watch too for a MISMATCHED count
-  of `---` between the two columns (an empty beat should still be an empty segment,
-  e.g. `… --- (no change) --- …`) — a mismatch silently shifts the pairing, so
-  flag it rather than zipping blindly.
-- **A beat with an EMPTY animation column (voiceover-only) gets NO subscene.**
-  When column 2 for a beat is blank (just narration, nothing to show), do NOT
-  create a do-nothing subscene that only `self.wait`s — its voiceover simply
-  plays over the neighbouring beats' framework holds. Still COUNT it when zipping
-  the columns (so later beats stay aligned), but skip it when emitting subscenes.
-  Removing a subscene shifts every LATER subscene's letter, which orphans the
-  old highest-letter video (`resolve --clean` only cleans the slot of a letter
-  you actually render, so the now-out-of-range last letter never gets swept) —
-  delete that orphaned `NN<letter>_*.mp4` by hand after the change.
-- **Start from a blank scene** (the setup_scene/@subscene pattern below), not a
-  copy — but informed by what you read above.
-- **Build from the script.** Stick to what `Script.md` (column 2) calls for:
-  don't invent extra content, don't deliberately omit. Fill gaps only where the
-  script is genuinely ambiguous, and flag those. (See the literal-implementation
-  and verify-render notes under Process.)
-- **Changing `assets/` or `bpkfigures/` is welcome — but ASK FIRST.** If a scene
-  would benefit from a new/modified shared asset or package change, propose it
-  before making the change; don't silently edit shared code.
-- **Timing:** make sensible run_time guesses and name them on handoff (see
-  Process). Every animation/wait exposes a tunable `run_time` in the subscene body —
-  see the run_time note in Scene structure.
+- **Orient before writing.** Read the OTHER scenes in this video first to match their
+  structure/conventions (if it's the video's FIRST scene, read a previous video's).
+  Reuse what exists — this video's `animations/assets/` and the shared `bpkfigures/`.
+- **PREFLIGHT before writing OR editing a scene — write the map down first** (this
+  turns the sparse-text and reuse rules into a gate; skipping it is HOW they get
+  violated). In the chat, produce:
+  (1) **each beat → the reference scene/section it matches** and the exact conventions
+  to copy (grid shape, `flow_order`/ordering, sizes, buffs, helpers). A beat
+  paralleling another scene ("the 252 from scene 1") MUST reuse that scene's actual
+  layout, not a re-derivation.
+  (2) **every on-screen text element → the literal column-2 phrase that licenses it.**
+  Anything not in column 2 (titles, counts, helper labels) is DROPPED or flagged for
+  approval — never silently added.
+  (3) **the WHOLE of column 2 as a clause-by-clause checklist** — quote EVERY clause
+  verbatim (animation directions included: "move dice down a row", "remove 4kind",
+  "3 other configurations"), and next to each write what you'll build. A clause you'd
+  deviate from, can't build, or would paraphrase gets FLAGGED-and-ASKED. The exact
+  words ARE the spec (numbers, counts, "row", which box) — paraphrasing is HOW
+  "wrong box"/"dropped instruction" errors happen. **Re-run this table against the
+  built scene at handoff** and report every clause that still doesn't match.
+  (4) **each beat → the column-1 VOICEOVER it pairs with — READ COLUMN 1, not column 2
+  alone.** Column 2 is often terse ("skip most of the stuff", "montage"); the voiceover
+  pins down what a beat actually depicts, so quote the paired column-1 text next to each
+  beat before coding. When column 2 is vague about which game state/turn/quantity, the
+  voiceover disambiguates (e.g. "the second reroll of turn 12" is the specific
+  two-open-box turn-12 state with rest-of-GAME EVs, not a generic single-box
+  illustration). If neither column pins it down, FLAG-and-ASK.
+  (5) **each on-screen element → the shared helper/value it renders through — a STYLING
+  pass, not just content.** Name what each element comes from: text → `crisp_text`
+  (right `font_size`/`color`), never a raw `Text`; colours → the specific
+  `style.py`/`config.py` name (score green/red, gold highlight, `ACCENT_FILL`), never a
+  hand-picked hex; a prop ENTRANCE or box fill/flash → the existing asset method
+  (`Scorecard.slide_in`, `flash_rows`, dice helpers), never a hand-rolled FadeIn. A cell
+  you can't map to a helper is the flag to STOP and find it (or ask). **Re-run at
+  handoff** on a verification frame: read the STYLING (text in `FONT`? colours semantic?
+  reused props render as elsewhere?), not just position/overlap. **NOT new-scene-only —
+  it re-runs whenever you ADD an element while EDITING; the tripwire is typing a new
+  value/constant (see § Reuse over reinvention).**
+- **Beats are delimited by a literal `---` in BOTH columns — split on it to recover the
+  beat↔voiceover↔animation mapping.** `Script.md` is a 2-column Google-Doc table whose
+  Markdown export FLATTENS each cell to ONE line (no newlines), so without the `---` a
+  scene's voiceover and animation are two run-on blobs with beat boundaries lost. Parse
+  by splitting BOTH cells on `---` and zipping: segment *i* of voiceover pairs with
+  segment *i* of animation = beat *i* = subscene (a, b, c…). If segments are
+  letter-tagged (`a)` … `b)` …), pair by tag. This is what makes items (3)/(4) possible.
+- **If a multi-beat scene's row has NO `---` delimiters, STOP and ASK the user to add
+  them — do NOT guess the boundaries** (the mapping is unrecoverable from the flattened
+  export). A genuinely single-beat scene needs none; the trigger is several beats
+  crammed into one run-on cell. Watch too for a MISMATCHED `---` count between columns
+  (an empty beat still needs an empty segment, `… --- (no change) --- …`) — a mismatch
+  silently shifts the pairing, so flag it.
+- **A beat with an EMPTY animation column (voiceover-only) gets NO subscene** — don't
+  create a do-nothing `self.wait` subscene; its voiceover plays over the neighbours'
+  framework holds. Still COUNT it when zipping (so later beats stay aligned), but skip
+  emitting it. Removing a subscene shifts every LATER letter, orphaning the old
+  highest-letter video (`resolve --clean` only cleans letters you render) — delete that
+  orphaned `NN<letter>_*.mp4` by hand.
+- **Start from a blank scene** (the setup_scene/@subscene pattern), not a copy — but
+  informed by what you read above.
+- **Build from the script.** Stick to what `Script.md` column 2 calls for — don't invent
+  extra content, don't deliberately omit; fill genuine ambiguities only, and flag them.
+  (See literal-implementation + verify-render under Process.)
+- **Changing `assets/` or `bpkfigures/` is welcome — but ASK FIRST**; propose the shared
+  change before making it, don't silently edit shared code.
+- **Timing:** make sensible run_time guesses and name them on handoff (see Process);
+  every animation/wait exposes a tunable `run_time` in the subscene body — see the
+  run_time note in Scene structure.
 
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and
