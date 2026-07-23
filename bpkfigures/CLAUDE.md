@@ -589,95 +589,74 @@ calls for; no titles/labels/narration that weren't asked for.
 
 ## Rendering during iteration (agent — keep the loop fast)
 The slowest mistakes here are render round-trips, not thinking. Defaults:
-- **Render ONLY the subscene(s) you changed**, never the whole scene (`NN sub` /
-  `NN all`) unless geometry genuinely changed everywhere. `render NNk` replays the
-  prefix once; `NN sub` rebuilds all subscenes (much slower).
-- **Editing a shared asset (`assets/`, `bpkfigures/`) invalidates ALL snapshots**
-  (see the cache key above), so BATCH asset edits and render once, rather than
-  re-rendering after each small asset tweak.
+- **Render ONLY the subscene(s) you changed**, never the whole scene unless geometry
+  changed everywhere. `render NNk` replays the prefix once; `NN sub`/`NN all` rebuilds
+  all subscenes (much slower).
+- **Editing a shared asset (`assets/`, `bpkfigures/`) invalidates ALL snapshots**, so
+  BATCH asset edits and render once.
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
-  overlap/clipping). The user judges feel/timing from the actual video far better
-  and faster than the agent does from stills — don't frame-hunt.
-- **Every spatial/quantitative claim carries its SOURCE inline — the printed
-  number you pulled, or the explicit words "eyeballed, not verified."** A bare
-  spatial claim with no number ("margins look even", "it's centred") is itself the
-  violation: the missing number is the tell that you LOOKED instead of measured.
-  This is the enforceable core of measure-don't-eyeball — it makes "did you
-  actually measure?" visible in the handoff, where the user can catch it. Two ways
-  a "measurement" is really a guess: (a) squinting
-  at a 480p thumbnail — that's "I looked," not "I measured"; MEASURE means real
-  coordinates (`get_left/right/top/bottom/center` via a one-off `print`, removed
-  after), because margins/centering/fit read deceptively at low res; (b) reading
-  true coords but comparing them to a MADE-UP constant (frame bounds recalled as
-  7.11/4.0 instead of the real 8.0/4.5) — a correct ruler at the wrong zero
-  "confirms" nonsense, so any constant a claim rests on must be READ from
-  config/source, not recalled. And NEVER pronounce how something LOOKS as
-  fine/correct — show the user and let them judge; objective = a number you
-  measured, not an impression.
+  overlap/clipping). The user judges feel/timing from the video far better than the
+  agent from stills — don't frame-hunt.
+- **Every spatial/quantitative claim carries its SOURCE inline — the printed number
+  you pulled, or the words "eyeballed, not verified."** A bare spatial claim ("margins
+  look even", "it's centred") IS the violation: the missing number is the tell you
+  LOOKED instead of measured. Two ways a "measurement" is really a guess: (a) squinting
+  at a 480p thumbnail — MEASURE means real coordinates (`get_left/right/top/bottom/
+  center` via a one-off `print`), because margins/fit read deceptively at low res;
+  (b) reading true coords but comparing them to a MADE-UP constant (frame bounds
+  recalled as 7.11/4.0 vs the real 8.0/4.5) — a correct ruler at the wrong zero
+  confirms nonsense, so any constant a claim rests on is READ from config, not
+  recalled. NEVER pronounce how something LOOKS as fine — show the user; objective =
+  a number you measured, not an impression.
 - **A conclusion that contradicts what the render plainly shows means a wrong
-  ASSUMPTION — STOP and find it, don't assert past it.** Claiming "the card is
-  taller than the frame" while the frame clearly shows the whole card with margins
-  is impossible; the impossibility is the signal that an input (here, the frame
-  size) is wrong. When your numbers and the picture disagree, one of your inputs is
-  false — hunt it down before making any more edits, rather than repeating the
-  claim with more confidence.
-- **After changing a beat, render THAT beat and glance at its NEIGHBOURS.** Beats
-  carry shared state (same dice, label, running number), so a change often reads
-  wrong only in the beat before/after — a value that equals the previous beat's, a
-  die that dips down then straight back up across a hand-off, text that now
-  overflows a column. A `--check` (syntax) is NOT a render: render the beat, look,
-  then scan the seams with its neighbours.
-- **ALWAYS run `render NN --check` before handing off a scene you touched — it's the
-  mechanical safety net.** It's instant, and it now also LINTS (warn-only) for the
-  convention slips prose can't be trusted to catch mid-edit: a raw `Text(...)`, an
-  off-palette / inlined-hex colour, a one-use `run_time` local. Read every `[lint]
-  file:line` line and FIX it or explicitly flag why it stays — a lint line you
-  neither fixed nor mentioned is a miss you shipped. The catch only works if you run
-  it: `--check` is cheap, so run it on every edited scene at handoff (this is
-  additional to rendering the beat to LOOK, per the bullet above — not a substitute).
-  It's a nudge, never a gate (syntax errors still fail; warnings never do).
-- **TRIP-WIRE: a 2nd render of the same subscene to re-judge how it LOOKS means
-  you're frame-hunting feel — STOP and hand off.** One objective-check render per
-  change, then the user takes over. Stills judge only objective spatial facts
-  (count/position/overlap-as-geometry/clipping); they CANNOT judge motion or
-  whether an animation "reads" — so never diagnose or "fix" a motion/feel problem
-  from a still. If a still looks off but the issue is motion, that's the user's
-  call from the video, not a reason to iterate.
-- **TRIP-WIRE #2: built a beat WRONG twice for the same conceptual reason? STOP and
-  ASK what it should depict — do NOT re-guess.** A repeated conceptual miss (wrong
-  game state, wrong quantity, wrong turn) is a comprehension gap, not an
-  implementation bug: the fix is a QUESTION, not another render. Re-iterating on a
-  misunderstood beat burns rounds and ships confidently-wrong output — you polish a
-  beat built on the wrong state/quantity instead of asking what the script said it
-  was. If you're
-  unsure what a beat IS, that uncertainty is itself the trigger to ask BEFORE
-  building — don't treat a comprehension problem as an implementation one.
-- **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what
-  they asked and flag-ask — do NOT swap in a different design.** Substituting your
-  own concept (even to solve a real problem) is a silent override, the worst kind
-  of error here. The minimal animation/timing tweak is in scope; changing the
-  shape/structure the user named is not.
-- **Default to "minimal verify"**: render the changed subscene(s) + ≤2 frames,
-  then hand off. For a pure feel/timing pass, prefer **edit-only** (make the edits,
-  let the user render) — it matches the user's fastest loop.
-- **Animation timing/visuals: use trackers/updaters** (value- or `dt`-driven), NOT
-  computed-time guesses (`Succession(Wait(t_guess), …)`). Guessed timings are
-  fragile and cause repeated rework; a value-/dt-driven effect fires correctly
-  regardless of how the surrounding animation is paced.
-- **Manim gotchas that each cost real render round-trips (scene 05):**
+  ASSUMPTION — STOP and find it, don't assert past it.** "The card is taller than the
+  frame" while the frame shows the whole card with margins is impossible — the
+  impossibility signals a false input (here, the frame size). When your numbers and the
+  picture disagree, hunt the bad input before more edits, don't repeat the claim louder.
+- **After changing a beat, render THAT beat and glance at its NEIGHBOURS.** Beats carry
+  shared state (same dice, label, running number), so a change often reads wrong only in
+  the beat before/after — a value equal to the previous beat's, a die that dips then
+  straight back up across a hand-off, text that now overflows. A `--check` is NOT a
+  render: render the beat, look, scan the seams.
+- **ALWAYS run `render NN --check` before handing off a scene you touched.** Instant,
+  and it LINTS (warn-only) for the slips prose can't catch mid-edit (raw `Text(...)`,
+  inlined-hex/off-palette colour, one-use `run_time` local). FIX every `[lint]
+  file:line` or flag why it stays — a lint line you neither fixed nor mentioned is a
+  miss you shipped. It's additional to rendering the beat to LOOK, not a substitute; a
+  nudge, never a gate.
+- **TRIP-WIRE: a 2nd render of the same subscene to re-judge how it LOOKS = frame-
+  hunting feel — STOP and hand off.** One objective-check render per change, then the
+  user takes over. Stills judge only objective spatial facts (count/position/overlap/
+  clipping), NOT motion or whether an animation "reads" — never diagnose a motion/feel
+  problem from a still; that's the user's call from the video.
+- **TRIP-WIRE #2: built a beat WRONG twice for the same conceptual reason? STOP and ASK
+  what it should depict — do NOT re-guess.** A repeated conceptual miss (wrong game
+  state, quantity, turn) is a comprehension gap, not an implementation bug — the fix is
+  a QUESTION. Re-iterating a misunderstood beat burns rounds and ships confidently-wrong
+  output. If you're unsure what a beat IS, that uncertainty is itself the trigger to ask
+  BEFORE building.
+- **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what they
+  asked and flag-ask — do NOT swap in a different design.** Substituting your own
+  concept, even to solve a real problem, is a silent override — the worst error here. A
+  minimal animation/timing tweak is in scope; changing the shape/structure the user
+  named is not.
+- **Default to "minimal verify":** render the changed subscene(s) + ≤2 frames, then hand
+  off. For a pure feel/timing pass, prefer edit-only (let the user render) — their
+  fastest loop.
+- **Animation timing: use trackers/updaters** (value- or `dt`-driven), NOT computed-time
+  guesses (`Succession(Wait(t_guess), …)`) — guessed timings are fragile; a value/dt-
+  driven effect fires correctly regardless of surrounding pacing.
+- **Manim gotchas that each cost render round-trips:**
   - **`mob.animate(rate_func=…).set_value(…)` — the CALL form — silently fails to
-    animate a `ValueTracker` inside a multi-animation `play()`.** The tracker just
-    doesn't move (reads as a jump at the very end). Use plain
-    `mob.animate.set_value(…)`; put the rate_func on the `play()` if you need one.
-  - **Two separate `ValueTracker`s driving ONE visual desync.** If a number's
-    VALUE is on one tracker and its POSITION/SCALE on another, the motion finishes
-    while the value lags (looks like it jumps, then moves). Drive linked
-    properties from ONE tracker (value = `lerp(v0, v1, t)`, pos/scale from the same
-    `t`).
-  - **`scene.remove(submobject)` restructures the submobject's PARENT group** (it
-    detaches it, with side effects, and can leave the parent group itself behind).
-    Only `remove()` TOP-LEVEL mobjects; to drop an in-group text, rebuild the group
-    or hard-clear everything (`for m in list(self.mobjects): self.remove(m)`).
+    animate a `ValueTracker` inside a multi-animation `play()`** (reads as a jump at the
+    end). Use plain `mob.animate.set_value(…)`; put the rate_func on the `play()`.
+  - **Two separate `ValueTracker`s driving ONE visual desync** — value on one,
+    position/scale on another, so the motion finishes while the value lags. Drive linked
+    properties from ONE tracker (value = `lerp(v0, v1, t)`, pos/scale from the same `t`).
+  - **`scene.remove(submobject)` restructures the submobject's PARENT group** (detaches
+    with side effects, can leave the group behind). Only `remove()` TOP-LEVEL mobjects;
+    to drop an in-group text, rebuild the group or hard-clear (`for m in
+    list(self.mobjects): self.remove(m)`).
 
 ### Keep commands allowlist-friendly (avoid permission prompts)
 The permission allowlist already covers the core loop (`render`, `manim`,
