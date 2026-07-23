@@ -191,74 +191,55 @@ via the import below (a symlink to the `dotclaude` repo; absent → notes skippe
 @CLAUDE.private.md
 
 ## Concurrent sessions — one shared branch (NOT per-scene branches)
-The user works several scenes at once as **multiple chat tabs in ONE VSCode
-window** (the new-chat icon). Verified against the Claude Code docs: the extension
-CANNOT scope a chat tab to its own folder — every tab in a window shares that
-window's working directory, hence ONE branch. So per-scene branches are
-fundamentally incompatible with this workflow (a tab switching branches yanks the
-others' files and any in-flight render; that has caused real breakage here — a
-render silently used another branch's older scene file, and a mid-render branch
-switch crashed a snapshot save).
+The user works several scenes at once as **multiple chat tabs in ONE VSCode window**.
+The extension CANNOT scope a tab to its own folder — every tab shares the window's
+working directory, hence ONE branch. Per-scene branches are fundamentally incompatible (a
+tab switching branches yanks the others' files and any in-flight render — real breakage
+here: a render used another branch's older scene file, a mid-render switch crashed a
+snapshot save).
 - **Keep ALL concurrent work on ONE shared branch — `main`.** Different scenes are
-  different files (`scenes/NN*.py`, that scene's assets), so tabs don't collide.
-  Do NOT create `scene-NN-*` branches for parallel work.
+  different files, so tabs don't collide; do NOT create `scene-NN-*` branches.
 - **The one habit that makes this safe: stage by EXPLICIT PATH** — `git add
-  animations/scenes/NN<name>.py`, never `git add -A` / `git add .`. The shared
-  working tree means a bulk add sweeps up EVERY tab's in-progress files into one
-  commit. Commit only the file(s) that tab changed.
+  animations/scenes/NN<name>.py`, never `git add -A`/`.`. The shared working tree means a
+  bulk add sweeps EVERY tab's in-progress files into one commit; commit only the file(s)
+  that tab changed.
 - **Shared resources** (`bpkfigures/`, `config.py`, `assets/`): don't have two tabs
-  editing the SAME shared file at the same moment — sequence those. (Editing a
-  shared file while another tab merely renders is fine; worst case a cache rebuild,
-  and the snapshot digest no longer crashes on it.)
-- Per-scene branches ARE possible, but ONLY via git worktrees in SEPARATE windows
-  (one folder per branch). That's more window management than the user wants, so
-  it's not the default — reach for it only if truly isolated branches are needed.
+  editing the SAME shared file at once — sequence those. (Editing a shared file while
+  another tab merely renders is fine.)
+- Per-scene branches ARE possible but ONLY via git worktrees in SEPARATE windows — more
+  window management than the user wants, so reach for it only if truly isolated branches
+  are needed.
 
 ## Where instructions live (which CLAUDE.md, and CLAUDE.md vs memory)
 How the user wants the agent to record things worth remembering:
-- **General/cross-video preferences go in `bpkfigures/CLAUDE.md` (this file), NOT
-  a video's `CLAUDE.md`.** Anything about how the agent should work in general —
-  conduct, workflow, tooling, process, instruction-following — belongs here so it
-  loads for every video. A video's own `CLAUDE.md` (e.g. `yahtzee/CLAUDE.md`) is
-  ONLY for rules specific to THAT video (its script, layout, assets). When unsure
-  whether a preference is general or video-specific, treat it as general and put
-  it here.
-- **Be PROACTIVE about recording a video's conventions in its CLAUDE.md as they
-  emerge — don't wait to be told.** While building or editing a video's scenes, the
-  moment a reusable decision crystallizes — a recurring layout/colour/naming/helper
-  pattern, a "we always do X for this prop," an ambiguity the user just resolved
-  that the next scene will hit again — capture it: in that video's own `CLAUDE.md`
-  (its prop-specific index / conventions) if it's specific to that video's
-  script/layout/assets/props, or here if it's general (per the split above). The
-  tell you've found one: you just GREPPED another scene to copy how it did
-  something, or the user corrected/clarified a choice that ISN'T a one-off — that's
-  a convention, not a local detail. Default to recording the video-specific, factual
-  ones proactively and saying you did (a colour, a position, an ordering, which
-  helper a job routes through); for a new BEHAVIOURAL rule about how the agent works,
-  propose the text and ASK first (per § Following instructions — don't unilaterally
-  add those). Either way SURFACE it in the moment — the failure mode is a convention
-  that lived only in one scene's code, so the next scene re-derived or re-broke it
-  (the two-card layout was reinvented three different ways, and a bonus "0" got a
-  one-off grey, before each was written down).
-- **Default to CLAUDE.md** for anything the user wants the agent to know. It's
-  loaded every session (guaranteed) and syncs across machines via git pull —
-  unlike agent memory, which is local to one machine and only surfaces via recall.
-- **When unsure where something goes, don't deliberate** — put it in CLAUDE.md and
-  say so. Only reach for memory if it literally cannot be committed (a secret).
+- **General/cross-video preferences go in `bpkfigures/CLAUDE.md` (this file), NOT a
+  video's.** Anything about how the agent works in general — conduct, workflow, tooling,
+  process, instruction-following — belongs here so it loads for every video; a video's
+  own `CLAUDE.md` is ONLY for rules specific to THAT video (script, layout, assets). When
+  unsure, treat it as general and put it here.
+- **Be PROACTIVE about recording a video's conventions in its CLAUDE.md as they emerge —
+  don't wait to be told.** The moment a reusable decision crystallizes (a recurring
+  layout/colour/naming/helper pattern, a "we always do X for this prop," an ambiguity the
+  user just resolved that the next scene will hit), capture it — in that video's
+  `CLAUDE.md` if specific to it, or here if general. The tell: you just GREPPED another
+  scene to copy how it did something, or the user clarified a choice that ISN'T a
+  one-off. Record the video-specific factual ones proactively and say you did; for a new
+  BEHAVIOURAL rule, propose the text and ASK first (§ Following instructions). Either way
+  SURFACE it in the moment — else the convention lives only in one scene's code and the
+  next scene re-breaks it.
+- **Default to CLAUDE.md** for anything the user wants the agent to know: loaded every
+  session and synced across machines via git — unlike memory, which is local to one
+  machine and only surfaces via recall. When unsure where something goes, don't
+  deliberate — put it in CLAUDE.md and say so.
 - **Use memory ONLY for facts that genuinely can't be committed** (private URLs,
-  credentials — anything that shouldn't land in the public repo) AND that have a
-  clear, nameable trigger that can go in the memory's `description` so recall
-  reliably fires.
-- **If something is private but its trigger is fuzzy** (recall can't be trusted),
-  don't silently rely on memory — say so and ask the user to re-mention it when it
-  comes up.
-- The public GitHub repo intentionally shows how the user works, so workflow/
-  preference content in committed CLAUDE.md is fine — reliable loading beats repo
-  cleanliness.
-- **Never write the user's real name (or other personal identifiers) into any
-  file in a public repo** — bpkfigures/ and the video repos are public. Refer to
-  them as "the user." Real-name/identity facts belong only in the private
-  `dotclaude` repo (which the `@CLAUDE.private.md` import pulls in).
+  credentials) AND that have a clear, nameable trigger for the memory's `description` so
+  recall fires. If it's private but its trigger is fuzzy, don't silently rely on memory —
+  say so and ask the user to re-mention it when it comes up.
+- The public GitHub repo intentionally shows how the user works, so workflow/preference
+  content in committed CLAUDE.md is fine — reliable loading beats repo cleanliness.
+- **Never write the user's real name (or other personal identifiers) into any public-repo
+  file** — `bpkfigures/` and the video repos are public; refer to "the user." Identity
+  facts belong only in the private `dotclaude` repo (pulled in via `@CLAUDE.private.md`).
 
 ## Shell commands (agent)
 - **Chains auto-approve when EVERY subcommand matches an allow rule.** Claude Code
@@ -394,24 +375,19 @@ calls for; no titles/labels/narration that weren't asked for.
   churn.
 
 ## Reuse over reinvention
-- **The convention-check is NOT a new-scene gate — it fires on every EDIT too, and
-  the tripwire is INVENTING A VALUE.** The new-scene PREFLIGHT's styling pass (§
-  Starting a new scene — each element → the shared helper/colour/value it renders
-  through) applies identically when you ADD an element to an EXISTING scene while
-  editing. The concrete trigger to catch yourself: **the moment you type a NEW
-  literal or constant — a colour/hex, an opacity, a font size, a run_time feel, a
-  positioned number — STOP and grep the scene (then its siblings) for how that KIND
-  of element is already rendered, and match it.** A fresh `X = <value>` is almost
-  never right when the scene already renders that element one grep away (e.g. a
-  one-off `ZERO_COLOR = GREY` for a "0" the scene already drew in its tier colour).
-  Reusing the STRUCTURE (the shared helper) but hand-picking the VALUE you pass it is
-  the same miss — the value is part of the convention. If you truly can't find a
-  precedent, ASK before inventing; don't fill the gap with a new value. And when a
-  search concludes "the convention is X," check that X predates your own edits —
-  code you just wrote is not a precedent.
-- Read the existing assets and the video's gameplay REFERENCE scene (the one its
-  own CLAUDE.md names as the canonical example) BEFORE building a gameplay-style
-  beat. Use the existing helpers.
+- **The convention-check is NOT a new-scene gate — it fires on every EDIT too, and the
+  tripwire is INVENTING A VALUE.** The new-scene PREFLIGHT styling pass applies identically
+  when you ADD an element while editing: **the moment you type a NEW literal/constant — a
+  colour/hex, opacity, font size, run_time feel, positioned number — STOP and grep the
+  scene (then siblings) for how that KIND of element is already rendered, and match it.** A
+  fresh `X = <value>` is almost never right when the scene renders that element one grep
+  away (e.g. a one-off `ZERO_COLOR = GREY` for a "0" already drawn in its tier colour) —
+  reusing the STRUCTURE but hand-picking the VALUE is the same miss; the value is part of
+  the convention. Can't find a precedent? ASK before inventing. And when a search concludes
+  "the convention is X," check X predates your own edits — code you just wrote is not a
+  precedent.
+- Read the existing assets and the video's gameplay REFERENCE scene (its CLAUDE.md's named
+  canonical example) BEFORE building a gameplay-style beat. Use the existing helpers.
 - **A recurring ENTRANCE/EXIT/emphasis motion is an asset — grep the other SCENES
   (not just the asset) before hand-rolling one; a reusable primitive may live in a
   scene, not the asset.** Bringing a shared prop on screen (the scorecard, a card, a
@@ -425,14 +401,12 @@ calls for; no titles/labels/narration that weren't asked for.
   `Scorecard.flash_rows`. Hand-rolling a motion an asset/scene already does — "it's
   just a FadeIn" — is the thought that produces four different entrances, and itself
   the red flag that a shared primitive is missing.
-- **Read assets to CALL them, not just to imitate their look.** The reference
-  scene shows *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep`
-  + `roll_rest` (exactly what the reference scene shows), not hand-placed coordinates.
-  Before a gameplay beat, name the exact asset method each sub-beat calls, and
-  trace the dice/card state through it (which boxes are open, where each die
-  sits). If you're re-deriving something an asset already provides, stop and call
-  the asset — reading code only to copy its *look* is how reinvention, and
-  "wrong-box"/"wrong-dice" mistakes, sneak in.
+- **Read assets to CALL them, not just to imitate their look.** The reference scene shows
+  *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep` + `roll_rest`, not
+  hand-placed coordinates. Before a gameplay beat, name the exact asset method each sub-beat
+  calls and trace the dice/card state through it (which boxes open, where each die sits).
+  Re-deriving something an asset provides — copying its *look* instead of calling it — is
+  how reinvention and wrong-box/wrong-dice mistakes sneak in.
 - **Don't override a helper's default args** unless asked or genuinely required
   — defaults are deliberate and shared. If a layout seems to "need" a non-default
   value, the layout is probably wrong; fix the layout.
@@ -679,30 +653,23 @@ The permission allowlist already covers the core loop (`render`, `manim`,
   normal step; if a render seems stuck, prefer `run_in_background` + waiting.
 
 ## Git / new repos
-- **Commit and push WITHOUT asking — this OVERRIDES Claude Code's default.** The
-  built-in default is to commit/push only when the user explicitly asks; in this
-  project the agent has standing permission to do both as a normal part of the
-  workflow: checkpoint WIP, commit before a major rewrite, push when a chunk is
-  done. Still branch off `main` for non-trivial work (don't pile experimental
-  commits straight onto `main`), and keep the commit-message footer convention.
-- **Commit at each working checkpoint — do NOT batch a multi-step change into one
-  big commit at the end.** The user prefers frequent, granular commits (one per
-  working step that leaves the code in a good state) over a single squashed
-  commit. When a change lands in several iterations, commit each as it works,
-  staging only that step's files by explicit path.
-- Each video is its own git repo. The FIRST thing to do when creating a new
-  video repo is add a `.gitignore` — otherwise generated renders get committed.
-  Per-repo `.gitignore` must cover at minimum:
-  `media/`, `**/media/`, `*.mp4 *.mov *.wav *.mp3`, `__pycache__/`, `*.py[cod]`,
-  `.venv/ venv/`, `.DS_Store`, AND the manim snapshot cache `animations/**/cache/`
-  (50+ MB pickles per subscene — pure build artifact). (Media + cache are
-  project-specific so they live in the per-repo .gitignore, not a global one.
-  battleship/.gitignore is a good reference template.)
-- NEVER commit `media/` renders OR the `animations/**/cache/` snapshot pickles.
-  If already tracked, untrack with `git rm -r --cached <dir>` (keeps files on
-  disk). CAUTION: scope cache/pkl ignores to the animations tree — do NOT
-  blanket-ignore `*.pkl`, because solver data under `math/data/` and
-  `math/notebooks/data/` is intentionally tracked (synced between machines).
+- **Commit and push WITHOUT asking — this OVERRIDES Claude Code's default.** In this
+  project the agent has standing permission to checkpoint WIP, commit before a major
+  rewrite, and push when a chunk is done. Still branch off `main` for non-trivial work,
+  and keep the commit-message footer convention.
+- **Commit at each working checkpoint — do NOT batch a multi-step change into one big
+  commit.** The user prefers frequent, granular commits (one per working step that leaves
+  the code good), staging each step's files by explicit path.
+- Each video is its own git repo. The FIRST thing on a new video repo is a `.gitignore`
+  (else renders get committed), covering at minimum: `media/`, `**/media/`, `*.mp4 *.mov
+  *.wav *.mp3`, `__pycache__/`, `*.py[cod]`, `.venv/ venv/`, `.DS_Store`, AND the manim
+  snapshot cache `animations/**/cache/` (50+ MB pickles/subscene — pure build artifact).
+  These are project-specific (per-repo, not global); `battleship/.gitignore` is the
+  template.
+- NEVER commit `media/` renders OR `animations/**/cache/` pickles (if tracked, `git rm -r
+  --cached <dir>` keeps them on disk). CAUTION: scope cache/pkl ignores to the animations
+  tree — do NOT blanket-ignore `*.pkl`, since solver data under `math/data/` and
+  `math/notebooks/data/` is intentionally tracked.
 
 ## Starting a new scene
 How the user likes a brand-new `scenes/NN<name>.py` built:
@@ -775,42 +742,30 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   run_time note in Scene structure.
 
 ## Process
-- `Script.md` is reference, not a spec to enforce: do what the user asks and
-  flag deviations.
-- **When an iteration changes WHAT'S DEPICTED — a game/card STATE, a value, which
-  box is filled vs. open — RE-READ that beat's `Script.md` row FIRST.** Timing,
-  layout, and colour polish can be reasoned from the code, but a change to the
-  depicted state must be checked against the script, because such a detail is
-  often the POINT of the beat, not a free cosmetic choice. The failure mode: deep
-  in polish you stop consulting the script and reason LOCALLY from the scene's
-  constants ("opening this box makes the highlight read better"), silently
-  breaking the beat's meaning. The build
-  PREFLIGHT reads column 1+2 for every beat; this keeps that grounding alive
-  through the ITERATION passes, where it tends to lapse.
-- For animation FEEL/timing: build a quick ROUGH version, render + grab frames,
-  iterate from the user's reaction. Don't over-build the first pass. Render and
-  verify after every visual change.
-- **Rough means low-polish, not partial scope.** When the user asks for a first
-  pass at a scene, rough in the WHOLE scene end-to-end (every beat wired up with
-  guessed timings) — don't stop after the first few beats. The user wants to
-  react to the complete arc, not a fragment. Keep each beat rough; cover them all.
-- **Verify-render division of labor** (the user renders right after the agent,
-  so split the work to minimize TOTAL time): the agent renders 1–3 fast frames
-  to catch OBJECTIVE issues before handoff — wrong position/overlap, clipping/
-  z-order, an object that didn't appear or move, an off-screen label, a wrong
-  number, frame overflow, a size mismatch. These cost the user a full round-trip
-  if missed, so the agent should catch them. The agent does NOT iterate on
-  subjective FEEL (exact run_times, easing, hold durations, whether an overlap
-  is "enough") — the user judges that better/faster from the actual video. On
-  handoff, the agent explicitly NAMES which timing/feel knobs it left at a guess
-  so the user knows what to watch.
-- **Every animation/wait exposes its `run_time`** as a value in the subscene body,
-  so the user can retime when editing the video — full rule (inline the literal, no
-  `@subscene`-signature params, helpers take a `run_time`) in the run_time note under
-  Scene structure.
-- **Use extended thinking for scene-building** (geometry + animation sequencing).
-  The costly mistakes here are spatial — overlaps, a label centered on the panel
-  edge instead of the cell, dice rolling into a guide line — and timing/sequencing
-  ones; working the coordinates out before emitting code prevents a wasted
-  render-and-review round-trip, which dwarfs the thinking cost. Skip it for quick
-  edits, lookups, and config back-and-forth where it's pure overhead.
+- `Script.md` is reference, not a spec to enforce: do what the user asks and flag
+  deviations.
+- **When an iteration changes WHAT'S DEPICTED — a game/card STATE, a value, which box is
+  filled — RE-READ that beat's `Script.md` row FIRST.** Timing/layout/colour polish can be
+  reasoned from the code, but a depicted-state change must be checked against the script —
+  it's often the POINT of the beat. The failure mode: deep in polish you reason LOCALLY
+  from the scene's constants ("opening this box reads better") and silently break the
+  beat's meaning. The build PREFLIGHT reads column 1+2 per beat; this keeps that grounding
+  alive through the ITERATION passes, where it lapses.
+- **For animation FEEL/timing: build a quick ROUGH version, render + grab frames, iterate
+  from the user's reaction.** Don't over-build the first pass; render and verify after
+  every visual change.
+- **Rough means low-polish, not partial scope.** On a first pass, rough in the WHOLE scene
+  end-to-end (every beat wired up with guessed timings) — don't stop after a few beats; the
+  user reacts to the complete arc.
+- **Verify-render division of labor** (the user renders right after the agent): the agent
+  renders 1–3 fast frames for OBJECTIVE issues (wrong position/overlap, clipping/z-order,
+  an object that didn't appear, off-screen label, wrong number, frame overflow, size
+  mismatch) — these cost a full round-trip if missed. The agent does NOT iterate on
+  subjective FEEL (exact run_times, easing, holds) — the user judges that from the video.
+  On handoff, NAME which timing/feel knobs you left at a guess.
+- **Every animation/wait exposes its `run_time`** in the subscene body so the user can
+  retime — full rule in the run_time note under Scene structure.
+- **Use extended thinking for scene-building** (geometry + sequencing): the costly mistakes
+  are spatial (overlaps, a label centered on the panel edge not the cell, dice into a guide
+  line) and timing ones — working coordinates out before coding prevents a render
+  round-trip that dwarfs the thinking cost. Skip it for quick edits/lookups/config.
