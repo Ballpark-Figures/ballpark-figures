@@ -84,6 +84,9 @@ bigger decision, NOT part of the conservative shrink.
   (→ body); 656 says keep `ValueTracker` in setup (picklable). Truth: a bare
   ValueTracker IS picklable (setup fine); an `always_redraw`+lambda is NOT (body).
   656 is closer; 378 is imprecise. **Reconcile, don't delete** — stays loaded.
+  ✅ RESOLVED (commit `e5158f5`): tested via pickle.dumps — bare ValueTracker
+  pickles; a LAMBDA updater (add_updater/always_redraw) does not. Both lines now
+  state: bare ValueTracker/static text → setup; attach the lambda updater in body.
 - **Bullet 5** (auto-cleans stale / old `manim()` override removed / quality HIGH)
   — **DEAD (redundant).** All three clauses restated at 569 and 580–581; the
   "override removed" clause is a done past-tense migration note. SAFE removal.
