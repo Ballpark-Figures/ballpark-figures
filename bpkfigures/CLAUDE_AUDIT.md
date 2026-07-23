@@ -129,7 +129,12 @@ index (123–163) and the new-scene PREFLIGHT (904–922) restate rules BY DESIG
 - "Implement literally / exact wording is the spec": **980–981** vs **9–12**
   (980–981 adds the "disappear ≠ fade" example).
 
-### TRIM — history/war-story tails to cut from rules that STAY
+### TRIM — history/war-story tails to cut from rules that STAY — ✅ DONE (batch 2)
+> **BATCH 2 EXECUTED (commit `d1ed808`).** Compressed 9 tails to failure-mode + why
+> per the stories policy (keep what makes a rule fire; cut round-counts/scene-numbers).
+> KEPT the lazy-building "why" (mechanism, not provenance). 993→986. Remaining minor
+> candidate NOT done: the "(scene 05)" in the "Manim gotchas" header (~line 733).
+
 173–178 (scene-06 frame calc) · 438–441 (`_zero_flash`) · 518–525 (grey `0`) ·
 549–551 (`_show_keep`) · 650–655 (scalar-whitelist backstory, from our own fix) ·
 680–685 (480p/wrong-constant) · 691–694 (card-taller-than-frame) · 702–703
