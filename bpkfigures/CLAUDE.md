@@ -526,16 +526,19 @@ calls for; no titles/labels/narration that weren't asked for.
 - Read the existing assets and the video's gameplay REFERENCE scene (the one its
   own CLAUDE.md names as the canonical example) BEFORE building a gameplay-style
   beat. Use the existing helpers.
-- **A recurring ENTRANCE/EXIT/emphasis is an asset too — grep other scenes before
-  hand-rolling one.** Bringing a shared prop on screen (the scorecard, a card, a
-  board), flashing a cell, filling a box: if you're about to write the animation
-  inline, first grep the OTHER scenes for how they do it. If it's already
-  consistent, call the same thing; if several scenes each reinvent it, that's the
-  signal to PROMOTE it to a shared method and use it everywhere. Concretely: the
-  scorecard entrance was hand-written three different ways across scenes until it
-  became `Scorecard.slide_in`; the synced red/green "demo fill" flash is
-  `Scorecard.flash_rows`. Prefer these over re-deriving the motion. "It's just a
-  FadeIn" is exactly the thought that produces four different entrances.
+- **A recurring ENTRANCE/EXIT/emphasis motion is an asset — grep the other SCENES
+  (not just the asset) before hand-rolling one; a reusable primitive may live in a
+  scene, not the asset.** Bringing a shared prop on screen (the scorecard, a card, a
+  board), flashing a cell, filling a box, a dice keep/reroll: before you write the
+  animation inline, grep the other scenes for how they do it. If it's already
+  consistent, call the same thing; if several scenes each reinvent it — or the
+  primitive is buried as a scene-private helper another scene would want — PROMOTE it
+  to a shared method (with the convention documented), flag it, and use it everywhere,
+  so the next scene can find it. Concretely: the scorecard entrance was hand-written
+  three different ways until it became `Scorecard.slide_in`; the demo-fill flash is
+  `Scorecard.flash_rows`. Hand-rolling a motion an asset/scene already does — "it's
+  just a FadeIn" — is the thought that produces four different entrances, and itself
+  the red flag that a shared primitive is missing.
 - **Read assets to CALL them, not just to imitate their look.** The reference
   scene shows *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep`
   + `roll_rest` (exactly what the reference scene shows), not hand-placed coordinates.
@@ -544,18 +547,6 @@ calls for; no titles/labels/narration that weren't asked for.
   sits). If you're re-deriving something an asset already provides, stop and call
   the asset — reading code only to copy its *look* is how reinvention, and
   "wrong-box"/"wrong-dice" mistakes, sneak in.
-- **Check the ASSET *and* the reference SCENES before hand-rolling a gameplay
-  motion — a reusable primitive may live in a scene, not the asset.** The dice
-  "keep-illustration" convention (push a keep forward, reroll dice to the right,
-  band-per-reroll) once lived only as a scene-private helper, so it was invisible to
-  the next scene, which reinvented it wrong. So: (a) grep the
-  scenes, not just the asset, for an existing helper; and (b) **when a gameplay/
-  animation motion is reusable, it belongs in the shared asset, not a scene.** If
-  you catch yourself writing a scene-private helper another scene would want (or
-  you find one already buried in a scene), PROMOTE it to the asset (with the
-  convention documented) and flag it — don't leave a convention where the next
-  scene can't find it. Hand-rolling a motion an asset/scene already does is itself
-  the red flag that a shared primitive is missing.
 - **Don't override a helper's default args** unless asked or genuinely required
   — defaults are deliberate and shared. If a layout seems to "need" a non-default
   value, the layout is probably wrong; fix the layout.
