@@ -235,6 +235,15 @@ How the user wants the agent to record things worth remembering:
   credentials) AND that have a clear, nameable trigger for the memory's `description` so
   recall fires. If it's private but its trigger is fuzzy, don't silently rely on memory —
   say so and ask the user to re-mention it when it comes up.
+- **TRIP-WIRE: about to write a learning to MEMORY? Unless it's an uncommittable secret,
+  STOP — it belongs in a committed doc.** A correction, a workflow/tooling habit, a "do X
+  next time" — memory is the WRONG home (machine-local, unreviewed, invisible to your
+  curation; it won't reach the other machine). It goes in a CLAUDE.md, or — when it's
+  about a slash command's behavior — in that command's file under `dotclaude/commands/`
+  (which syncs to the desktop; memory does not). Reaching for memory to record a habit is
+  itself the drift to catch. (Bit us 2026-07-25: two `/push-videos` learnings — the
+  commit-sweep rule and the bare-invocation rule — got filed in machine-local memory
+  instead of the command file; migrated to `push-videos.md`/`sync-videos.md`.)
 - The public GitHub repo intentionally shows how the user works, so workflow/preference
   content in committed CLAUDE.md is fine — reliable loading beats repo cleanliness.
 - **Never write the user's real name (or other personal identifiers) into any public-repo
