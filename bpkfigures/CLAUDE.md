@@ -703,6 +703,11 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   are spatial (overlaps, a label centered on the panel edge not the cell, dice into a guide
   line) and timing ones — working coordinates out before coding prevents a render
   round-trip that dwarfs the thinking cost. Skip it for quick edits/lookups/config.
+- **Build scenes ONE AT A TIME, by yourself — do NOT fan scene-building out to
+  sub-agents.** A bulk pass (all scenes at once, and via agents) lost fidelity to
+  column 2 and injected unwanted on-screen text — the user stashed the whole commit.
+  One scene, implemented directly and iterated with the user, is the reliable path.
+  (Read-only research/audit agents are fine; this is about scene CONSTRUCTION.)
 - **For an algorithm/perf/math EXPERIMENT the user proposed, hand over a clean runnable
   PROTOTYPE early — don't run long measurement loops first.** The user is hands-on and
   drives the experimentation themselves. Put the prototype somewhere durable (a committed
