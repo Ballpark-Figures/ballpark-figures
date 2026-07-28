@@ -589,8 +589,9 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 ## Git / new repos
 - **Commit and push WITHOUT asking — this OVERRIDES Claude Code's default.** In this
   project the agent has standing permission to checkpoint WIP, commit before a major
-  rewrite, and push when a chunk is done. Still branch off `main` for non-trivial work,
-  and keep the commit-message footer convention.
+  rewrite, and push when a chunk is done. **Work on `main` — do NOT create side
+  branches** (see § Concurrent sessions — one shared branch; a worktree in a separate
+  window is the only sanctioned isolation). Keep the commit-message footer convention.
 - **Commit at each working checkpoint — do NOT batch a multi-step change into one big
   commit.** The user prefers frequent, granular commits (one per working step that leaves
   the code good), staging each step's files by explicit path.
