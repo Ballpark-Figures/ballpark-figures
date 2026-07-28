@@ -604,15 +604,17 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   which NEVER auto-approves (forces a prompt) regardless of how the git allow-rules are
   set — the biggest single source of commit prompts a whole session (2026-07-27). Use
   `-m "subject" -m "body para" -m "footer"` instead.
-- **`git -C <path>` auto-approves IFF `<path>` is a session working dir — not the
-  resolved repo root.** Observed 2026-07-27: `git -C "<umbrella root>" add
-  bpkfigures/CLAUDE.md` PROMPTED, but `git -C "<…/bpkfigures>" add CLAUDE.md` (the SAME
-  umbrella repo, `-C` pointed at a working dir) auto-approved. The working set is the
-  video workspace + the `bpkfigures` and `dotclaude` additional dirs. So to commit
-  shared code prompt-free, point `-C` at the dir the file lives in (`bpkfigures/` for
-  umbrella/shared-package edits, `dotclaude/` for tooling) — NEVER at the umbrella root.
-  git resolves the repo upward, so `git -C <bpkfigures>` drives the whole umbrella repo
-  anyway. Combine with the literal-`-m` rule above and cross-repo commits don't prompt.
+- **For the CURRENT workspace repo, use BARE `git` (no `-C`).** Bare `git add <path>` /
+  `git commit -m …` match the standing `Bash(git add *)` / `Bash(git commit *)` rules and
+  do NOT prompt (verified 2026-07-28: a bare `git commit` ran clean where the SAME
+  `git -C "<workspace abs-path>" commit` had prompted). **Do NOT use `git -C <abs-path>`
+  for the workspace** — it prompts; an earlier "`git -C <working dir>` auto-approves"
+  reading was a session-approval artifact, not the rule actually matching. cwd stays
+  inside the workspace and git resets it to the repo root after any git call, so bare
+  `git add <path-relative-to-cwd>` then a bare `git commit` just works. `git -C` is only
+  for OTHER repos (`bpkfigures`/`dotclaude`/umbrella) where cwd can't reach them; there it
+  MAY still prompt — there is no fully prompt-free path for a cross-repo commit from a
+  workspace-rooted session, so batch those and accept the occasional approval.
 - Each video is its own git repo. The FIRST thing on a new video repo is a `.gitignore`
   (else renders get committed), covering at minimum: `media/`, `**/media/`, `*.mp4 *.mov
   *.wav *.mp3`, `__pycache__/`, `*.py[cod]`, `.venv/ venv/`, `.DS_Store`, AND the manim
