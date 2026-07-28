@@ -599,13 +599,15 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   which NEVER auto-approves (forces a prompt) regardless of how the git allow-rules are
   set — the biggest single source of commit prompts a whole session (2026-07-27). Use
   `-m "subject" -m "body para" -m "footer"` instead.
-- **A git WRITE (`add`/`commit`) to a repo OUTSIDE the current workspace still prompts.**
-  Observed 2026-07-27: `git -C "<hangman workspace>" add …` auto-approved, but
-  `git -C "<Ballpark-Figures umbrella>" add …` PROMPTED even with the `git -C * add:*`
-  rule present — an in-workspace git write is fine; a write to the parent/umbrella or a
-  sibling repo is gated on top of the allow-rules. So for in-workspace commits use bare
-  `git` (or `git -C <workspace>`) + literal `-m` and it's prompt-free; expect a prompt
-  when committing the umbrella/`bpkfigures`, a sibling video, or `dotclaude`.
+- **`git -C <path>` auto-approves IFF `<path>` is a session working dir — not the
+  resolved repo root.** Observed 2026-07-27: `git -C "<umbrella root>" add
+  bpkfigures/CLAUDE.md` PROMPTED, but `git -C "<…/bpkfigures>" add CLAUDE.md` (the SAME
+  umbrella repo, `-C` pointed at a working dir) auto-approved. The working set is the
+  video workspace + the `bpkfigures` and `dotclaude` additional dirs. So to commit
+  shared code prompt-free, point `-C` at the dir the file lives in (`bpkfigures/` for
+  umbrella/shared-package edits, `dotclaude/` for tooling) — NEVER at the umbrella root.
+  git resolves the repo upward, so `git -C <bpkfigures>` drives the whole umbrella repo
+  anyway. Combine with the literal-`-m` rule above and cross-repo commits don't prompt.
 - Each video is its own git repo. The FIRST thing on a new video repo is a `.gitignore`
   (else renders get committed), covering at minimum: `media/`, `**/media/`, `*.mp4 *.mov
   *.wav *.mp3`, `__pycache__/`, `*.py[cod]`, `.venv/ venv/`, `.DS_Store`, AND the manim
