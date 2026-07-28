@@ -66,6 +66,11 @@ traceable to the user's OWN computations, never re-derived by the agent.
   - `math/` — the DATA/COMPUTATION pipeline: `math/data/` (source data, solver
     outputs, datasets, wordlists — tracked + synced), `math/notebooks/` (Jupyter),
     plus solver/helper modules. **A NEW data file/dataset/wordlist goes HERE.**
+    - **Every notebook's setup cell sets `pd.set_option('display.max_rows', 200)`**
+      (right after `import pandas as pd`) — pandas otherwise collapses any table
+      over ~60 rows to a head/tail preview, silently hiding rows in the exploratory
+      tables. Add this line whenever you author a new notebook (or first touch one
+      that lacks it).
   - `animations/{config.py, assets/, scenes/NN<name>.py}` — the RENDER side: scene
     code, visual assets, per-scene render caches (`assets/<name>_data.py` +
     `<name>_cache.json`). `assets/` is NOT a home for raw source data.
