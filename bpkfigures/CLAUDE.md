@@ -611,10 +611,12 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   for the workspace** — it prompts; an earlier "`git -C <working dir>` auto-approves"
   reading was a session-approval artifact, not the rule actually matching. cwd stays
   inside the workspace and git resets it to the repo root after any git call, so bare
-  `git add <path-relative-to-cwd>` then a bare `git commit` just works. `git -C` is only
-  for OTHER repos (`bpkfigures`/`dotclaude`/umbrella) where cwd can't reach them; there it
-  MAY still prompt — there is no fully prompt-free path for a cross-repo commit from a
-  workspace-rooted session, so batch those and accept the occasional approval.
+  `git add <path-relative-to-cwd>` then a bare `git commit` just works. `git -C` is needed
+  for OTHER repos (`bpkfigures`/`dotclaude`/umbrella) where cwd can't reach them; the
+  allowlist now carries a catch-all **`Bash(git -C *)`** (a single trailing wildcard that
+  matches any `git -C …`, spaces and all — the per-subcommand `git -C * <sub>:*` rules
+  fail on space-paths) so those are prompt-free too. It's broad (any subcommand, any dir),
+  so don't run destructive git via `-C` casually.
 - Each video is its own git repo. The FIRST thing on a new video repo is a `.gitignore`
   (else renders get committed), covering at minimum: `media/`, `**/media/`, `*.mp4 *.mov
   *.wav *.mp3`, `__pycache__/`, `*.py[cod]`, `.venv/ venv/`, `.DS_Store`, AND the manim
