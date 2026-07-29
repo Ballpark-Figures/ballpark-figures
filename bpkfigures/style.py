@@ -39,6 +39,11 @@ CATEGORICAL_PALETTE = [ACCENT_GOLD, ACCENT_ORANGE, ACCENT_RED,
 # Default card surface (cream), shared by the card asset + scorecard.
 CARD_FILL = "#F7F2E7"
 
+# Cooler crimson — deliberately tuned to sit against the cyan BG without the orange
+# cast of the warm-trio ACCENT_RED. Shared across videos: the scorecard header /
+# Total bars (yahtzee CARD_ACCENT) and the semantic "miss / loss" red.
+CRIMSON = ManimColor("#B01E43")
+
 FONT = "Inter"
 
 FONT_SIZE_XS = 15.0
