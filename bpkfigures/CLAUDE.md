@@ -630,6 +630,20 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 
 ## Starting a new scene
 How the user likes a brand-new `scenes/NN<name>.py` built:
+- **Before the AGENT spins up a TEST/scratch scene, check the number isn't taken** —
+  `ls animations/scenes/` for ANY file with that 2-digit prefix. Two files sharing a
+  prefix (`95treewalk.py` + `95letterheat_test.py`) COLLIDE: `resolve` slices
+  `target[:2]`, so `render 95` is ambiguous and addressing breaks. And usually a new
+  test scene isn't even warranted — the work belongs in an EXISTING scene (more
+  letter-view beats → the existing letter-view test scene, not a fresh file). So for
+  agent-initiated test scenes: reuse the relevant scene, or pick a FREE prefix; don't
+  blindly `Write` a new `NN<name>.py`. (This bit us: an unprompted new `95` test file
+  collided with `95treewalk.py`.)
+- **For CONTENT scenes the number is the USER'S call, NOT a free-slot search.** They
+  usually already have the number in mind, and may deliberately INSERT a scene mid-
+  sequence and bump the rest down (a renumber). Don't auto-avoid a "taken" number there
+  or pick your own — follow the user's intended numbering, and do the renumbering they
+  ask for.
 - **Orient before writing.** Read the OTHER scenes in this video first to match their
   structure/conventions (if it's the video's FIRST scene, read a previous video's).
   Reuse what exists — this video's `animations/assets/` and the shared `bpkfigures/`.
