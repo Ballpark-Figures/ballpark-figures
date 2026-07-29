@@ -184,6 +184,12 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
   scenes 07/08. (Complementary to `highlight()`: dim when emphasising one OF a group;
   overlay against an un-dimmed field.)
 - Changing these shared defaults still follows the "ASK before editing `bpkfigures/`" rule.
+- **Promoting a value to `bpkfigures/` is FORWARD-LOOKING — do NOT retroactively rewire a
+  previous video's config to reference it.** When you lift a colour/constant into shared
+  `style.py` (or another shared module), new and in-progress work uses the shared name, but
+  leave already-shipped videos on their own literals. A same-value refactor still risks a
+  finished video's render, and the DRY benefit isn't worth touching shipped work. Rule of
+  thumb: as long as we don't break a previous video, config changes apply going forward only.
 - You can reference any video's files on disk even if not in the workspace — "Do this
   like the Battleship video" always works.
 
