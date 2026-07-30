@@ -32,6 +32,14 @@ def _tail(hw, hh, side, length, spread):
         b1 = np.array([cx - hw * spread, y - sign * 0.03, 0])
         b2 = np.array([cx + hw * spread, y - sign * 0.03, 0])
         tip = np.array([cx - hw * 0.15, y + sign * length, 0])
+    elif side in ("left", "right"):
+        # a horizontal tail — the speaker is off to that side; the tip angles
+        # slightly DOWN (toward where a head would be).
+        sign = -1 if side == "left" else 1
+        x = sign * hw
+        b1 = np.array([x - sign * 0.03,  hh * spread, 0])
+        b2 = np.array([x - sign * 0.03, -hh * spread, 0])
+        tip = np.array([x + sign * length, -hh * 0.35, 0])
     else:
         raise ValueError(f"bad tail side: {side!r}")
     return Polygon(b1, tip, b2), tip
@@ -43,9 +51,10 @@ def speech_bubble(text, *, font_size=FONT_SIZE_MD, text_color=BLACK,
                   tail="bottom left", tail_len=0.85, tail_spread=0.18):
     """A comic speech bubble sized to ``text`` (may contain ``\\n``).
 
-    ``tail`` is one of ``top/bottom`` × ``left/''/right`` (e.g. ``"bottom
-    left"``, ``"top"``). The bubble body is centred on ORIGIN before you
-    ``move_to`` it."""
+    ``tail`` is a vertical tail ``top/bottom`` × ``left/''/right`` (e.g.
+    ``"bottom left"``, ``"top"``) or a horizontal tail ``"left"``/``"right"``
+    (the speaker is off to that side). The bubble body is centred on ORIGIN
+    before you ``move_to`` it."""
     label = crisp_paragraph(*text.split("\n"), font_size=font_size,
                             color=text_color, alignment="center")
     w = max(label.width + 2 * pad_w, min_width)
