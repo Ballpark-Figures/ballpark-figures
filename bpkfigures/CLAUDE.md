@@ -58,6 +58,22 @@ traceable to the user's OWN computations, never re-derived by the agent.
   that PRINTS where each number comes from, separate from the render path. The
   video-specific specifics (which venv, which solver module, exact file names) live
   in that video's CLAUDE.md — yahtzee `assets/line_data.py` is the reference user.
+- **YouTube stats live in the `analytics` DB — SOURCE them, don't invent.** Real
+  view counts / durations / publish dates for the channel's own videos, tracked
+  competitor channels, and specifically-PINNED one-off videos (e.g. Jan Misali's
+  "hangman is a weird game", id `le5uGqHKll8`) all come from the `analytics` service's
+  Neon Postgres — never a made-up number. Schema: `videos` (title, `published_at`,
+  `duration_seconds`), `samples` (append-only cumulative `view_count`; the LATEST row
+  = current views), `channels`, and a `pinned` flag opting a video into sampling. It
+  IS reachable from any machine: `analytics/.env` holds `DATABASE_URL` (Neon) and the
+  analytics venv has `psycopg` — allow-listed as `Bash("*/analytics/.venv/bin/python"
+  *)` so a query runs promptless. Get it into a scene the SAME cached way: a data
+  module (`animations/assets/<name>_data.py`) queries the DB and writes a COMMITTED
+  `<name>_cache.json`, the scene reads the cache, the RENDER never touches the DB
+  (no psycopg/network at render, and the numbers sync via git). It's a POINT-IN-TIME
+  snapshot — re-run the data module to refresh. hangman `assets/youtube_data.py` is
+  the reference. Do NOT have the scene query the DB at render time (breaks reproducible
+  renders + needs DB deps in the manim env).
 
 ## Repo layout
 - `Ballpark-Figures/` umbrella repo: one sub-project per video plus the shared
@@ -265,6 +281,15 @@ How the user wants the agent to record things worth remembering:
 The allowlist covers the core loop (`render`, `manim`, `ffmpeg`/`ffprobe`,
 `grep`/`rg`/`ls`/`cat`/`head`/`tail`/`wc`/`sort`/`tr`, `cd`/`echo`/`mkdir`). Friction
 comes from working AROUND it.
+- **A permission prompt is NOT a reason to SKIP a genuinely useful action.** If a task
+  needs data or a tool behind a prompt — a DB read, a query, running a helper — DO it;
+  a one-off approval for a legitimate action is cheap. This whole section is about
+  avoiding UNNECESSARY prompts where a promptless path ALREADY EXISTS (bare git over
+  `git -C` in-workspace, the right tool over an ad-hoc heredoc) — it is NOT license to
+  decline necessary work because it would prompt. If a prompt-gated action RECURS, make
+  it frictionless by adding an allowlist entry (as with the analytics venv), don't just
+  keep avoiding it. (Bit us: held off querying the `analytics` DB for a real view count
+  because it "would prompt" — should have just run it, and added the allow-rule.)
 - **Chains auto-approve when EVERY subcommand is allowlisted.** Claude Code splits on
   `&&`, `||`, `;`, `|`, `&` and newlines and checks each piece independently, so a chain
   of allowlisted read-only commands does NOT prompt. What DOES force a prompt:
