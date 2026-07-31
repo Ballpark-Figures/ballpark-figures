@@ -202,17 +202,30 @@ def subscene(fn):
     return fn
 
 
-def thumbnail(fn):
-    """An INDEPENDENT static-frame subscene (for a `99` thumbnails file).
+def still(fn):
+    """An INDEPENDENT static-frame subscene — for a scene that's just a SERIES OF
+    IMAGES with no animation BETWEEN them.
 
-    A thumbnail IS a subscene — same `99a`/`99b` addressing, render, and resolve —
-    but the framework renders it from a CLEAN, EMPTY frame: no snapshot carry-over
-    from the previous subscene (which for a thumbnail would ghost the prior frame
-    behind this one) and no snapshot save/replay (each frame is self-contained, so
-    the whole prefix-replay machinery is unnecessary). Use `@thumbnail` instead of
-    `@subscene` on each frame; the scene can keep any base (e.g. YahtzeeScene) since
-    the behaviour rides on this marker, not on a special base class."""
+    A still IS a subscene (same `NNa`/`NNb` addressing, render, and resolve), but the
+    framework renders it from a CLEAN, EMPTY frame: no snapshot carry-over from the
+    previous subscene (which would ghost the prior frame behind this one) and no
+    snapshot save/replay (each frame is self-contained, so the whole prefix-replay
+    machinery is unnecessary). The body builds its composition on a clean slate —
+    static `self.add`, or a self-contained entrance. Use `@still` instead of
+    `@subscene` on each frame; the scene can keep any base class (the behaviour rides
+    on this marker). `@thumbnail` EXTENDS this for the reserved 99 thumbnail slot."""
     fn._is_subscene = True
+    fn._is_still = True
+    return fn
+
+
+def thumbnail(fn):
+    """A `@still` specialized for the reserved `99` thumbnail slot: the clean-frame,
+    no-snapshot behaviour comes from `@still` (which this extends), and the `99`
+    prefix makes `render` emit a 4K still PNG (see render.py) — orthogonal to this
+    marker. Use `@thumbnail` in `99thumbnails.py`; `@still` for any other
+    image-series scene. The scene can keep any base (e.g. YahtzeeScene)."""
+    still(fn)
     fn._is_thumbnail = True
     return fn
 
@@ -306,13 +319,14 @@ class BpkScene(Scene):
             self.add(m)
         return True
 
-    def _is_thumb(self, name):
-        """True if subscene `name` is an INDEPENDENT thumbnail frame (@thumbnail)."""
-        return getattr(getattr(type(self), name), "_is_thumbnail", False)
+    def _is_still(self, name):
+        """True if subscene `name` is an INDEPENDENT static frame (@still, and its
+        specialization @thumbnail): a clean slate with no snapshot."""
+        return getattr(getattr(type(self), name), "_is_still", False)
 
     def _clear_frame(self):
         """Remove every top-level mobject — reset to an empty frame (used to give
-        each @thumbnail a clean slate with no carry-over from the previous one)."""
+        each @still/@thumbnail a clean slate with no carry-over from the previous)."""
         for m in list(self.mobjects):
             self.remove(m)
 
@@ -325,11 +339,11 @@ class BpkScene(Scene):
             self.setup_scene()
             self.wait(SUBSCENE_HOLD)             # leading hold (once, at scene start)
             for i, name in enumerate(names):
-                if self._is_thumb(name):
+                if self._is_still(name):
                     self._clear_frame()          # independent frame: no carry-over
                 getattr(self, name)()
                 self.wait(SUBSCENE_HOLD)         # single shared pause between subscenes
-                if not self._is_thumb(name):     # thumbnails need no snapshot
+                if not self._is_still(name):     # still frames need no snapshot
                     self._save_snapshot(i, names)
             return
 
@@ -337,10 +351,10 @@ class BpkScene(Scene):
         if not (0 <= idx < len(names)):
             raise IndexError(f"Subscene '{target}' out of range (have {len(names)})")
 
-        # A thumbnail is self-contained: render it from an EMPTY frame with no
-        # prior-snapshot load / prefix replay (that carry-over is what ghosts the
-        # previous thumbnail behind this one).
-        if self._is_thumb(names[idx]):
+        # A @still/@thumbnail frame is self-contained: render it from an EMPTY frame
+        # with no prior-snapshot load / prefix replay (that carry-over is what would
+        # ghost the previous frame behind this one).
+        if self._is_still(names[idx]):
             self.setup_scene()
             self._clear_frame()
             self.wait(SUBSCENE_HOLD)             # leading hold

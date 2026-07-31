@@ -123,6 +123,17 @@ traceable to the user's OWN computations, never re-derived by the agent.
     `media/images/**/`; `--fast` for a quick check). Numbers are still SOURCED. Yahtzee
     is the reference.
   - Tests/scratch take `98` and DOWN so they never collide with the meta-files.
+- **`@still` = the GENERAL clean-frame decorator** (`bpkfigures/scene.py`, exported via
+  `from config import *`) — for a scene that's just a SERIES OF IMAGES with no animation
+  BETWEEN them (e.g. a mock-UI walk-through: card → watch page → homepage). Each `@still`
+  subscene renders from a CLEAN, EMPTY frame with NO carry-over and NO snapshot
+  save/replay, so you don't hand-roll a `_clear()`/FadeOut between beats; addressed like
+  any subscene (`render NNa`/`NNb`). **`@thumbnail` EXTENDS `@still`** — it's the same
+  clean-frame behaviour PLUS the reserved `99` prefix's 4K still-PNG render (the PNG mode
+  is triggered by the scene NUMBER, orthogonal to the decorator). So: `@thumbnail` in the
+  `99` slot; `@still` for any other no-animation image series (hangman `93youtube_test.py`
+  is the reference). No `new-video` change needed — the scaffolded `from bpkfigures.scene
+  import *` exports `still` automatically.
 
 ## Canonical patterns index — BEFORE you hand-roll, check here
 The recurring visual jobs and the ONE shared thing each routes through. About to
