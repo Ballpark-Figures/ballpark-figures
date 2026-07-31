@@ -26,20 +26,25 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
                                      # padded copy (10s/side) under padded_videos/
     render 01g --padded 3            # render, then pad with 3s each side
     render 01g --padded --extract    # pad the EXISTING mp4 (no re-render)
-    render 99a                       # scene 99 = thumbnails: auto-renders a STATIC 4K PNG
-                                     # (manim -s -qk) into media/images/<scene>/2160p/;
-                                     # prints its path
+    render 93a                       # a @still subscene: renders a STILL PNG (manim -s)
+                                     # into media/images/<scene>/<res>/, NOT a video
+    render 93 all                    # a @still-only scene: one PNG per subscene, no
+                                     # combined full-scene render
+    render 99a                       # scene 99 = thumbnails (@thumbnail extends @still):
+                                     # a 4K PNG (-s -qk) into media/images/<scene>/2160p/
     render 99a --fast                # same, but a quick low-res PNG (→ …/480p/)
     render 99 all                    # every thumbnail — but ONLY the ones whose inputs
                                      # changed re-render (unchanged ones are skipped)
-    render 07a --thumb               # force a still PNG for ANY scene (99 is automatic)
+    render 07a --thumb               # force a 4K still PNG for ANY scene (99 is automatic)
 
-Thumbnails are independent images, so `render 99 all` skips any whose code (or a
-shared helper/asset it uses) is unchanged since its PNG — keyed the same way the
-snapshot cache keys subscenes, with a quality tag. `--recompute` forces a rebuild.
-Each PNG lands in a per-RESOLUTION subfolder (`media/images/<scene>/2160p|480p/…`)
-so a low-res --fast test can't be mistaken for the 4K upload asset, and a slot
-keeps a single image per quality (a renamed subscene's old PNG is swept).
+Still images (@still / @thumbnail / --thumb) are independent, so a still-only scene's
+`… all` renders one PNG per subscene with no combined render. For the 99 slot,
+`render 99 all` also skips any thumbnail whose code (or a shared helper/asset it uses)
+is unchanged since its PNG — keyed the same way the snapshot cache keys subscenes, with
+a quality tag; `--recompute` forces a rebuild. Each PNG lands in a per-RESOLUTION
+subfolder (`media/images/<scene>/2160p|480p/…`) so a low-res --fast test can't be
+mistaken for the full-res asset, and a slot keeps a single image per quality (a renamed
+subscene's old PNG is swept). A plain @still renders at -qh; 99/--thumb default to 4K.
     render 01h --state               # print mobjects at h's start (no render)
     render 01 --check                # AST-parse the scene + assets only (no manim)
 
@@ -293,7 +298,7 @@ def _thumb_change_plan(targets, qtag):
         qdir = _QTAG_DIR[qtag]
         path0, classname0, _o, _l = resolve.resolve(tt[0])
         cls = _load_scene_class(path0, classname0)
-        _cn, subs = resolve._parse(path0)
+        _cn, subs, _st = resolve._parse(path0)
         manifest_path = _thumb_manifest_path(path0)
         manifest = _load_manifest(manifest_path)
         skip, keys, mkeys = set(), {}, {}
@@ -400,13 +405,15 @@ def _expand_targets(rest):
     targets = []
     for tok in digit_toks:
         prefix, spec = tok[:2], tok[2:]
-        thumb = _is_thumb_prefix(prefix)
+        # A still-IMAGE scene (every subscene @still, incl. 99 thumbnails) is a set of
+        # independent images — there is no meaningful combined full-scene render.
+        still_scene = resolve.is_still(prefix)
         if mode and spec == "":
             letters = resolve.subscene_letters(prefix)
             targets += [prefix + L for L in letters]
-            if mode == "all" and not thumb:
+            if mode == "all" and not still_scene:
                 targets.append(prefix)                   # full scene last
-        elif spec == "" and thumb:                       # bare `99`: each thumbnail
+        elif spec == "" and still_scene:                 # bare `NN`: each still image
             targets += [prefix + L for L in resolve.subscene_letters(prefix)]
         elif "-" in spec:                                # dash-delimited range
             targets += _expand_one(prefix, spec, resolve.subscene_letters(prefix))
@@ -629,9 +636,12 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         print(str(e), file=sys.stderr)
         return 1
 
-    # Scene `99` is the reserved THUMBNAILS slot (every video), so it always renders
-    # as a still image — no --thumb needed. --thumb still forces it for any scene.
-    thumb = thumb or target[:2] == "99"
+    # A @still subscene (incl. its @thumbnail specialization) renders as a STILL IMAGE
+    # (a PNG via manim -s), not a video — that's what a "series of images" scene is.
+    # Scene `99` (thumbnails) and --thumb additionally want a 4K upload-grade still; a
+    # plain @still renders at the normal quality (-qh, or -ql with --fast).
+    force_4k = thumb or target[:2] == "99"
+    image = force_4k or resolve.is_still(target)
 
     if state:
         return _print_state(path, classname, letter)
@@ -669,16 +679,17 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         env["RECOMPUTE"] = "1"
 
     manim = _find_venv_manim()
-    # --thumb wants a high-res still (4K, -qk) to give YouTube's downscale the most
-    # data; --fast/--very-fast still win for a quick low-res layout check.
+    # A 4K still (-qk) is the upload-grade thumbnail/`--thumb` default — it gives
+    # YouTube's downscale the most data; --fast/--very-fast still win for a quick
+    # low-res layout check, and a plain @still image renders at the normal -qh.
     if fast or very_fast:
         quality = "-ql"
-    elif thumb:
+    elif force_4k:
         quality = "-qk"
     else:
         quality = "-qh"
     cmd = [manim, quality]
-    if thumb:
+    if image:
         cmd += ["-s"]                            # save the LAST frame as a PNG (no video)
     if very_fast:
         cmd += ["-r", "256,144", "--fps", "3"]   # terrible res + 3 fps
@@ -698,10 +709,10 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     if rc != 0:
         return rc
 
-    if thumb:
+    if image:
         # -s writes the still to media/images/<module>/<output>.png (manim uses no
         # per-quality subfolder for images). MOVE it into a resolution subfolder so a
-        # --fast test can't overwrite / be mistaken for the 4K upload asset.
+        # --fast test can't overwrite / be mistaken for the full-res asset.
         module_dir = os.path.join("media", "images", _thumb_scene_module_name(path))
         src = os.path.join(module_dir, f"{output}.png")
         if not os.path.exists(src):

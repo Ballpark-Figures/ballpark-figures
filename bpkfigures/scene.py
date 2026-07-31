@@ -211,9 +211,14 @@ def still(fn):
     previous subscene (which would ghost the prior frame behind this one) and no
     snapshot save/replay (each frame is self-contained, so the whole prefix-replay
     machinery is unnecessary). The body builds its composition on a clean slate —
-    static `self.add`, or a self-contained entrance. Use `@still` instead of
-    `@subscene` on each frame; the scene can keep any base class (the behaviour rides
-    on this marker). `@thumbnail` EXTENDS this for the reserved 99 thumbnail slot."""
+    static `self.add`. Use `@still` instead of `@subscene` on each frame; the scene
+    can keep any base class (the behaviour rides on this marker).
+
+    `render` renders each @still target as a STILL IMAGE — a PNG (manim `-s`) under
+    `media/images/<scene>/<res>/`, NOT a video — so a `@still`-only scene is a set of
+    independent images (`render NN all` emits one PNG per subscene, no combined
+    render). `@thumbnail` EXTENDS this for the reserved 99 slot: same still image, but
+    4K (`-qk`) by default as an upload asset, plus change-detection on `render 99 all`."""
     fn._is_subscene = True
     fn._is_still = True
     return fn

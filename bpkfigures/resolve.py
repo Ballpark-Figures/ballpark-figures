@@ -36,30 +36,33 @@ def _parse(path):
     for node in tree.body:
         if not isinstance(node, ast.ClassDef):
             continue
-        subs = []
+        subs, still = [], set()
         for item in node.body:
             if isinstance(item, ast.FunctionDef):
                 for dec in item.decorator_list:
                     # @still (independent static frame) and its @thumbnail
                     # specialization are subscenes too — they share the NNa/NNb
-                    # addressing, so count them like @subscene.
+                    # addressing, so count them like @subscene. Track the @still ones
+                    # separately: those render as a STILL IMAGE (a PNG), not a video.
                     name = dec.id if isinstance(dec, ast.Name) else \
                         dec.attr if isinstance(dec, ast.Attribute) else None
                     if name in ("subscene", "thumbnail", "still"):
                         subs.append(item.name)
+                    if name in ("thumbnail", "still"):
+                        still.add(item.name)
         inherits = any(
             (isinstance(b, ast.Name) and b.id == "BpkScene") or
             (isinstance(b, ast.Attribute) and b.attr == "BpkScene")
             for b in node.bases
         )
         if subs or inherits:
-            return node.name, subs
+            return node.name, subs, still
     raise ValueError(f"No BpkScene subclass found in {path}")
 
 def resolve(target):
     prefix, letter = target[:2], target[2:]
     path = _find_file(prefix)
-    classname, subs = _parse(path)
+    classname, subs, _still = _parse(path)
     if not letter:
         return path, classname, f"{prefix}_{_snake(classname)}", ""
     idx = label_to_index(letter)
@@ -72,8 +75,22 @@ def subscene_letters(prefix):
     NN-prefixed scene file, in order. Empty list if the scene has no @subscene
     methods."""
     path = _find_file(prefix)
-    _classname, subs = _parse(path)
+    _classname, subs, _still = _parse(path)
     return [index_to_label(i) for i in range(len(subs))]
+
+def is_still(target):
+    """True if `target` should render as a STILL IMAGE (a PNG via manim -s) rather
+    than a video, because it's decorated @still (incl. its @thumbnail specialization).
+    A NN<letter> target is still iff that subscene is @still; a BARE NN (whole scene)
+    is still iff EVERY subscene is @still — i.e. an image-only scene (99 thumbnails, a
+    mock-UI walkthrough), which therefore has no meaningful combined full-scene render."""
+    prefix, letter = target[:2], target[2:]
+    path = _find_file(prefix)
+    _classname, subs, still = _parse(path)
+    if not letter:
+        return bool(subs) and len(still) == len(subs)
+    idx = label_to_index(letter)
+    return 0 <= idx < len(subs) and subs[idx] in still
 
 def clean_stale(classname, prefix, letter, keep_output):
     """Remove stale rendered videos for this NN<letter> slot whose subscene was
