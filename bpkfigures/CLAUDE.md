@@ -290,6 +290,17 @@ comes from working AROUND it.
   it frictionless by adding an allowlist entry (as with the analytics venv), don't just
   keep avoiding it. (Bit us: held off querying the `analytics` DB for a real view count
   because it "would prompt" — should have just run it, and added the allow-rule.)
+- **BUT hitting an unexpected blocker and pivoting to a DIFFERENT or OUTWARD-FACING
+  workaround is a STOP-AND-FLAG moment — not a silent route-around.** The rule just above
+  ("don't skip sanctioned work over a prompt") is NOT license to quietly work around a
+  FAILURE. When the intended path breaks — a missing key/credential, a 403, an
+  unavailable tool — and you're about to switch to a materially different approach,
+  especially an outward-facing one (SCRAPING a page, a new external source/service, an
+  action that leaves the machine), STOP: surface the blocker (a missing local secret is
+  itself useful info about the setup) and get the user's call BEFORE proceeding. Reach
+  confidently for the SANCTIONED path even if it prompts; PAUSE before an unsanctioned
+  detour. (Bit us: the local `analytics` Data-API key was missing, so instead of saying
+  so, silently scraped a channel page for a video's avatar — should have flagged it.)
 - **Chains auto-approve when EVERY subcommand is allowlisted.** Claude Code splits on
   `&&`, `||`, `;`, `|`, `&` and newlines and checks each piece independently, so a chain
   of allowlisted read-only commands does NOT prompt. What DOES force a prompt:
