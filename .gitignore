@@ -9,6 +9,10 @@ ballpark-figures/
 # but its .env does). Not a video; see analytics/README.md.
 analytics/
 
+# Notion integration (bpknotion) — its own PRIVATE git repo (its .env holds
+# secrets). Not a video; see notion/README.md.
+notion/
+
 # Per-scene git worktrees (<video>-sceneNN) — created by /scene for concurrent
 # sessions; they're checkouts of a sub-repo, never tracked by the umbrella.
 *-scene[0-9]*/
