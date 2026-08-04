@@ -36,16 +36,17 @@ ACCENT_PINK   = ManimColor("#C43B86")
 CATEGORICAL_PALETTE = [ACCENT_GOLD, ACCENT_ORANGE, ACCENT_RED,
                        ACCENT_GREEN, ACCENT_PURPLE, ACCENT_PINK]
 
-# ── LIGHT (pastel) RAINBOW — light-on-dark sequential/categorical fills ─────────
-# Six pastel hues (red→purple) that stay legible on a DARK background, for a rainbow
-# ramp distinct from the saturated ACCENT / CATEGORICAL sets — e.g. a per-count or
+# ── LIGHT RAINBOW — bright light-on-dark sequential/categorical fills ───────────
+# Six bright hues (red→purple), saturated but high-value so they POP on a DARK
+# background yet still read clearly as colours (not near-white pastels). For a
+# rainbow ramp distinct from the ACCENT / CATEGORICAL sets — e.g. a per-count or
 # per-step colour scale. Listed red→purple; index (or reverse-index) as the scale needs.
-LIGHT_RED    = ManimColor("#F2A6A6")
-LIGHT_ORANGE = ManimColor("#F5C58C")
-LIGHT_YELLOW = ManimColor("#EFE79A")
-LIGHT_GREEN  = ManimColor("#ABDDB0")
-LIGHT_BLUE   = ManimColor("#A6CBEE")
-LIGHT_PURPLE = ManimColor("#C6ABE3")
+LIGHT_RED    = ManimColor("#FF6B6B")
+LIGHT_ORANGE = ManimColor("#FF9E42")
+LIGHT_YELLOW = ManimColor("#FFD93D")
+LIGHT_GREEN  = ManimColor("#3FD97A")
+LIGHT_BLUE   = ManimColor("#3FAEF5")
+LIGHT_PURPLE = ManimColor("#B072EE")
 LIGHT_PALETTE = [LIGHT_RED, LIGHT_ORANGE, LIGHT_YELLOW,
                  LIGHT_GREEN, LIGHT_BLUE, LIGHT_PURPLE]
 
