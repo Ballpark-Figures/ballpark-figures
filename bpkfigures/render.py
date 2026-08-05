@@ -747,5 +747,25 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     return rc
 
 
+def _ding():
+    """Best-effort 'render finished' sound — fired on ANY exit. Never raises. Detached
+    so it plays even as the process exits; falls back to the terminal bell off macOS."""
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+        else:
+            sys.stderr.write("\a")
+            sys.stderr.flush()
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    rc = 1
+    try:
+        rc = main()
+    finally:
+        _ding()
+    sys.exit(rc)
