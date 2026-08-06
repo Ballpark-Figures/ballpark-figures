@@ -30,6 +30,21 @@ load wherever you're working. Video-specific rules live in that video's own
 This channel's job is: do rigorous math, then present it. So every quantity on
 screen (EV, probability, count, aggregate) is the PRODUCT — it must be correct and
 traceable to the user's OWN computations, never re-derived by the agent.
+- **Don't invent the QUESTION or the METHOD, not just the number.** This rule extends
+  upstream and to EXPLORATORY code: producing an analytical RESULT (a ranking, a "best"
+  anything, an aggregate, a comparison, an optimization) or choosing the MODELING that
+  defines it (which metric/objective, what distribution, which word/state universe, what
+  counts as "optimal") is the USER'S call, made explicitly BEFORE any code computes an
+  answer — even in `math/`, even when nothing is displayed yet, even as a "quick
+  prototype." The user must understand and be able to OWN every computation that could
+  reach a video. So: BUILD the requested primitives/plumbing/data (a bare correctness
+  smoke-test is fine), but do NOT run analyses, rank/score/optimize, or bake in a metric
+  until the user has defined the problem and said go. This SHARPENS "hand over a runnable
+  prototype early" (§ Process): the prototype is machinery to hand over, not results to
+  generate. When you catch yourself about to compute a result that wasn't explicitly
+  specified — STOP and ask. (Bit us: an unrequested entropy-based opener ranking, with an
+  unstated metric + uniform-distribution assumption, computed and run on the agent's own
+  initiative during a "copy the primitives over" task.)
 - **Never write new math for a displayed value.** If producing a number would
   require implementing ANY calculation — scoring, probability, EV, a reroll/
   combinatorial sum, a simulation, an aggregation — STOP and ASK FIRST, even when
