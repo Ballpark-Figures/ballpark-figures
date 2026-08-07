@@ -36,7 +36,7 @@ SNAPSHOT_DIR = os.path.join("cache", "snapshots")
 
 # Bump this to manually invalidate every cached snapshot (e.g. after changing
 # the snapshot machinery itself or any dependency the source hash can't see).
-SNAPSHOT_VERSION = 5
+SNAPSHOT_VERSION = 6
 
 # Every subscene is framed by a static hold: the framework plays one leading
 # self.wait(SUBSCENE_HOLD) at the very start of a render, then one trailing hold
@@ -295,7 +295,15 @@ class BpkScene(Scene):
             "key": self._prefix_key(idx, names),
             "attrs": {k: self.__dict__[k] for k in user_keys},
             "mobjects": list(self.mobjects),  # same dump -> identity preserved
+            # camera state lives on self.camera (a baseline key, so NOT in attrs); save
+            # it explicitly so the leading hold on the next subscene shows the correct
+            # incoming bg + frame pose instead of the class default (else it starts wrong
+            # and jumps when the body re-establishes them). frame only on MovingCamera.
+            "cam_bg": self.camera.background_color,
         }
+        if hasattr(self.camera, "frame"):
+            f = self.camera.frame
+            bundle["cam_frame"] = (f.get_center(), f.get_width(), f.get_height())
         path = self._snapshot_path(idx)
         try:
             with open(path, "wb") as f:
@@ -322,6 +330,15 @@ class BpkScene(Scene):
             setattr(self, k, v)
         for m in bundle["mobjects"]:
             self.add(m)
+        # restore camera bg + frame pose (see _save_snapshot) so the leading hold
+        # renders the correct incoming state. .get() keeps pre-v6 snapshots loadable.
+        if "cam_bg" in bundle:
+            self.camera.background_color = bundle["cam_bg"]
+        cf = bundle.get("cam_frame")
+        if cf is not None and hasattr(self.camera, "frame"):
+            center, w, h = cf
+            self.camera.frame.move_to(center) \
+                .stretch_to_fit_width(w).stretch_to_fit_height(h)
         return True
 
     def _is_still(self, name):
