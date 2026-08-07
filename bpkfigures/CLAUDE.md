@@ -518,6 +518,19 @@ calls for; no titles/labels/narration that weren't asked for.
 - **Don't override a helper's default args** unless asked or genuinely required
   — defaults are deliberate and shared. If a layout seems to "need" a non-default
   value, the layout is probably wrong; fix the layout.
+- **When you PORT or ADAPT reference code, carry its constants/defaults over
+  VERBATIM — a changed value must be FLAGGED, never silent.** Copying a
+  solver/helper/scene from another video (or an earlier file) means its literals —
+  heartbeat intervals, tolerances, thresholds, run_times, default args — come across
+  UNCHANGED unless the user asked or the new context genuinely forces it (and then
+  you SAY SO, at handoff). Do NOT "improve," round, or re-pick a value in passing;
+  the source's value IS the spec, same as a user-named one. If you think a different
+  value is better, FLAG IT AND ASK — don't substitute. And on handoff of ported code,
+  explicitly LIST any value that differs from the source and why, so a silent drift
+  becomes visible in review instead of buried. (Bit us: porting hangman's winprob,
+  the 60s heartbeat was silently changed to 30s, and a since-removed `eps` was
+  carried back in — both unflagged.) Same silently-overriding failure the §Following
+  instructions rule names, applied to adapted code.
 - Measure real mobject geometry (edges/centers) when placement matters; don't
   approximate positions. For NUMBERS, the bar is even higher: don't guess AND don't
   compute them yourself — SOURCE every displayed value from the user's pipeline, or
