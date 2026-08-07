@@ -539,6 +539,11 @@ calls for; no titles/labels/narration that weren't asked for.
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
 - **Render with `bpkfigures/render`, NOT hand-rolled `manim`.** Single render path for
   user + agent (the old `manim()` zsh override is gone); run from the `scenes/` dir.
+- **The agent ALWAYS passes `--no-sound`.** The 'render finished' chime signals the
+  USER's OWN renders, so the agent must never trigger it — append `--no-sound` to every
+  `render` invocation (it's a no-op for `--check`/`--state`/`--extract` too, so just
+  always include it). A bare `render …` without the flag is the user's; the agent's is
+  `render … --no-sound`.
 - **Invoke it as BARE `render …` (the shell alias), NOT the `.venv/bin/python -m
   bpkfigures.render` fallback.** Bare `render` auto-approves (allowlist `render *`); the
   fallback needs the space-containing repo path QUOTED, and the quote breaks the allowlist

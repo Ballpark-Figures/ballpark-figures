@@ -531,6 +531,10 @@ def main(argv=None):
     extract = "--extract" in argv  # extract --frames from the EXISTING mp4 (no render)
     thumb = ("--thumb" in argv) or ("--thumbnail" in argv)  # static -s PNG (4K by default)
     quiet = "--quiet" in argv    # pass -v WARNING to manim (drops per-animation INFO spam)
+    # --no-sound: suppress the 'render finished' chime. The chime signals the USER's own
+    # renders, so the agent always passes --no-sound (see bpkfigures/CLAUDE.md).
+    global _PLAY_DING
+    _PLAY_DING = "--no-sound" not in argv
     frames_spec = None
     padded = None                # --padded [N]: also write a first/last-frame-padded copy
     tail = None                  # --tail N: capture manim output, emit only its last N lines
@@ -539,7 +543,7 @@ def main(argv=None):
     while i < len(argv):
         a = argv[i]
         if a in ("--recompute", "--hq", "--state", "--fast", "--very-fast", "-ql",
-                 "--quiet", "--check", "--extract", "--thumb", "--thumbnail"):
+                 "--quiet", "--check", "--extract", "--thumb", "--thumbnail", "--no-sound"):
             pass
         elif a == "--frames":
             i += 1
@@ -578,7 +582,7 @@ def main(argv=None):
     if not targets:
         print("usage: render NN[label] [NN[label] ...] [NN all|sub] [NNa-c|NNb-|NN-f] "
               "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
-              "[--thumb] [--state] [--check]")
+              "[--thumb] [--state] [--check] [--no-sound]")
         return 2
 
     if check:
@@ -747,12 +751,23 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     return rc
 
 
+# Whether the 'render finished' chime plays on exit. main() sets it False for
+# --no-sound; the chime is reserved for the user's own renders (the agent always
+# passes --no-sound), so it defaults True for a bare CLI invocation.
+_PLAY_DING = True
+
+
 def _ding():
-    """Best-effort 'render finished' sound — fired on ANY exit. Never raises. Detached
-    so it plays even as the process exits; falls back to the terminal bell off macOS."""
+    """Best-effort 'render finished' sound — fired on exit unless --no-sound. Never
+    raises. Detached so it plays even as the process exits; falls back to the terminal
+    bell off macOS."""
+    if not _PLAY_DING:
+        return
     try:
         if sys.platform == "darwin":
-            subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"],
+            # Submarine: a low sonar 'bloop', deliberately distinct from Claude Code's
+            # own prompt/finish chimes so a finished render is unmistakable by ear.
+            subprocess.Popen(["afplay", "/System/Library/Sounds/Submarine.aiff"],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True)
         else:
