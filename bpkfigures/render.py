@@ -57,10 +57,42 @@ import importlib.util
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 
 from bpkfigures import resolve
+
+
+def _run_manim(cmd, env, tail=None):
+    """Run manim, FORWARDING SIGTERM/SIGINT to it. Without this, killing `render` (e.g. to
+    free the per-scene lock, as the refuse message invites) kills only this wrapper and
+    ORPHANS the manim child, which keeps rendering headless. With it, `kill <render-pid>`
+    stops the child too. Use a plain `kill` (SIGTERM) — `kill -9` bypasses this handler."""
+    kw = dict(env=env)
+    if tail is not None:
+        kw.update(stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.Popen(cmd, **kw)
+
+    def _forward(_signum, _frame):
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        raise SystemExit(130)
+
+    prev = [(s, signal.signal(s, _forward)) for s in (signal.SIGTERM, signal.SIGINT)]
+    try:
+        if tail is not None:
+            out, _ = proc.communicate()
+            for ln in (out or "").splitlines()[-tail:]:
+                print(ln, file=sys.stderr)
+        else:
+            proc.wait()
+    finally:
+        for s, old in prev:
+            signal.signal(s, old)
+    return proc.returncode
 
 
 # ── locating tools ────────────────────────────────────────────────────────────
@@ -702,14 +734,7 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     cmd += [*passthrough, path, classname, "-o", output]
     print(f"[render] {' '.join(cmd)}  (SUBSCENE={letter or '-'})",
           file=sys.stderr)
-    if tail is not None:
-        proc = subprocess.run(cmd, env=env, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, text=True)
-        for ln in proc.stdout.splitlines()[-tail:]:
-            print(ln, file=sys.stderr)
-        rc = proc.returncode
-    else:
-        rc = subprocess.run(cmd, env=env).returncode
+    rc = _run_manim(cmd, env, tail)
     if rc != 0:
         return rc
 

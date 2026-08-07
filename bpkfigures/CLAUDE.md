@@ -594,6 +594,14 @@ calls for; no titles/labels/narration that weren't asked for.
   next time). Corollary: don't `grep` away the "refusing…" line — surface it so you SEE the
   conflict and kill, instead of stumbling into a silent wait. (Bit us 2026-08-07: twice set
   up an `until [ ! -f …lock ]` wait instead of killing.)
+- **Use a PLAIN `kill <pid>` (SIGTERM) — NOT `kill -9`.** `render.py` now forwards SIGTERM/
+  SIGINT to the manim child it spawns, so a plain `kill` of the pid the refuse message names
+  stops the WHOLE render (wrapper + manim). `kill -9` bypasses that handler and re-ORPHANS
+  the manim child (it keeps rendering, ppid→1, writing the media dir → concurrency/corruption
+  if you then start your own render). If you ever DID orphan a manim child, find it with
+  `ps -Ao pid,ppid,command | grep manim` and `kill` that pid directly, then `--recompute` the
+  next render. (Bit us 2026-08-07: `kill <render-pid>` before this fix left the manim child
+  running.)
 - **NEVER `rm`/delete a lock file — to take over, KILL THE PID the refuse message names,
   full stop.** The lock is an ACTIVE mutex held by a LIVE process, not stale detritus; the
   render script AUTO-TAKES-OVER a lock whose holder is dead, so killing the holder is
