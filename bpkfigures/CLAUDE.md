@@ -579,6 +579,16 @@ calls for; no titles/labels/narration that weren't asked for.
   `cache/locks/render-<NN>.lock`); kill it to free the lock, then render. Safe for
   thumbnails/independent renders; for a long scene render a mid-render kill only costs that
   subscene's snapshot (rebuilt next time). (`kill` is gated → it prompts; go ahead.)
+- **NEVER `rm`/delete a lock file — to take over, KILL THE PID the refuse message names,
+  full stop.** The lock is an ACTIVE mutex held by a LIVE process, not stale detritus; the
+  render script AUTO-TAKES-OVER a lock whose holder is dead, so killing the holder is
+  sufficient AND complete — the file cleans itself up. Manually `rm`-ing
+  `cache/locks/render-<NN>.lock` bypasses the mutex and lets TWO renders run the same scene
+  CONCURRENTLY, which is the exact cache-corruption the lock prevents. "Free the lock" ≡
+  "kill its holder", NEVER "delete the file". If a render then seems refused by a truly dead
+  lock, kill nothing and just re-run — the auto-takeover handles it. (Bit us 2026-08-07: an
+  `rm -f` of the lock ran the agent's render on top of the user's, orphaning the user's
+  manim child and risking cache corruption — recover with `--recompute`.)
 
 ## Snapshot cache (`bpkfigures/scene.py`)
 - Rendering one subscene loads the LATEST VALID snapshot at or before the prior
