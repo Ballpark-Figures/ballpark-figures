@@ -16,6 +16,19 @@ load wherever you're working. Video-specific rules live in that video's own
   Willfully deviating from an explicit instruction — even when your alternative
   seems reasonable — is a serious error that can cause major problems later.
   Flagging-then-asking is always acceptable; substituting without asking is not.
+- **A user's inline description of an ANIMATION is a spec — run the same
+  clause-by-clause checklist you'd run on a `Script.md` column.** When the user
+  describes an effect in prose ("little green lines, one at a time, very quickly,
+  around the word, removed with the letters"), EVERY clause is a requirement, not
+  flavour — enumerate them and build to each; a clause about the MOTION ("one at a
+  time", "drawn like a hand", "all at once", "then fades") is as binding as one about
+  placement or colour. The failure mode is latching onto the gestalt ("a flash near
+  the word") and honouring the shape while dropping a motion/timing clause. And when
+  the prose is genuinely ambiguous, a quick options AskUserQuestion (e.g. outline vs.
+  radial burst vs. whole-thing flash) BEFORE building beats guessing wrong and
+  building an elaborate throwaway. (Bit us on hangman scene 02: "appear one at a time"
+  was dropped through TWO builds — a box then a burst, both simultaneous — before it
+  stuck; three rounds of churn a clause-check or an early options-ask would have saved.)
 - **A promise about future behavior changes nothing unless it's WRITTEN DOWN —
   so when you catch yourself making one, ASK whether to record it.** Any "I'll fix
   it" / "I'll do better next time" / "I'll remember to X" / "going forward I'll…"
