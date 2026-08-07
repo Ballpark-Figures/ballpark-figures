@@ -398,6 +398,25 @@ calls for; no titles/labels/narration that weren't asked for.
   handle; ONE owner per object (a second `self.foo = …` silently replaces the carried
   one — a real bug); drop a consumed carry-over (`self.foo = None`) to keep snapshots
   light.
+- **A TRANSITION between two framings/states is a SEAM — design it FIRST, working
+  BACKWARDS from the more-constrained end.** When a scene morphs between two setups (a
+  full-frame chalk game → a zoomed-in decision tree; one board layout → another), the hard
+  part is the INTERFACE, not either side. Before polishing either, ask: what must stay
+  CONTINUOUS across the seam? — usually the CAMERA, sometimes a shared prop's scale. Then
+  make ONE side CONFORM to the other's frame so nothing is bridged mid-animation; do NOT
+  build each side in its own natural frame and reconcile them with a moving camera / scale
+  ramp during the transition. **A moving camera re-projects EVERYTHING**, so any element not
+  explicitly counter-animated to it drifts/pops — every element becomes its own coupled
+  sub-problem, and you'll chase symptoms forever (see TRIP-WIRE #2). Concretely: PIN the
+  camera at the downstream pose (e.g. the dive's start) for the whole run-up and BUILD the
+  upstream content INSIDE that fixed frame (a small design-coords→frame-coords mapping);
+  if the camera genuinely must move, ISOLATE the move (nothing else animating during it).
+  Corollary: when several beats will hand off to a fixed downstream setup, PROTOTYPE THE
+  SEAM before finishing the downstream scene — building the downstream piece first hardens a
+  frame without de-risking the interface that actually breaks. (Bit us 2026-08-07: bridging
+  a full-frame chalk game to a width-3 tree with a mid-transition zoom coupled every element
+  — ~a dozen rounds of band-aids; pinning the camera at the tree pose and placing the chalk
+  game in that frame turned the whole transition into a clean in-frame morph in one change.)
 - **A `@subscene` BODY should read as ANIMATION — push construction into
   `_setup_<name>()`** (called at the body's top to build every mobject it OWNS); the
   body is then just `self.play`/`self.wait`. If it can go in setup, it should. Only
@@ -685,12 +704,24 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   user takes over. Stills judge only objective spatial facts (count/position/overlap/
   clipping), NOT motion or whether an animation "reads" — never diagnose a motion/feel
   problem from a still; that's the user's call from the video.
-- **TRIP-WIRE #2: built a beat WRONG twice for the same conceptual reason? STOP and ASK
-  what it should depict — do NOT re-guess.** A repeated conceptual miss (wrong game
-  state, quantity, turn) is a comprehension gap, not an implementation bug — the fix is
-  a QUESTION. Re-iterating a misunderstood beat burns rounds and ships confidently-wrong
-  output. If you're unsure what a beat IS, that uncertainty is itself the trigger to ask
-  BEFORE building.
+  - **If the problem IS motion — drift, pop, a fade that "reads wrong", camera coupling —
+    it is UNVERIFIABLE from a still, FULL STOP.** Say so and hand the render to the user;
+    do NOT declare a motion beat "fixed"/"working"/"verified" from a frame. Doing so spins
+    a poison loop: patch a symptom → "confirm" it from a still → ship → the user watches the
+    VIDEO and finds it still broken → repeat. (Bit us 2026-08-07 for ~a dozen rounds on one
+    transition: each still "looked right" while the motion was wrong.) A still can confirm
+    the END STATE is correct; it can say NOTHING about the path taken to get there.
+- **TRIP-WIRE #2: the SAME thing broke twice? STOP patching symptoms — name the ROOT CAUSE
+  and the fork out loud before attempt three.** Two flavours, both fatal to iterate past:
+  (a) a repeated *comprehension* miss (wrong game state, quantity, turn) — the fix is a
+  QUESTION about what the beat depicts, not another guess; (b) a repeated *mechanism* miss —
+  the same machinery keeps producing new artifacts (fix the drift → now it pops → fix the
+  pop → now an edge shows). (b) is an ARCHITECTURE problem, not an implementation bug: the
+  symptoms are all downstream of ONE wrong structural choice, so patching them one at a time
+  never converges. Stop, state "these are all symptoms of X", and either reframe X or surface
+  the design fork to the user — do NOT ship attempt three of a band-aid. (Bit us 2026-08-07:
+  letter-drift/dot-pop/board-edge were all one moving-camera coupling; ~10 band-aids before
+  the one-line reframe — pin the camera — dissolved them all.)
 - **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what they
   asked and flag-ask — do NOT swap in a different design.** Substituting your own
   concept, even to solve a real problem, is a silent override — the worst error here. A
