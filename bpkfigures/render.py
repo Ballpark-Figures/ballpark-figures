@@ -12,7 +12,11 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g 01h 01i               # several in sequence
     render 01                        # full scene
     render 01 sub                    # all subscenes, in order
-    render 01 all                    # all subscenes, then the full scene
+    render 01 all                    # all subscenes, then the full scene — the full
+                                     # scene is STITCHED from the subscene clips (trim
+                                     # one framework hold per seam + concat), NOT a
+                                     # fresh manim pass, so it reuses them wholesale.
+                                     # A bare `render 01` is still a full manim render.
     render 01b-f                     # subscenes b through f (ranges are DASH-delimited)
     render 01b-                      # subscene b through the end
     render 01-f                      # the beginning through subscene f
@@ -202,6 +206,67 @@ def _output_mp4(output):
                      recursive=True)
     # newest wins if multiple qualities
     return max(hits, key=os.path.getmtime) if hits else None
+
+
+def _stitch_full(prefix, full_output):
+    """Build the full-scene mp4 for `prefix` by CONCATENATING the per-subscene clips
+    just rendered in `all` mode — no separate full manim pass.
+
+    Each subscene clip is HOLD·body·HOLD (a leading + trailing framework hold, see
+    bpkfigures.scene.SUBSCENE_HOLD), while the full scene is HOLD·a·HOLD·b·…·N·HOLD —
+    a SINGLE shared hold between adjacent subscenes. So every interior seam would
+    otherwise carry two holds; we trim ONE (the trailing hold) off every clip except
+    the last, then concat. That reproduces the full-scene pacing EXACTLY while reusing
+    the subscene renders wholesale.
+
+    Why not just let a fresh full pass reuse manim's partial-movie cache? A subscene
+    render rebuilds its incoming state from a PICKLED snapshot, which serializes to a
+    different cache hash than the fresh state a full pass builds — so the full pass
+    cache-misses on every carried-state animation and re-renders it. Stitching sidesteps
+    that: both the clips and the full scene come from the same (snapshot-based) basis.
+
+    Returns the stitched mp4 path, or None if a clip / its duration is missing (the
+    caller then falls back to a normal full manim render). Re-encodes once (crf 18,
+    near-lossless) so the tail-trim is frame-exact; renders are silent (video only)."""
+    from bpkfigures.scene import SUBSCENE_HOLD    # single source of truth for the hold
+    letters = resolve.subscene_letters(prefix)
+    if not letters:
+        return None
+    clips = []
+    for L in letters:
+        _p, _c, out, _l = resolve.resolve(prefix + L)
+        mp4 = _output_mp4(out)
+        if not mp4:
+            print(f"[render] stitch: missing subscene clip {out}.mp4 — falling back "
+                  f"to a full render", file=sys.stderr)
+            return None
+        clips.append(mp4)
+
+    inputs, filt = [], []
+    for i, mp4 in enumerate(clips):
+        inputs += ["-i", mp4]
+        if i < len(clips) - 1:                   # trim one trailing hold off all but last
+            dur = _duration(mp4)
+            if dur is None:
+                print(f"[render] stitch: can't read duration of {mp4} — falling back",
+                      file=sys.stderr)
+                return None
+            end = max(0.0, dur - SUBSCENE_HOLD)
+            filt.append(f"[{i}:v]trim=0:{end:.6f},setpts=PTS-STARTPTS[v{i}]")
+        else:                                    # last clip: keep its trailing hold
+            filt.append(f"[{i}:v]setpts=PTS-STARTPTS[v{i}]")
+    concat = "".join(f"[v{i}]" for i in range(len(clips)))
+    concat += f"concat=n={len(clips)}:v=1:a=0[out]"
+    dest = os.path.join(os.path.dirname(clips[0]), f"{full_output}.mp4")
+
+    cmd = [_ffmpeg(), "-y", *inputs, "-filter_complex", ";".join(filt) + ";" + concat,
+           "-map", "[out]", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", dest]
+    r = subprocess.run(cmd, capture_output=True)
+    if r.returncode != 0:
+        print(f"[render] stitch ffmpeg failed:\n"
+              f"{r.stderr.decode(errors='replace')[-600:]}", file=sys.stderr)
+        return None
+    return dest
 
 
 def _output_png(output):
@@ -423,8 +488,15 @@ def _is_thumb_prefix(prefix):
 
 
 def _expand_targets(rest):
-    """Turn `rest` into (targets, passthrough). Handles the `all`/`sub` keywords
-    (all subscenes, plus the full scene for `all`) and the range forms above.
+    """Turn `rest` into (targets, passthrough, stitch_fulls). Handles the `all`/`sub`
+    keywords (all subscenes, plus the full scene for `all`) and the range forms above.
+
+    `stitch_fulls` is the set of full-scene targets (bare `NN`) that were appended by
+    `all` mode. Those are built by CONCATENATING the just-rendered subscene clips
+    rather than a separate full manim pass (see `_stitch_full`), so the full scene
+    reuses 100% of the subscene renders instead of re-rendering the ones a fresh pass
+    can't cache-reuse. A bare `NN` typed on its own is NOT in this set — it stays a
+    normal full render (its subscenes may be absent/stale).
 
     Thumbnails (scene `99`) have no whole-scene image, so a bare `99` expands to
     each thumbnail and `all` does NOT append the full-scene target (that produced a
@@ -434,7 +506,7 @@ def _expand_targets(rest):
     digit_toks = [a for a in toks if len(a) >= 2 and a[:2].isdigit()]
     passthrough = [a for a in toks if a not in digit_toks]
 
-    targets = []
+    targets, stitch_fulls = [], set()
     for tok in digit_toks:
         prefix, spec = tok[:2], tok[2:]
         # A still-IMAGE scene (every subscene @still, incl. 99 thumbnails) is a set of
@@ -445,13 +517,14 @@ def _expand_targets(rest):
             targets += [prefix + L for L in letters]
             if mode == "all" and not still_scene:
                 targets.append(prefix)                   # full scene last
+                stitch_fulls.add(prefix)                 # …built by stitching the clips
         elif spec == "" and still_scene:                 # bare `NN`: each still image
             targets += [prefix + L for L in resolve.subscene_letters(prefix)]
         elif "-" in spec:                                # dash-delimited range
             targets += _expand_one(prefix, spec, resolve.subscene_letters(prefix))
         else:
             targets.append(tok)                          # NN (full) or NN<label> — as-is
-    return targets, passthrough
+    return targets, passthrough, stitch_fulls
 
 
 # ── --check: fast syntax check (no manim) ─────────────────────────────────────
@@ -607,7 +680,7 @@ def main(argv=None):
     # every NN[letter] arg is a target — supports `render 01g 01h 01i`, plus
     # dash ranges (01b-f, 01b-, 01-f) and the `all`/`sub` keywords.
     try:
-        targets, passthrough = _expand_targets(rest)
+        targets, passthrough, stitch_fulls = _expand_targets(rest)
     except Exception as e:
         print(str(e), file=sys.stderr)
         return 2
@@ -642,6 +715,18 @@ def main(argv=None):
                 print(f"[render] {target} up to date — skipped "
                       f"(use --recompute to force)", file=sys.stderr)
                 continue
+            # `all` mode's full scene: STITCH the just-rendered subscene clips instead
+            # of a fresh full pass (reuses them wholesale; see _stitch_full). Only in a
+            # real render — --state/--extract fall through to _render_one below. A None
+            # rc means stitching wasn't possible (a clip missing) → fall back to a
+            # normal full render below.
+            if target in stitch_fulls and not state and not extract:
+                rc = _stitch_one(target, frames_spec, padded)
+                if rc is not None:
+                    worst_rc = worst_rc or rc
+                    if rc == 0:
+                        print(f"Finished rendering {target}", file=sys.stderr)
+                    continue
             rc = _render_one(target, passthrough, recompute, fast, state,
                              frames_spec, quiet=quiet, tail=tail_n,
                              extract=extract, very_fast=very_fast, padded=padded,
@@ -655,6 +740,36 @@ def main(argv=None):
         return worst_rc
     finally:
         _release_locks(locks)
+
+
+def _stitch_one(target, frames_spec, padded):
+    """`all`-mode full scene: assemble it by stitching the just-rendered subscene
+    clips (see `_stitch_full`), then honor --frames/--padded on the result.
+
+    Returns an rc (0 = ok), or None if stitching isn't possible (a subscene clip is
+    missing) so the caller falls back to a fresh full manim render."""
+    try:
+        _path, classname, full_output, _l = resolve.resolve(target)
+    except Exception as e:
+        print(str(e), file=sys.stderr)
+        return None
+    prefix = target[:2]
+    # drop a stale full-scene mp4 from a renamed class (mirrors _render_one). The slot
+    # glob is `NN_*` (letter=""), which never matches a subscene clip (`NN<letter>_*`).
+    for f in resolve.clean_stale(classname, prefix, "", full_output):
+        print(f"[render] removed stale {f}", file=sys.stderr)
+    dest = _stitch_full(prefix, full_output)
+    if dest is None:
+        return None
+    print(dest)
+    if frames_spec is not None:
+        for p in _extract_frames(dest, _parse_frames(frames_spec, _duration(dest))):
+            print(p)
+    if padded is not None:
+        p = _pad_video(dest, padded)
+        if p:
+            print(p)
+    return 0
 
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,
