@@ -550,9 +550,19 @@ calls for; no titles/labels/narration that weren't asked for.
   glob so it PROMPTS. `cd` to `scenes/` in its OWN call, then `render …` standalone (a `cd
   && render` chain trips the cd-guard). Fall back to venv-python only if bare `render` fails.
 - `render 01g` → subscene g (cleans stale, names `01g_<name>.mp4`). Quality defaults to
-  HIGH; `--fast` for a quick `-ql` check (the agent should usually use `--fast`). `render
+  HIGH; `--fast` is a quick `-ql` check and `--very-fast` is 3fps @ 256×144. `render
   01g 01h 01i` → several in sequence; `render 01` → full scene. `--recompute` ignores the
   snapshot cache.
+- **The agent DEFAULTS to `--very-fast`; escalate to `--fast` ONLY when a check needs
+  detail.** Most agent checks are GROSS (did it render, is X present, is the bg navy vs
+  light-blue, coarse layout) and 144p answers them — faster wall-clock (big on the heavy
+  tree scenes) AND far fewer image tokens when you READ the PNG. Reach for `--fast` only
+  when the check genuinely needs pixels: glyph legibility, a subtle artifact the user
+  flagged, fine spacing. And remember: motion/feel is the USER's call (stills can't judge
+  it), and precise spatial facts come from MEASURED coordinates (`get_left/right/center`
+  via a print), not squinting at pixels — so the render is usually just gross confirmation,
+  which `--very-fast` covers. Note `--very-fast` at 3fps snaps `--frames T` to the nearest
+  ~0.33s frame (coarser sampling; fine for gross checks).
 - `render 01g --frames "1.0,2.0,-0.3"` renders THEN extracts those PNG frames (negative =
   seconds-from-end) beside the mp4 and prints paths (`--frames N` = N evenly spaced). Add
   `--extract` to pull frames from the ALREADY-rendered mp4 with NO re-render — then READ the
@@ -574,11 +584,16 @@ calls for; no titles/labels/narration that weren't asked for.
 - **`render` takes a per-scene lockfile**, so a SECOND render of the same scene while one
   runs is REFUSED (concurrent manim runs corrupt the cache); a stale lock from a dead
   process is auto-taken-over. `--check`/`--state`/`--extract` don't lock.
-- **You're WELCOME to HALT the user's in-progress render when you need to render** (the user
-  prefers that over waiting). The refuse message names the live pid (also in
-  `cache/locks/render-<NN>.lock`); kill it to free the lock, then render. Safe for
-  thumbnails/independent renders; for a long scene render a mid-render kill only costs that
-  subscene's snapshot (rebuilt next time). (`kill` is gated → it prompts; go ahead.)
+- **On a REFUSED render (lock held): ALWAYS kill the pid the refuse message names, then
+  re-render. NEVER wait, and NEVER set up a monitor/`until` loop on the lock.** The user
+  prefers you halt their render over waiting — waiting (or worse, building a background
+  wait-for-the-lock monitor) is the wrong reflex, full stop. The refuse message names the
+  live pid (also in `cache/locks/render-<NN>.lock`); `kill <pid>` (now allowlisted —
+  `Bash(kill *)`, no longer prompts), then render. Safe for thumbnails/independent renders;
+  for a long scene render a mid-render kill only costs that subscene's snapshot (rebuilt
+  next time). Corollary: don't `grep` away the "refusing…" line — surface it so you SEE the
+  conflict and kill, instead of stumbling into a silent wait. (Bit us 2026-08-07: twice set
+  up an `until [ ! -f …lock ]` wait instead of killing.)
 - **NEVER `rm`/delete a lock file — to take over, KILL THE PID the refuse message names,
   full stop.** The lock is an ACTIVE mutex held by a LIVE process, not stale detritus; the
   render script AUTO-TAKES-OVER a lock whose holder is dead, so killing the holder is
