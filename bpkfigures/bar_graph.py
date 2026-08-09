@@ -38,6 +38,8 @@ def get_bar_chart(
     bar_ratio=0.75,
     bar_fill_opacity=1.0,        # set 0 + bar_stroke_width>0 for OUTLINE-only bars
     bar_stroke_width=0,          # (drawable as a continuous chalk line via Create)
+    bar_open_base=False,         # outline bars as a 3-SIDED path (no base edge; the
+                                 # x-axis is the base), starting at the bottom-left
     show_labels=True,
     label_factory=None,
     label_buff=0.28,
@@ -91,10 +93,20 @@ def get_bar_chart(
         x = left + (i + 0.5) * slot
         h = max(value / vmax * height, 1e-3)
         col = (highlight or {}).get(label, bar_color)
-        bar = Rectangle(width=slot * bar_ratio, height=h, fill_color=col,
-                        fill_opacity=bar_fill_opacity, stroke_color=col,
-                        stroke_width=bar_stroke_width)
-        bar.move_to(np.array([x, base + h / 2, 0]))
+        bw = slot * bar_ratio
+        if bar_open_base:
+            # a 3-SIDED open outline (no base edge — the x-axis is the base), whose
+            # path STARTS at the bottom-left corner: Create draws it up the left,
+            # across the top, down the right (leaning into the chalk-drawn look)
+            x0, x1 = x - bw / 2, x + bw / 2
+            bar = VMobject(stroke_color=col, stroke_width=bar_stroke_width)
+            bar.set_points_as_corners([[x0, base, 0], [x0, base + h, 0],
+                                       [x1, base + h, 0], [x1, base, 0]])
+        else:
+            bar = Rectangle(width=bw, height=h, fill_color=col,
+                            fill_opacity=bar_fill_opacity, stroke_color=col,
+                            stroke_width=bar_stroke_width)
+            bar.move_to(np.array([x, base + h / 2, 0]))
         bars.add(bar)
         bar_of[label] = bar
         col_parts = [bar]
