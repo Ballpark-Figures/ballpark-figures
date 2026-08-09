@@ -30,6 +30,7 @@ def get_bar_chart(
     width=8.0,
     height=4.0,
     y_max=None,
+    n_slots=None,
     orientation="vertical",
     bar_color=ACCENT_FILL,
     ink_color=BLACK,
@@ -76,7 +77,10 @@ def get_bar_chart(
     cx, cy = center[0], center[1]
     left, right = cx - width / 2, cx + width / 2
     base = cy - height / 2
-    slot = width / n
+    # slot count: default one slot per item; pass n_slots to FIX the column pitch
+    # (bars fill the leftmost slots, rest empty) so a SERIES with varying item
+    # counts keeps each column at the same x — morph_bar_chart then never slides.
+    slot = width / (n_slots if n_slots else n)
     vmax = y_max if y_max is not None else max((v for _, v in items), default=1) or 1
 
     bars, labels, values = VGroup(), VGroup(), VGroup()
