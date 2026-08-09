@@ -36,6 +36,8 @@ def get_bar_chart(
     ink_color=BLACK,
     highlight=None,
     bar_ratio=0.75,
+    bar_fill_opacity=1.0,        # set 0 + bar_stroke_width>0 for OUTLINE-only bars
+    bar_stroke_width=0,          # (drawable as a continuous chalk line via Create)
     show_labels=True,
     label_factory=None,
     label_buff=0.28,
@@ -90,7 +92,8 @@ def get_bar_chart(
         h = max(value / vmax * height, 1e-3)
         col = (highlight or {}).get(label, bar_color)
         bar = Rectangle(width=slot * bar_ratio, height=h, fill_color=col,
-                        fill_opacity=1.0, stroke_width=0)
+                        fill_opacity=bar_fill_opacity, stroke_color=col,
+                        stroke_width=bar_stroke_width)
         bar.move_to(np.array([x, base + h / 2, 0]))
         bars.add(bar)
         bar_of[label] = bar
