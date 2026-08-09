@@ -957,6 +957,20 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   from the scene's constants ("opening this box reads better") and silently break the
   beat's meaning. The build PREFLIGHT reads column 1+2 per beat; this keeps that grounding
   alive through the ITERATION passes, where it lapses.
+- **A CONTENT choice — WHICH words / examples / samples a beat SHOWS — is governed by the
+  beat's VOICEOVER (`Script.md` column 1), not just column 2's mechanic; CITE the clause it
+  serves at the point of decision.** Picking which items to display (the cutoff-region
+  words, an example set, a sampled subset, a montage's words) must SERVE the voiceover's
+  point, not merely satisfy column 2's slot. Before/while choosing, re-read that beat's
+  column-1 voiceover, let its INTENT constrain the pick, and then RECORD that intent as a
+  comment BESIDE the content flag (in the data module / asset) so the pick — and the next
+  edit — can't drift from it. This extends the build-preflight "read column 1, not column 2
+  alone" to DATA authoring and ITERATION, where the mechanic can look right while the
+  SELECTION quietly misses the point. There's no static check for "does this content serve
+  the voiceover" (it's semantic), so the enforcement IS this discipline: the flag cites its
+  clause. (Bit us: scene-03's cutoff words were all recognizable, silently breaking the
+  voiceover's "a cutoff where I knew about HALF the words near it" — the whole point of the
+  beat. The fix was a familiar/obscure mix + the intent recorded on the flag.)
 - **For animation FEEL/timing: build a quick ROUGH version, render + grab frames, iterate
   from the user's reaction.** Don't over-build the first pass; render and verify after
   every visual change.
