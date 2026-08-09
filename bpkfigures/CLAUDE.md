@@ -180,6 +180,19 @@ the "where do I look" map.
   vocabulary.)
 - **A free-floating panel/table/plot** → sit it on a card: `get_card`/`card_behind`
   (card.py). Not a raw RoundedRectangle.
+- **A bar chart / histogram / distribution** → `bpkfigures.histogram.get_histogram`
+  (standing or horizontal bars, x-ticks, title, per-bar labels, median highlight;
+  pass `ink_color=CHALK` for dark/chalkboard scenes). For a labelled horizontal
+  double-bar comparison, `bar_graph.get_bar_graph`. NEVER hand-roll `Rectangle`
+  bars — the `lint.py` check flags fill-only `Rectangle` bars built in a loop. If
+  the shared helper lacks a knob you need (a colour, a label style, a mode), EXTEND
+  it (backwards-compatible optional param) rather than rebuild — see "IMPROVE THE
+  ASSET" under § Reuse over reinvention. NOTE the split: `get_histogram` is for a
+  DISTRIBUTION (counts/probabilities over an integer value-axis, `crisp_text`
+  labels); a categorical / metric bar chart (a value per label — e.g. hangman scene
+  04's avg-misses-by-length, or a sorted letter-frequency chart with written-font
+  labels + a morphing mode) is a DIFFERENT asset. Don't force-fit one into the
+  other — improve/extend the right shared helper (or build it if missing).
 - **Spotlight element(s)** → `highlight()` (highlight.py, holds by default).
   **Emphasise one OF a group** → dim the rest (save_state/Restore; scenes 07/08).
 - **A frame-edge position** → read `config.frame_x_radius/​y_radius` (8.0/4.5) at
@@ -533,6 +546,22 @@ calls for; no titles/labels/narration that weren't asked for.
   churn.
 
 ## Reuse over reinvention
+- **When a shared asset ALMOST fits but is missing something, IMPROVE THE ASSET — do
+  NOT hand-roll your own version.** This is the DEFAULT, and the single most important
+  rule here: if `get_histogram` / a scorecard / a card / any `bpkfigures` helper can't do
+  what a scene needs (a dark-theme colour, a written-font label, a categorical/sorted
+  mode, a new entrance), the fix is to EXTEND the shared helper so it can — not to build a
+  parallel local copy that drifts. Preserve backwards compatibility to whatever degree
+  possible (add an OPTIONAL param defaulting to today's behaviour, so existing callers are
+  byte-identical), and prefer an additive change. A backwards-compatible ADDITION you can
+  just make (and mention at handoff); a change that alters existing behaviour/output or
+  can't stay backwards-compatible still gets flagged first (§ "ASK before editing
+  bpkfigures/"). Reaching for a local hand-rolled variant because the shared asset "doesn't
+  quite do it" is the exact move that produced hangman scene 04's private `_vbars`/
+  `_avg_chart` bar charts (and nearly a third copy in scene 03) — improving the shared bar
+  chart was the right move all along. Corollary: don't MISUSE a near-neighbour asset to
+  dodge the work either (a categorical bar chart is not a `get_histogram`); if the honest
+  home doesn't exist yet, build/extend it, don't force-fit.
 - **The convention-check is NOT a new-scene gate — it fires on every EDIT too, and the
   tripwire is INVENTING A VALUE.** The new-scene PREFLIGHT styling pass applies identically
   when you ADD an element while editing: **the moment you type a NEW literal/constant — a
