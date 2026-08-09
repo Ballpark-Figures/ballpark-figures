@@ -269,10 +269,16 @@ here: a render used another branch's older scene file, a mid-render switch crash
 snapshot save).
 - **Keep ALL concurrent work on ONE shared branch — `main`.** Different scenes are
   different files, so tabs don't collide; do NOT create `scene-NN-*` branches.
-- **The one habit that makes this safe: stage by EXPLICIT PATH** — `git add
-  animations/scenes/NN<name>.py`, never `git add -A`/`.`. The shared working tree means a
-  bulk add sweeps EVERY tab's in-progress files into one commit; commit only the file(s)
-  that tab changed.
+- **Commit with a PATHSPEC, don't just stage by explicit path — `git commit <paths> -m
+  …`, never a bare `git commit`.** Staging by path (`git add animations/scenes/NN<name>.py`,
+  never `git add -A`/`.`) is necessary but NOT sufficient: a bare `git commit` commits the
+  whole INDEX, and on the shared working tree another tab (or a running `/push-videos`) may
+  have OTHER files staged — so a bare commit sweeps them into yours even though your own
+  `git add` was clean. Naming the paths on the `commit` itself (`git commit path1 path2 -m
+  …`) builds the commit from just those paths' working-tree changes, ignoring whatever else
+  sits in the shared index. (Bit us 2026-08-08: a bare `git commit` of a scene, run while a
+  `/push-videos` was in flight in another tab, swept staged solver-output JSON into the
+  scene commit — harmless data-wise, tracked anyway, but a mixed, mislabeled commit.)
 - **Shared resources** (`bpkfigures/`, `config.py`, `assets/`): don't have two tabs
   editing the SAME shared file at once — sequence those. (Editing a shared file while
   another tab merely renders is fine.)
