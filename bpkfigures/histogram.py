@@ -75,6 +75,8 @@ def get_histogram(
     width=8,
     height=4,
     bar_color=ACCENT_FILL,
+    ink_color=BLACK,          # axes / ticks / x-y labels / title / legend colour;
+                              # override to CHALK (etc.) to render on a dark board
     is_vertical=False,
     x_axis_label=None,
     show_sim_count=False,
@@ -154,13 +156,13 @@ def get_histogram(
         axis = Line(
             start=np.array([-width / 2, 0, 0]),
             end=np.array([width / 2, 0, 0]),
-            color=BLACK
+            color=ink_color
         )
     else:
         axis = Line(
             start=np.array([0, -width / 2, 0]),
             end=np.array([0, width / 2, 0]),
-            color=BLACK
+            color=ink_color
         )
     elements.add(axis)
 
@@ -177,7 +179,7 @@ def get_histogram(
         y_axis = Line(
             start=np.array([-width / 2, 0, 0]),
             end=np.array([-width / 2, height, 0]),
-            color=BLACK
+            color=ink_color
         )
         elements.add(y_axis)
         y_tick_labels = VGroup()
@@ -188,16 +190,16 @@ def get_histogram(
             tick = Line(
                 start=np.array([-width / 2 - 0.1, y, 0]),
                 end=np.array([-width / 2, y, 0]),
-                color=BLACK
+                color=ink_color
             )
             lab = crisp_text(f"{pct:g}%", font=FONT,
-                             font_size=FONT_SIZE_SM, color=BLACK)
+                             font_size=FONT_SIZE_SM, color=ink_color)
             lab.next_to(tick, LEFT, buff=0.1)
             y_tick_labels.add(tick, lab)
         elements.add(y_tick_labels)
         if y_axis_label is not None:
             y_axis_text = crisp_text(y_axis_label, font=FONT,
-                                     font_size=FONT_SIZE_SM, color=BLACK)
+                                     font_size=FONT_SIZE_SM, color=ink_color)
             y_axis_text.rotate(PI / 2)
             y_axis_text.next_to(y_tick_labels, LEFT, buff=0.2)
             elements.add(y_axis_text)
@@ -212,8 +214,8 @@ def get_histogram(
         else:
             y = (i - n / 2 + 0.5) * bar_width
             pos = np.array([-0.3, y, 0])
-        label = crisp_text(str(val), font=FONT, font_size=FONT_SIZE_SM, color=BLACK,
-                           weight=x_label_weight)
+        label = crisp_text(str(val), font=FONT, font_size=FONT_SIZE_SM,
+                           color=ink_color, weight=x_label_weight)
         label.move_to(pos)
         labels.add(label)
     elements.add(labels)
@@ -224,7 +226,7 @@ def get_histogram(
             font=FONT,
             font_size=FONT_SIZE_SM,
             weight=x_axis_label_weight,
-            color=BLACK
+            color=ink_color
         )
         axis_label_text.next_to(labels, DOWN, buff=0.3)
         elements.add(axis_label_text)
@@ -266,7 +268,7 @@ def get_histogram(
             alignment="center",
             font=FONT,
             font_size=FONT_SIZE_LG,
-            color=BLACK
+            color=ink_color
         )
         title_text.next_to(elements, UP, buff=0.5)
         title_text.set_x(axis.get_center()[0])   # centre on the plot, not the
@@ -277,7 +279,7 @@ def get_histogram(
             f"{len(data):,} Simulations",
             font=FONT,
             font_size=FONT_SIZE_SM,
-            color=BLACK
+            color=ink_color
         )
         sim_label.next_to(bars, UR, buff=0)
         sim_label.shift(LEFT * 1.0 + DOWN * 0.6)
@@ -297,7 +299,7 @@ def get_histogram(
             swatch = Square(side_length=0.22, fill_color=col,
                             fill_opacity=1.0, stroke_width=0)
             txt = crisp_text(text, font=FONT, font_size=FONT_SIZE_SM,
-                             color=BLACK)
+                             color=ink_color)
             txt.next_to(swatch, RIGHT, buff=0.15)
             rows.add(VGroup(swatch, txt))
         rows.arrange(DOWN, aligned_edge=LEFT, buff=0.18)
@@ -333,7 +335,8 @@ def get_histogram(
     #    AFTER the shift above — median_marker applies the shift itself) ────────
     if median is not None:
         elements.median_group = median_marker(
-            elements, median, color=median_color, label=median_label)
+            elements, median, color=median_color, label=median_label,
+            label_color=ink_color)
         elements.add(elements.median_group)
     else:
         elements.median_group = None
@@ -342,7 +345,8 @@ def get_histogram(
 
 
 def median_marker(plot, median, color=ACCENT_GOLD, label="Median",
-                  show_value=True, font_size=FONT_SIZE_SM, label_buff=0.12):
+                  show_value=True, font_size=FONT_SIZE_SM, label_buff=0.12,
+                  label_color=BLACK):
     """Recolour the bar at score ``median`` and label it (e.g. "Median 248"),
     anchored to ``plot`` via its ``hist_geom`` (same convention as overlay_bars /
     make_hist_legend). ``median`` snaps to the nearest in-range value. Returns a
@@ -367,7 +371,7 @@ def median_marker(plot, median, color=ACCENT_GOLD, label="Median",
     hl.set_z_index(2)
 
     txt = f"{label} {median}" if show_value else label
-    lab = crisp_text(txt, font=FONT, font_size=font_size, color=BLACK,
+    lab = crisp_text(txt, font=FONT, font_size=font_size, color=label_color,
                      weight="BOLD")
     lab.next_to(np.array([x, y0 + h, 0]), UP, buff=label_buff)
     lab.set_z_index(2)
