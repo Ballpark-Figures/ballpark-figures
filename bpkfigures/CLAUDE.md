@@ -303,6 +303,18 @@ How the user wants the agent to record things worth remembering:
   BEHAVIOURAL rule, propose the text and ASK first (§ Following instructions). Either way
   SURFACE it in the moment — else the convention lives only in one scene's code and the
   next scene re-breaks it.
+- **RECORD-ON-CORRECTION: when the user corrects a TERM or CONVENTION you misread, write
+  its definition into the right CLAUDE.md THAT TURN — don't just fix the one instance.**
+  A misunderstood domain term ("written font" = the hand-drawn chalk strokes, not the Inter
+  `crisp_text`) or a convention you got wrong is a re-guess waiting to happen in the next
+  scene or the next video; fixing only the current use leaves the wrong assumption live.
+  Recording the DEFINITION (video-specific → that video's CLAUDE.md; general → here) puts
+  it in-context for every future session, so it can't be re-guessed. This is a FACTUAL
+  correction, so record it proactively and say you did (it's not a new behavioural rule
+  needing approval). The tell: the user asks some version of "do you not know what that
+  means?" — that means a definition is missing from the docs. (Bit us: "written font" was
+  guessed as Inter through two builds; the fix was the definition in the video CLAUDE.md,
+  not just the one swap.)
 - **Default to CLAUDE.md** for anything the user wants the agent to know: loaded every
   session and synced across machines via git — unlike memory, which is local to one
   machine and only surfaces via recall. When unsure where something goes, don't
@@ -547,6 +559,16 @@ calls for; no titles/labels/narration that weren't asked for.
   `Scorecard.flash_rows`. Hand-rolling a motion an asset/scene already does — "it's
   just a FadeIn" — is the thought that produces four different entrances, and itself
   the red flag that a shared primitive is missing.
+- **The extraction TRIGGER is duplication across the SECOND scene — not "several," not
+  "someday."** The moment a prop/layout/motion that already lives inline in one scene is
+  needed by a second, EXTRACT it to a shared asset (ASK first for the shared change) and
+  have both use it — don't inline a second copy. Leaving it duplicated is what makes the
+  NEXT reinvention easy: when reuse means "copy another scene's constants by hand," a
+  fresh hand-rolled variant is the path of least resistance, so the duplication silently
+  breeds a third divergent copy. Make reuse a one-line import and reinvention stops being
+  the easy option. (Bit us: the hangman board lived inline in 02 AND 94; a third scene
+  invented its own layout instead — the fix was extracting `assets/game_board.py` and
+  migrating all three, which should have happened when the 2nd scene needed it.)
 - **Read assets to CALL them, not just to imitate their look.** The reference scene shows
   *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep` + `roll_rest`, not
   hand-placed coordinates. Before a gameplay beat, name the exact asset method each sub-beat
@@ -846,12 +868,22 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   two-open-box turn-12 state with rest-of-GAME EVs, not a generic single-box
   illustration). If neither column pins it down, FLAG-and-ASK.
   (5) **each on-screen element → the shared helper/value it renders through — a STYLING
-  pass, not just content.** Name what each element comes from: text → `crisp_text`
-  (right `font_size`/`color`), never a raw `Text`; colours → the specific
+  pass, not just content. Write this out as a REUSE MAP, and put it in the scene's
+  DOCSTRING (not just the chat) so it's permanent, greppable, and reviewable later.**
+  One line per major element → the EXACT existing source it comes from: text →
+  `crisp_text` (right `font_size`/`color`), never a raw `Text`; colours → the specific
   `style.py`/`config.py` name (score green/red, gold highlight, `ACCENT_FILL`), never a
-  hand-picked hex; a prop ENTRANCE or box fill/flash → the existing asset method
-  (`Scorecard.slide_in`, `flash_rows`, dice helpers), never a hand-rolled FadeIn. A cell
-  you can't map to a helper is the flag to STOP and find it (or ask). **Re-run at
+  hand-picked hex; a prop / its ENTRANCE / box fill / flash / on-screen LAYOUT → the
+  existing asset or a SIBLING scene's actual constants (`Scorecard.slide_in`, `flash_rows`,
+  dice helpers, `game_board`'s `BLANK_*`/`HANG_*`), never a hand-rolled FadeIn or a
+  re-derived layout. **This is the gate that catches REINVENTION: the failure mode isn't
+  copying a constant and tweaking it — it's building a plausible NEW variant of something
+  that already exists (a whole board layout, a chart style). Naming the source for every
+  element forces you to look; an element you CANNOT name an existing source for is a HARD
+  STOP — grep the assets AND the sibling scenes, and if there's genuinely no source,
+  FLAG-and-ASK before building it. Never invent a variant of a thing a sibling scene
+  already renders.** (Because the map is user-visible at preflight, an invented entry gets
+  caught BEFORE any code is built on it — the cheapest possible point.) **Re-run at
   handoff** on a verification frame: read the STYLING (text in `FONT`? colours semantic?
   reused props render as elsewhere?), not just position/overlap. **NOT new-scene-only —
   it re-runs whenever you ADD an element while EDITING; the tripwire is typing a new
