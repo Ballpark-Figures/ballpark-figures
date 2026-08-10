@@ -240,6 +240,15 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
   `font_size`/`color`; a number in an asset (e.g. a scorecard cell) uses that asset's
   size/colour, not your own. (Symptom this prevents: text in manim's built-in font
   because a hand-built `Text` omitted the font — subtly wrong next to everything.)
+  - **A LONG single-line `crisp_text` string WRAPS/clips — build it small and scale up.**
+    `crisp_text` supersamples up to a 240pt cap (`TEXT_SS_MAX_FONT`), so at any
+    `font_size >= 24` the underlying `Text` renders at ~240pt, where a long phrase
+    exceeds pango's line width and wraps (or drops trailing words). A chart TITLE or any
+    long label is the usual victim. Fixes: `crisp_text(text, font_size=10, …)
+    .scale_to_fit_width(w)` (low underlying pt → one line, then scaled up), or lay the
+    words/letters out yourself (what hangman's chalk `_chalk_phrase` does). `get_bar_chart`'s
+    own `title=` string hits this too — pass a pre-built, scaled mobject. Short strings are
+    unaffected. (Bit us on hangman `05optimal`'s "Average Misses by Word Length" title.)
 - **Panels sit on a card** — `get_card`/`card_behind` (`bpkfigures/card.py`) for the
   standard rounded surface, over a raw `RoundedRectangle`.
 - **To spotlight element(s), use the shared `highlight()`** (`bpkfigures/highlight.py`,
