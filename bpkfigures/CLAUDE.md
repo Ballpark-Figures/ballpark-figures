@@ -751,6 +751,14 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the video far better than the
   agent from stills — don't frame-hunt.
+- **Inspect a render ADVERSARIALLY — not "the end looks right".** For any change, check
+  (a) the SPECIFIC element that changed + its neighbours, (b) the CORNERS/CENTRE for
+  leftovers/duplicates, and (c) for a MOTION change, at least one MID-frame. The END
+  frame HIDES objective motion bugs — a lingering copy, a switched-out source, a blob
+  morph — even when it can't judge feel. "End grid looks right → done" shipped a doubled
+  tree, a source switch-out, and lingering tallies on hangman `05optimal` before the user
+  caught them. (This is OBJECTIVE artifact-hunting via mid-frames; motion FEEL is still
+  the user's call, per the trip-wire below.)
 - **Every spatial/quantitative claim carries its SOURCE inline — the printed number
   you pulled, or the words "eyeballed, not verified."** A bare spatial claim ("margins
   look even", "it's centred") IS the violation: the missing number is the tell you
@@ -812,6 +820,20 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Animation timing: use trackers/updaters** (value- or `dt`-driven), NOT computed-time
   guesses (`Succession(Wait(t_guess), …)`) — guessed timings are fragile; a value/dt-
   driven effect fires correctly regardless of surrounding pacing.
+- **A complex/novel beat: LOCK THE STATIC END-FRAME before animating.** Build the final
+  composition, render the STILL, iterate structure/layout/colour/text to the user's
+  approval FIRST — only then wire the motion. Animating while the target still changes
+  guarantees rework: every design tweak invalidates the motion. (Bit us on hangman
+  `05optimal` e/f: ~5 rounds re-doing motion on a static design still changing under it.)
+- **Design an animation as a per-mobject LEDGER, not a choice of primitive.** Before
+  coding a transition, write down for EACH on-screen mobject: does it MOVE (to where),
+  TRANSFORM into which target, get CREATED, or get DESTROYED (how). REUSE existing
+  mobjects by default; only create genuinely-new things. Transitions are PIECE-BY-PIECE
+  (each node → its node, each edge → its edge); a whole-object `Transform`/
+  `ReplacementTransform`/`TransformFromCopy` of a COMPOSITE (a tree, a card) pairs
+  submobjects by index and reads as a chaotic blob morph or a switch-out. Give the
+  builders ROLE HANDLES (`.root_dot`, `.kid[pat]`, `.levels`) so the pairing is by role,
+  not fragile indices. (Bit us on `05optimal` e/f for ~6 rounds of exactly this.)
 - **Manim gotchas that each cost render round-trips:**
   - **`mob.animate(rate_func=…).set_value(…)` — the CALL form — silently fails to
     animate a `ValueTracker` inside a multi-animation `play()`** (reads as a jump at the
@@ -823,6 +845,18 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
     with side effects, can leave the group behind). Only `remove()` TOP-LEVEL mobjects;
     to drop an in-group text, rebuild the group or hard-clear (`for m in
     list(self.mobjects): self.remove(m)`).
+  - **A whole-object `Transform`/`ReplacementTransform`/`TransformFromCopy` of a COMPOSITE
+    (tree, grid cell) pairs its submobjects BY INDEX** → a blob morph (parts fly to the
+    wrong counterparts). Pair pieces EXPLICITLY by role and transform each to its match.
+  - **Regrouping existing submobjects into a NEW `VGroup`, animating that, then
+    `remove(original_container)` leaves the pieces ON SCREEN.** The original container is
+    no longer in `scene.mobjects` (only its pieces are, added top-level), so `remove`/
+    `FadeOut(container)` is a no-op → a lingering duplicate. Track and fade the ACTUAL
+    on-screen mobjects, not the stale container.
+  - **After a copy-based reveal (`TransformFromCopy` into nested pieces) the on-screen
+    mobjects are dual-tracked** (top-level + nested), so later `FadeOut`/`remove` misbehave.
+    `self.clear()` + `self.add(*clean_groups)` at the end re-establishes clean containers
+    (seamless — the pieces are already at their final pose).
 
 ## Git / new repos
 - **Commit and push WITHOUT asking — this OVERRIDES Claude Code's default.** In this
