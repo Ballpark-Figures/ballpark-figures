@@ -72,7 +72,7 @@ class PieChart(VGroup):
                 txt = (f"{name}  {pct}" if name and show_percent
                        else pct if show_percent else name)
                 lab = crisp_text(txt, font=FONT, font_size=label_font_size,
-                                 color=label_color or self.colors[i])
+                                 color=label_color or self.colors[i], weight=BOLD)
                 # CENTRE the label on the sector's radial ray, pushed out so its inner
                 # edge clears the rim by `label_buff`. Clear by the dimension ALIGNED
                 # with the ray (width when mostly horizontal, height when mostly
