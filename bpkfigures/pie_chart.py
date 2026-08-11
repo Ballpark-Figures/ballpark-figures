@@ -3,8 +3,10 @@ the top (12 o'clock), with two fan-in animations.
 
 `get_pie_chart(values, colors=…)` returns a `PieChart` (a VGroup) with handles:
     .sectors   VGroup of Sector wedges, in input order (clockwise from the top)
-    .labels    per-sector labels — `label_mode="outside"` (default): "NAME  ##%" at the
-               rim; `label_mode="inside"`: just "##%" inside each wedge (no names)
+    .labels    per-sector labels — `label_mode="outside"` (default): "NAME  ##%" on the
+               rim ray; `label_mode="inside"`: just "##%" inside each wedge (no names);
+               `label_mode="callout"`: "NAME  ##%" in a left/right column beside the pie,
+               de-collided vertically with a leader line to the slice (crowded slices)
 and two animation methods (each takes the scene + a single `run_time`, both starting
 at the vertical and sweeping CLOCKWISE):
     .fan_all(scene, run_time)         — ALL sectors grow SIMULTANEOUSLY from the top,
@@ -17,6 +19,9 @@ For an INCREMENTAL build across several beats (reveal some sectors now, more lat
     .fan_sectors(scene, indices, run_time[, sequential=False])
                                       — grow just `indices` (each from its own edge),
                                         simultaneously by default or one at a time.
+    .fan_group(scene, indices, run_time)
+                                      — grow a contiguous `indices` as ONE arc from the
+                                        first's edge (fan_all restricted to the group).
 Both/all use manim's default easing. Colours (and optional labels) are the caller's —
 e.g. vowels red + consonants blue.
 """
@@ -32,7 +37,7 @@ class PieChart(VGroup):
                  stroke_color=WHITE, stroke_width=2.0, label_color=None,
                  label_font_size=FONT_SIZE_SM, show_percent=True, label_buff=0.4,
                  label_mode="outside", inner_label_color=WHITE, inner_frac=0.62,
-                 inner_frac_spread=0.0, min_label_frac=0.0, **kwargs):
+                 inner_frac_spread=0.0, min_label_frac=0.0, leader_color=GREY, **kwargs):
         super().__init__(**kwargs)
         vals = [float(v) for v in values]
         total = sum(vals) or 1.0
@@ -74,6 +79,44 @@ class PieChart(VGroup):
                 f = inner_frac + inner_frac_spread * (0.5 - vals[i] / total)
                 lab.move_to(self.pie_center + out * (radius * f))
                 self.labels.add(lab)
+            self.add(self.labels)
+        elif label_mode == "callout" and labels is not None:
+            # LEADER-LINE callouts: each label sits in a LEFT/RIGHT column beside the
+            # pie at its slice's rim height (de-collided so crowded small slices don't
+            # overlap), with a thin leader line from the rim to the label. Each label
+            # is VGroup(leader, text) so the reveal animations fade both together.
+            col_gap = label_buff + 0.55                    # column offset beyond the rim
+            min_gap = 0.55                                 # min vertical spacing per column
+            built, sides = {}, {1.0: [], -1.0: []}
+            for i, name in enumerate(labels):
+                if vals[i] / total < min_label_frac:
+                    continue
+                mid = self.start[i] - self.arc[i] / 2
+                d = np.array([np.cos(mid), np.sin(mid), 0.0])
+                side = 1.0 if d[0] >= 0 else -1.0
+                pct = f"{round(100 * vals[i] / total)}%"
+                txt = (f"{name}  {pct}" if name and show_percent
+                       else pct if show_percent else name)
+                lab = crisp_text(txt, font=FONT, font_size=label_font_size,
+                                 color=label_color or self.colors[i], weight=BOLD)
+                sides[side].append({"i": i, "rim": self.pie_center + d * radius,
+                                    "y": (self.pie_center + d * radius)[1], "lab": lab})
+            for side, items in sides.items():
+                items.sort(key=lambda e: -e["y"])          # top → bottom
+                col_x = self.pie_center[0] + side * (radius + col_gap)
+                ys = [e["y"] for e in items]
+                for k in range(1, len(ys)):                # push apart to keep min_gap
+                    if ys[k] > ys[k - 1] - min_gap:
+                        ys[k] = ys[k - 1] - min_gap
+                for e, y in zip(items, ys):
+                    lab = e["lab"]
+                    lab.move_to([col_x + side * lab.width / 2, y, 0])
+                    inner = (lab.get_left() if side > 0 else lab.get_right())
+                    leader = Line(e["rim"], inner - np.array([side * 0.08, 0, 0]),
+                                  stroke_width=1.5, color=leader_color)
+                    built[e["i"]] = VGroup(leader, lab)
+            for i in range(len(vals)):
+                self.labels.add(built.get(i, VGroup()))
             self.add(self.labels)
         elif labels is not None:
             for i, name in enumerate(labels):
@@ -187,6 +230,36 @@ class PieChart(VGroup):
                     self.labels[i].set_opacity(alpha)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), run_time=run_time)
         for i in indices:
+            self._redraw(i, self.arc[i])
+            if i < len(self.labels):
+                self.labels[i].set_opacity(1)
+
+    def fan_group(self, scene, indices, run_time):
+        """Grow a CONTIGUOUS group of sectors as ONE arc sweeping clockwise from the
+        FIRST sector's start edge (a shared origin) — the swept arc always split in the
+        group's final proportions (fan_all, restricted to `indices`), so the group fans
+        out from one place rather than each sector growing in place from its own edge.
+        Labels fade in over the last third."""
+        if self not in scene.mobjects:
+            scene.add(self)
+        idx = sorted(int(i) for i in indices)
+        base = self.start[idx[0]]                      # shared start edge (group's top)
+        cums, c = [], 0.0
+        for i in idx:
+            cums.append(c)
+            c += self.arc[i]
+
+        def func(_m, alpha):
+            for j, i in enumerate(idx):
+                self._redraw(i, self.arc[i] * alpha, start=base - cums[j] * alpha)
+                if i < len(self.labels):
+                    self.labels[i].set_opacity(max(0.0, (alpha - 0.7) / 0.3))
+        for i in idx:
+            self._redraw(i, 0.0)
+            if i < len(self.labels):
+                self.labels[i].set_opacity(0)
+        scene.play(UpdateFromAlphaFunc(self.sectors, func), run_time=run_time)
+        for i in idx:
             self._redraw(i, self.arc[i])
             if i < len(self.labels):
                 self.labels[i].set_opacity(1)
