@@ -32,7 +32,7 @@ class PieChart(VGroup):
                  stroke_color=WHITE, stroke_width=2.0, label_color=None,
                  label_font_size=FONT_SIZE_SM, show_percent=True, label_buff=0.4,
                  label_mode="outside", inner_label_color=WHITE, inner_frac=0.62,
-                 inner_frac_spread=0.0, **kwargs):
+                 inner_frac_spread=0.0, min_label_frac=0.0, **kwargs):
         super().__init__(**kwargs)
         vals = [float(v) for v in values]
         total = sum(vals) or 1.0
@@ -58,7 +58,13 @@ class PieChart(VGroup):
         if label_mode == "inside":
             # each slice's percentage drawn INSIDE the wedge, at its centroid — no
             # names (there's no room), no `labels`. Colour via `inner_label_color`.
+            # A slice below `min_label_frac` gets an EMPTY placeholder label (keeps
+            # self.labels index-aligned with self.sectors for the reveal animations)
+            # so a spray of tiny slivers isn't an unreadable pile of overlapping %.
             for i in range(len(vals)):
+                if vals[i] / total < min_label_frac:
+                    self.labels.add(VGroup())
+                    continue
                 mid = self.start[i] - self.arc[i] / 2
                 out = np.array([np.cos(mid), np.sin(mid), 0.0])
                 pct = f"{round(100 * vals[i] / total)}%"
@@ -71,6 +77,9 @@ class PieChart(VGroup):
             self.add(self.labels)
         elif labels is not None:
             for i, name in enumerate(labels):
+                if vals[i] / total < min_label_frac:
+                    self.labels.add(VGroup())                  # placeholder: keep alignment
+                    continue
                 mid = self.start[i] - self.arc[i] / 2          # sector mid-angle
                 out = np.array([np.cos(mid), np.sin(mid), 0.0])
                 pct = f"{round(100 * vals[i] / total)}%"
