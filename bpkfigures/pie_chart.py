@@ -58,11 +58,13 @@ class PieChart(VGroup):
                 lab = crisp_text(txt, font=FONT, font_size=label_font_size,
                                  color=label_color or self.colors[i])
                 # CENTRE the label on the sector's radial ray, pushed out so its inner
-                # edge clears the rim by `label_buff`. (next_to with a diagonal
-                # direction anchors by a bbox CORNER → labels sit askew; this keeps
-                # every label centred on its own ray and consistent.)
-                half = abs(out[0]) * lab.width / 2 + abs(out[1]) * lab.height / 2
-                lab.move_to(self.pie_center + out * (radius + label_buff + half))
+                # edge clears the rim by `label_buff`. Clear by the dimension ALIGNED
+                # with the ray (width when mostly horizontal, height when mostly
+                # vertical) — using the full corner projection would shove a wide label
+                # far out on a near-vertical ray. (next_to would anchor by a corner and
+                # sit askew; this keeps every label centred on its own ray.)
+                extent = lab.width / 2 if abs(out[0]) >= abs(out[1]) else lab.height / 2
+                lab.move_to(self.pie_center + out * (radius + label_buff + extent))
                 self.labels.add(lab)
             self.add(self.labels)
 
