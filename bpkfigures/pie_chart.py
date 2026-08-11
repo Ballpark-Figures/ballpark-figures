@@ -3,7 +3,8 @@ the top (12 o'clock), with two fan-in animations.
 
 `get_pie_chart(values, colors=…)` returns a `PieChart` (a VGroup) with handles:
     .sectors   VGroup of Sector wedges, in input order (clockwise from the top)
-    .labels    VGroup of per-sector labels ("NAME  ##%"), or empty
+    .labels    per-sector labels — `label_mode="outside"` (default): "NAME  ##%" at the
+               rim; `label_mode="inside"`: just "##%" inside each wedge (no names)
 and two animation methods (each takes the scene + a single `run_time`, both starting
 at the vertical and sweeping CLOCKWISE):
     .fan_all(scene, run_time)         — ALL sectors grow SIMULTANEOUSLY from the top,
@@ -25,6 +26,7 @@ class PieChart(VGroup):
     def __init__(self, values, *, colors, labels=None, radius=1.5, center=ORIGIN,
                  stroke_color=WHITE, stroke_width=2.0, label_color=None,
                  label_font_size=FONT_SIZE_SM, show_percent=True, label_buff=0.4,
+                 label_mode="outside", inner_label_color=WHITE, inner_frac=0.62,
                  **kwargs):
         super().__init__(**kwargs)
         vals = [float(v) for v in values]
@@ -48,7 +50,19 @@ class PieChart(VGroup):
         self.add(self.sectors)
 
         self.labels = VGroup()
-        if labels is not None:
+        if label_mode == "inside":
+            # each slice's percentage drawn INSIDE the wedge, at its centroid — no
+            # names (there's no room), no `labels`. Colour via `inner_label_color`.
+            for i in range(len(vals)):
+                mid = self.start[i] - self.arc[i] / 2
+                out = np.array([np.cos(mid), np.sin(mid), 0.0])
+                pct = f"{round(100 * vals[i] / total)}%"
+                lab = crisp_text(pct, font=FONT, font_size=label_font_size,
+                                 color=inner_label_color)
+                lab.move_to(self.pie_center + out * (radius * inner_frac))
+                self.labels.add(lab)
+            self.add(self.labels)
+        elif labels is not None:
             for i, name in enumerate(labels):
                 mid = self.start[i] - self.arc[i] / 2          # sector mid-angle
                 out = np.array([np.cos(mid), np.sin(mid), 0.0])
