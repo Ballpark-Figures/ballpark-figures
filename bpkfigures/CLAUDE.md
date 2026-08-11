@@ -436,6 +436,19 @@ comes from working AROUND it.
 Match its visual look and its **sparse on-screen text** — not necessarily its
 exact animation primitives. Render ONLY text the script's column 2 explicitly
 calls for; no titles/labels/narration that weren't asked for.
+- **A number or phrase in the VOICEOVER (column 1) does NOT license putting it ON
+  SCREEN — column 1 is what's SPOKEN, column 2 is what's DISPLAYED.** This is the single
+  most common way "text not in column 2" sneaks in: a beat's narration cites stats ("__%
+  of words start with a consonant", "the 2nd letter is a vowel __% of the time") and the
+  agent captions them onto the view — but column 2 only asked for the view/chart. Show
+  ONLY what column 2 names; the narrated numbers are HEARD, not captioned. (A chart/view's
+  own CANONICAL title from an established convention — e.g. the letter view's "Location
+  Frequencies" — IS part of the view and fine; a fresh number, callout, or explanatory
+  label is not.) Corollary: a chart the script DOES call for (a pie, a bar) inherently
+  shows its value — that's the chart, not an added caption. If you think an extra on-screen
+  number/label would genuinely help, ASK; never add it silently. (Bit us repeatedly on
+  hangman scene 08: captioned the voiceover's start/end/2nd-position percentages onto the
+  frequency grid the script only asked to "put in".)
 
 ## Scene structure (LAZY per-subscene building)
 - **Build lazily, in the OWNER subscene — not up front in `setup_scene`.** Each

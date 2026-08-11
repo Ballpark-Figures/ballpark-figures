@@ -6,11 +6,13 @@ the top (12 o'clock), with two fan-in animations.
     .labels    VGroup of per-sector labels ("NAME  ##%"), or empty
 and two animation methods (each takes the scene + a single `run_time`, both starting
 at the vertical and sweeping CLOCKWISE):
-    .fan_all(scene, run_time)         — ONE continuous sweep from the top, the whole
-                                        pie drawing on over 360°.
+    .fan_all(scene, run_time)         — ALL sectors grow SIMULTANEOUSLY from the top,
+                                        the swept arc always split in the final
+                                        proportions, expanding to the full pie over 360°.
     .fan_sequential(scene, run_time)  — each sector sweeps in ONE AT A TIME, the first
                                         starting at the top.
-Colours (and optional labels) are the caller's — e.g. vowels red + consonants blue.
+Both use manim's default easing. Colours (and optional labels) are the caller's — e.g.
+vowels red + consonants blue.
 """
 from manim import *
 
@@ -50,8 +52,9 @@ class PieChart(VGroup):
             for i, name in enumerate(labels):
                 mid = self.start[i] - self.arc[i] / 2          # sector mid-angle
                 out = np.array([np.cos(mid), np.sin(mid), 0.0])
-                txt = name + (f"  {round(100 * vals[i] / total)}%"
-                              if show_percent else "")
+                pct = f"{round(100 * vals[i] / total)}%"
+                txt = (f"{name}  {pct}" if name and show_percent
+                       else pct if show_percent else name)
                 lab = crisp_text(txt, font=FONT, font_size=label_font_size,
                                  color=label_color or self.colors[i])
                 # sit the label fully OUTSIDE the arc (edge nearest the pie at the
@@ -60,45 +63,46 @@ class PieChart(VGroup):
                 self.labels.add(lab)
             self.add(self.labels)
 
-    def _sector(self, i, a):
-        """Sector `i` drawn to arc `a` (0..arc[i]); invisible at a≈0 so a growing
-        wedge starts from nothing rather than a stray radius line."""
+    def _sector(self, i, a, start=None):
+        """Sector `i` drawn to arc `a` (0..arc[i]) from `start` (default = its final
+        start edge); invisible at a≈0 so a growing wedge starts from nothing rather
+        than a stray radius line."""
         on = a > 1e-3
-        return Sector(radius=self.radius, start_angle=self.start[i],
+        return Sector(radius=self.radius,
+                      start_angle=self.start[i] if start is None else start,
                       angle=-max(a, 1e-3), arc_center=self.pie_center,
                       fill_color=self.colors[i], fill_opacity=1.0 if on else 0.0,
                       stroke_color=self.stroke_color,
                       stroke_width=self.stroke_width if on else 0.0)
 
-    def _redraw(self, i, a):
-        self.sectors[i].become(self._sector(i, a))
+    def _redraw(self, i, a, start=None):
+        self.sectors[i].become(self._sector(i, a, start))
 
-    # ── animations (start at the top, sweep clockwise) ──────────────────────────
+    # ── animations (start at the top, sweep clockwise; default manim easing) ────
     def fan_all(self, scene, run_time):
-        """One continuous clockwise sweep from the top over 360° — the whole pie
-        draws on; each label fades in as the sweep reaches its sector."""
+        """ALL sectors grow SIMULTANEOUSLY from the top: the arc drawn so far is always
+        split in the final proportions (a 39% sector is 39% of the swept arc throughout),
+        expanding clockwise to the full pie. Each sector's start scales with the sweep so
+        the wedges stay contiguous. Labels fade in over the last third."""
         if self not in scene.mobjects:
             scene.add(self)
         n = len(self.sectors)
 
         def func(_m, alpha):
-            swept = alpha * TAU
             for i in range(n):
-                self._redraw(i, min(max(swept - self.cum_before[i], 0.0), self.arc[i]))
-            for i in range(len(self.labels)):
-                mid = self.cum_before[i] + self.arc[i] / 2     # label appears at mid
-                self.labels[i].set_opacity(1.0 if swept >= mid else 0.0)
+                self._redraw(i, self.arc[i] * alpha,
+                             start=_TOP - self.cum_before[i] * alpha)
+            self.labels.set_opacity(max(0.0, (alpha - 0.7) / 0.3))
 
         self.labels.set_opacity(0)
-        scene.play(UpdateFromAlphaFunc(self, func), run_time=run_time,
-                   rate_func=linear)
+        scene.play(UpdateFromAlphaFunc(self, func), run_time=run_time)
         for i in range(n):
             self._redraw(i, self.arc[i])
         self.labels.set_opacity(1)
 
     def fan_sequential(self, scene, run_time):
-        """Each sector sweeps in one at a time (equal time each), the first starting
-        at the top; each label fades in with its sector."""
+        """Each sector sweeps in one at a time (equal time each), the first starting at
+        the top; each label fades in with its sector. Default manim easing per sector."""
         if self not in scene.mobjects:
             scene.add(self)
         n = len(self.sectors)
@@ -111,8 +115,7 @@ class PieChart(VGroup):
                 self._redraw(i, self.arc[i] * alpha)
                 if i < len(self.labels):
                     self.labels[i].set_opacity(alpha)
-            scene.play(UpdateFromAlphaFunc(self.sectors[i], func), run_time=rt,
-                       rate_func=linear)
+            scene.play(UpdateFromAlphaFunc(self.sectors[i], func), run_time=rt)
             self._redraw(i, self.arc[i])
         self.labels.set_opacity(1)
 
