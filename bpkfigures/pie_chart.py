@@ -57,9 +57,12 @@ class PieChart(VGroup):
                        else pct if show_percent else name)
                 lab = crisp_text(txt, font=FONT, font_size=label_font_size,
                                  color=label_color or self.colors[i])
-                # sit the label fully OUTSIDE the arc (edge nearest the pie at the
-                # rim + buff), so a long label never bleeds over its sector
-                lab.next_to(self.pie_center + out * radius, out, buff=label_buff)
+                # CENTRE the label on the sector's radial ray, pushed out so its inner
+                # edge clears the rim by `label_buff`. (next_to with a diagonal
+                # direction anchors by a bbox CORNER → labels sit askew; this keeps
+                # every label centred on its own ray and consistent.)
+                half = abs(out[0]) * lab.width / 2 + abs(out[1]) * lab.height / 2
+                lab.move_to(self.pie_center + out * (radius + label_buff + half))
                 self.labels.add(lab)
             self.add(self.labels)
 
