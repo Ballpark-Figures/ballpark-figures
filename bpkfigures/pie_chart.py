@@ -27,7 +27,7 @@ class PieChart(VGroup):
                  stroke_color=WHITE, stroke_width=2.0, label_color=None,
                  label_font_size=FONT_SIZE_SM, show_percent=True, label_buff=0.4,
                  label_mode="outside", inner_label_color=WHITE, inner_frac=0.62,
-                 **kwargs):
+                 inner_frac_spread=0.0, **kwargs):
         super().__init__(**kwargs)
         vals = [float(v) for v in values]
         total = sum(vals) or 1.0
@@ -59,7 +59,9 @@ class PieChart(VGroup):
                 pct = f"{round(100 * vals[i] / total)}%"
                 lab = crisp_text(pct, font=FONT, font_size=label_font_size,
                                  color=inner_label_color, weight=BOLD)
-                lab.move_to(self.pie_center + out * (radius * inner_frac))
+                # bigger slices sit a bit further IN, thinner slices further OUT
+                f = inner_frac + inner_frac_spread * (0.5 - vals[i] / total)
+                lab.move_to(self.pie_center + out * (radius * f))
                 self.labels.add(lab)
             self.add(self.labels)
         elif labels is not None:
