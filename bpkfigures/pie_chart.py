@@ -12,8 +12,13 @@ at the vertical and sweeping CLOCKWISE):
                                         proportions, expanding to the full pie over 360°.
     .fan_sequential(scene, run_time)  — each sector sweeps in ONE AT A TIME, the first
                                         starting at the top.
-Both use manim's default easing. Colours (and optional labels) are the caller's — e.g.
-vowels red + consonants blue.
+For an INCREMENTAL build across several beats (reveal some sectors now, more later):
+    .hide_all()                       — set every sector invisible (the start state).
+    .fan_sectors(scene, indices, run_time[, sequential=False])
+                                      — grow just `indices` (each from its own edge),
+                                        simultaneously by default or one at a time.
+Both/all use manim's default easing. Colours (and optional labels) are the caller's —
+e.g. vowels red + consonants blue.
 """
 from manim import *
 
@@ -121,24 +126,61 @@ class PieChart(VGroup):
             self._redraw(i, self.arc[i])
         self.labels.set_opacity(1)
 
+    def hide_all(self):
+        """Set every sector invisible (arc 0) and hide all labels — the start state
+        for an INCREMENTAL build via fan_sectors / fan_sequential."""
+        for i in range(len(self.sectors)):
+            self._redraw(i, 0.0)
+        self.labels.set_opacity(0)
+
+    def _fan_one(self, scene, i, run_time):
+        """Grow sector ``i`` from nothing to its full arc (from its own start edge),
+        its label fading in with it."""
+        def func(_m, alpha):
+            self._redraw(i, self.arc[i] * alpha)
+            if i < len(self.labels):
+                self.labels[i].set_opacity(alpha)
+        scene.play(UpdateFromAlphaFunc(self.sectors[i], func), run_time=run_time)
+        self._redraw(i, self.arc[i])
+        if i < len(self.labels):
+            self.labels[i].set_opacity(1)
+
     def fan_sequential(self, scene, run_time):
         """Each sector sweeps in one at a time (equal time each), the first starting at
         the top; each label fades in with its sector. Default manim easing per sector."""
         if self not in scene.mobjects:
             scene.add(self)
+        self.hide_all()
         n = len(self.sectors)
-        for i in range(n):
-            self._redraw(i, 0.0)
-        self.labels.set_opacity(0)
         rt = run_time / max(n, 1)
         for i in range(n):
-            def func(_m, alpha, i=i):
+            self._fan_one(scene, i, rt)
+
+    def fan_sectors(self, scene, indices, run_time, *, sequential=False):
+        """Grow just the sectors in ``indices`` (each from its OWN start edge) over one
+        ``run_time`` — SIMULTANEOUSLY by default (the "all at once" tail), or one at a
+        time if ``sequential=True``. Un-named sectors are left as they are, so calling
+        this repeatedly across beats builds the pie incrementally (pair with an initial
+        ``hide_all``). Labels for the named sectors fade in with them."""
+        if self not in scene.mobjects:
+            scene.add(self)
+        indices = [int(i) for i in indices]
+        if sequential:
+            rt = run_time / max(len(indices), 1)
+            for i in indices:
+                self._fan_one(scene, i, rt)
+            return
+
+        def func(_m, alpha):
+            for i in indices:
                 self._redraw(i, self.arc[i] * alpha)
                 if i < len(self.labels):
                     self.labels[i].set_opacity(alpha)
-            scene.play(UpdateFromAlphaFunc(self.sectors[i], func), run_time=rt)
+        scene.play(UpdateFromAlphaFunc(self.sectors, func), run_time=run_time)
+        for i in indices:
             self._redraw(i, self.arc[i])
-        self.labels.set_opacity(1)
+            if i < len(self.labels):
+                self.labels[i].set_opacity(1)
 
 
 def get_pie_chart(values, **kwargs):
