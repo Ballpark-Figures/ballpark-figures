@@ -58,7 +58,7 @@ class PieChart(VGroup):
                 out = np.array([np.cos(mid), np.sin(mid), 0.0])
                 pct = f"{round(100 * vals[i] / total)}%"
                 lab = crisp_text(pct, font=FONT, font_size=label_font_size,
-                                 color=inner_label_color)
+                                 color=inner_label_color, weight=BOLD)
                 lab.move_to(self.pie_center + out * (radius * inner_frac))
                 self.labels.add(lab)
             self.add(self.labels)
