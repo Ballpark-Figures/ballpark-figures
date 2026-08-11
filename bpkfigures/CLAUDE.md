@@ -885,6 +885,14 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   which NEVER auto-approves (forces a prompt) regardless of how the git allow-rules are
   set — the biggest single source of commit prompts a whole session (2026-07-27). Use
   `-m "subject" -m "body para" -m "footer"` instead.
+- **Keep `<` and `>` OUT of commit-message text (and any allowlisted command's args) —
+  they read as REDIRECTIONS and force a prompt even inside a quoted `-m` string.** The
+  permission checker scans the raw command for `<`/`>` (per the redirection rule above)
+  BEFORE it honours quoting, so an arrow like `A->B`, `X <-> Y`, or `foo->bar` in a
+  commit message trips it every time (bit us 2026-08-11 — an `A <-> B` message prompted).
+  Write "A to B", "X vs Y", "foo yields bar" — plain words, no angle brackets. Same for
+  `|`, `&`, `;`, `(`, `)` if they'd land unquoted-looking in a message; safest to avoid
+  shell metacharacters in `-m` text entirely.
 - **For the CURRENT workspace repo, use BARE `git` (no `-C`).** Bare `git add <path>` /
   `git commit -m …` match the standing `Bash(git add *)` / `Bash(git commit *)` rules and
   do NOT prompt (verified 2026-07-28: a bare `git commit` ran clean where the SAME
