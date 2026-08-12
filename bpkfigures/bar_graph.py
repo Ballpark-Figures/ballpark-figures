@@ -210,6 +210,23 @@ def morph_bar_chart(old, new):
     return anims
 
 
+def grow_bars(scene, bars, run_time, *, lag=0.0, extra=()):
+    """Reveal filled bars by GROWING each up from the axis (x fixed) — the house
+    entrance for a bar chart. Promoted from the ``_grow_up`` that scenes 04/05 and
+    yahtzee 07 each hand-rolled, so a bar chart stops reinventing its reveal.
+
+    bars  : the chart's ``.bars`` (or any iterable of vertical bars).
+    lag   : stagger the bars left→right, 0 = all at once (a small 0.05–0.10 reads well).
+    extra : animations to play ALONGSIDE (e.g. ``FadeIn(chart.labels)``)."""
+    bars = list(bars)
+    for b in bars:
+        b.save_state()
+        b.stretch(1e-3, dim=1, about_edge=DOWN)         # collapse to the axis, x fixed
+    grow = [Restore(b) for b in bars]
+    anim = LaggedStart(*grow, lag_ratio=lag) if lag > 0 else AnimationGroup(*grow)
+    scene.play(anim, *extra, run_time=run_time)
+
+
 def _make_bar(length, height, color, opacity=1.0, fade=False, n_seg=16):
     """A left-anchored horizontal bar whose LEFT edge sits at local x=0.
     ``fade`` renders it as segments whose opacity drops left→right (used to show
