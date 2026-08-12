@@ -188,7 +188,16 @@ def _scene_source_digest(cls, method_names):
                         r = repr(val)
                     except Exception:
                         r = f"const:{ref}"
-                    parts[f"const:{ref}"] = f"const:{ref}" if " at 0x" in r else r
+                    # Fall back to the deterministic NAME key for a value whose repr is
+                    # not stable across processes: a memory address (`<Foo at 0x…>`), OR
+                    # manim's global `config` object — its repr embeds RENDER-SPECIFIC
+                    # fields (output_file/scene_names differ per subscene target), so a
+                    # scene that reads `config.frame_x_radius` (as CLAUDE.md recommends)
+                    # would otherwise get a DIFFERENT digest for every render target and
+                    # never reuse a snapshot. Its snapshot-relevant fields (frame size)
+                    # live in manim.cfg, not a .py, so they're out of scope here anyway.
+                    unstable = " at 0x" in r or type(val).__name__ == "ManimConfig"
+                    parts[f"const:{ref}"] = f"const:{ref}" if unstable else r
 
     h = hashlib.md5()
     for qual in sorted(parts):
