@@ -11,6 +11,18 @@ load wherever you're working. Video-specific rules live in that video's own
   that exact choice IS the spec — not a suggestion to improve on with your own
   judgment. Implement it literally ("disappear" ≠ "fade", "centered" =
   measure-and-center).
+- **A request that states a CONVENTION applies EVERYWHERE that convention holds — not
+  just the spot in front of you; and "all"/"everywhere"/"2 decimals" means LITERALLY all.**
+  The failure mode is treating each message as the smallest local edit that satisfies its
+  sentence: the user says "2 decimal places for average misses" and you change only the beat
+  you're on, or "cycle through all the candidates" and you cycle one. Before editing, ask
+  "is this a one-off or a RULE?" — a format, a behaviour, a layout/motion convention, a
+  rounding, a naming — and if it's a rule, apply it to every place it holds AND make that the
+  default going forward. When the same rule then forces you to edit many call sites, that is
+  itself the signal to CENTRALIZE (see § Reuse over reinvention: one source of truth). Making
+  the user come back and say "I meant everywhere" is the tell you scoped it too narrowly.
+  (Bit us on hangman scene 05: "all candidates", "2 dp", "bare numbers", "one at a time" each
+  had to be repeated because they were first applied to only the current beat.)
 - **Disagreeing is fine; silently overriding is NOT.** If you think a different
   approach is better, FLAG IT AND ASK FIRST, then follow the user's decision.
   Willfully deviating from an explicit instruction — even when your alternative
@@ -592,6 +604,32 @@ calls for; no titles/labels/narration that weren't asked for.
   churn.
 
 ## Reuse over reinvention
+- **Touching many call sites for ONE logical change is a SMELL — centralize, don't fan out.**
+  When you catch yourself "updating every place that formats the value / draws the badge /
+  computes the offset," STOP: that's duplication asking to be a single source of truth. Extract
+  ONE helper (`_fmt`, `_value_label`, a builder) that every site routes through, so the next
+  change to that concept is a one-line edit in one spot instead of a hunt. "I need to find every
+  place X happens" is the trigger to refactor, not a checklist to grind. (Bit us on hangman
+  scene 05: avg-miss formatting was scattered across ~6 callers with hand-rolled `:g`/hard-coded
+  strings/per-call decimals; "2 dp everywhere" only stuck once it routed through one `_fmt`.)
+- **REUSE AUDIT before you animate/build a beat: grep how the SAME job is already done — in this
+  scene AND its sibling beats — and CALL it; don't hand-roll a worse copy.** The recurring
+  failure is reinventing a motion the scene already has (a reveal, a reflow, a transform,
+  a label) because you didn't look. Before writing an animation: (1) name the SIBLING beat this
+  one mirrors (the previous level's version, the reference scene) and the EXACT helpers/patterns
+  it reuses (`_transform_move` ride-in, the `_gap_up` reflow, `_ctree`, the value-label builder);
+  (2) if the pattern lives inline in a sibling and you're about to copy it, that's the signal to
+  PROMOTE it to a shared helper (ask first) and have both call it. Repeated beats (a per-level
+  back-up, a per-turn play-out) are the SAME operation with different handles — write the
+  operation once. (Bit us on hangman scene 05: hand-rolled node-reveals, per-beat reflows, and
+  the "one at a time" value handling instead of reusing the drill's ride-in / one `_gap_up` /
+  one label builder — the user: "you seem to be constantly trying to reinvent things.")
+- **When a scene evolves a repeating STRUCTURE, write the RECIPE into its docstring so the
+  repeats are mechanical.** A per-level back-up, a per-turn walk-through, a montage of N cases:
+  once the first one or two are built and approved, record the step-by-step (which beats, which
+  helpers, which convention each step obeys) in the scene docstring — so the remaining repeats
+  reuse it verbatim and survive context compaction instead of being re-derived (and re-broken).
+  (hangman scene 05's "BACK-UP BEAT RECIPE" is the reference.)
 - **When a shared asset ALMOST fits but is missing something, IMPROVE THE ASSET — do
   NOT hand-roll your own version.** This is the DEFAULT, and the single most important
   rule here: if `get_histogram` / a scorecard / a card / any `bpkfigures` helper can't do
