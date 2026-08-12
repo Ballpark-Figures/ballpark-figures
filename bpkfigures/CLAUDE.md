@@ -1024,6 +1024,22 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   emitting it. Removing a subscene shifts every LATER letter, orphaning the old
   highest-letter video (`resolve --clean` only cleans letters you render) — delete that
   orphaned `NN<letter>_*.mp4` by hand.
+- **SUBSCENE COUNT MUST EQUAL BEAT COUNT — one `@subscene` per `---`/`—`-delimited
+  script beat, NEVER more.** The subscene letters (a, b, c…) map 1:1 onto the beats, in
+  order. Do NOT invent extra subscenes, and do NOT split ONE beat across several. The
+  trap is a MULTI-STEP beat — a whole played-out game, a montage, a several-guess
+  sequence: it is written as ONE beat (one `—` segment), so it stays ONE subscene whose
+  BODY unrolls the steps (a lockstep `for` over the guesses, or explicit per-step calls
+  each with its own `run_time`). It does NOT become one subscene per guess. (A per-guess
+  subscene is right ONLY when the SCRIPT gives each guess its own beat — e.g. the
+  standalone 94chalkgame, where each guess IS a `—` segment; contrast the game INSIDE
+  hangman scene 16's single beat j, which is one subscene.) Conversely a no-op beat (the
+  thing it asks for is already true — "move the list to centre" when it's already centred)
+  still gets its beat's subscene, but with an EMPTY/near-empty body (its VO plays over the
+  static hold) — do NOT replace it with an invented animation. **At handoff, re-zip:
+  list the beats a,b,c… and confirm exactly one subscene per beat, same letters.** (Bit
+  us on hangman 05 and 16: a played-out game and an "establish" flourish were split/
+  invented into extra subscenes, drifting the letter↔beat mapping the user tunes against.)
 - **Start from a blank scene** (the setup_scene/@subscene pattern), not a copy — but
   informed by what you read above.
 - **Build from the script.** Stick to what `Script.md` column 2 calls for — don't invent
