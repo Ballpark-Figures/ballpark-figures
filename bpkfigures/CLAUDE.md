@@ -67,6 +67,18 @@ traceable to the user's OWN computations, never re-derived by the agent.
   a solver output / data file (`math/data/…`), a notebook/module helper (`math/…`,
   e.g. `state_explorer.py`), or a value the user gave you — and read it from there.
   The machinery already exists; use it. If two sources exist, ask which is canonical.
+- **The METRIC/UNIT is part of the product too — use the pipeline's exact definition,
+  don't substitute a plausible proxy.** When a scene visualizes a quantity the pipeline
+  already defines (a weighting, an EV, a frequency, a probability), encode it the SAME way
+  the pipeline does — e.g. the frequency WEIGHTING the solver uses is the linear
+  `round(10**zipf)` per-billion rate (`wordlist.freq_weights`), NOT the log `zipf`. Picking
+  a different-but-related encoding because it "reads cleaner" (log for linear, raw for
+  normalized, a smoothed/binned version) silently swaps the metric — that's inventing the
+  MODELING, same class of error as inventing the number. When two encodings of the same
+  quantity exist, use the one the pipeline/weighting actually uses, or ASK. (Bit us on
+  scene 17: defaulted the "word frequency" bars to log zipf when the weighting is the
+  linear rate — the user caught it. NB flagging a resulting ugly VISUAL for the user to
+  decide on is RIGHT; quietly switching the metric to dodge the ugliness is the error.)
 - **A blank is fine; a silent number is not.** Leaving a value stubbed and FLAGGED
   is always acceptable. Filling it with a number you computed yourself is not.
 - **If it genuinely isn't available**, stop and flag. Then the user points you to
@@ -183,7 +195,10 @@ the "where do I look" map.
 - **A bar chart / histogram / distribution** → `bpkfigures.histogram.get_histogram`
   (standing or horizontal bars, x-ticks, title, per-bar labels, median highlight;
   pass `ink_color=CHALK` for dark/chalkboard scenes). For a labelled horizontal
-  double-bar comparison, `bar_graph.get_bar_graph`. NEVER hand-roll `Rectangle`
+  double-bar comparison, `bar_graph.get_bar_graph`. A bar chart's ENTRANCE is
+  `bar_graph.grow_bars(scene, chart.bars, run_time, lag=…, extra=…)` (bars rise from the
+  axis; `lag` staggers them L→R, `extra` fades the labels in alongside) — don't hand-roll
+  a `FadeIn` or a per-scene `_grow_up`. NEVER hand-roll `Rectangle`
   bars — the `lint.py` check flags fill-only `Rectangle` bars built in a loop. If
   the shared helper lacks a knob you need (a colour, a label style, a mode), EXTEND
   it (backwards-compatible optional param) rather than rebuild — see "IMPROVE THE
@@ -210,6 +225,15 @@ the "where do I look" map.
   `show_keep_anims`/`regroup_anims`; a big right-side number + caption beside a left-sat
   card follows scene 05's `perfect_average` (caption above, number below — a promote
   candidate).
+- **A generic ENTRANCE/REVEAL (fade-in, rise-in, grow-in) of a chart/group** → route it
+  through a SHARED motion; don't hand-roll a fresh `FadeIn` per scene. Bars → the bar
+  chart's `bar_graph.grow_bars`; a row-by-row list/grid rise → the `_rise` cascade (tier
+  scenes / scene 08); spotlight-then-hold → `highlight(persist=True)`; a plain group
+  appear → a bare `FadeIn` is fine, but choose it deliberately. Reinventing an entrance
+  every scene is a drift the user has explicitly flagged (`_grow_up` was hand-rolled in
+  scenes 04/05 + yahtzee 07 before it became `grow_bars`). On the 2nd hand-roll of the
+  same entrance, PROMOTE it to a shared helper (a backwards-compatible addition you can
+  just make and mention — see § Reuse over reinvention).
 
 **A job that ISN'T listed and you're copying from another scene IS the signal** — grep,
 PROMOTE the pattern into the shared asset, add a row here. Each video keeps its own
