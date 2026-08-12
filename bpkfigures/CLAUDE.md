@@ -634,6 +634,21 @@ calls for; no titles/labels/narration that weren't asked for.
   `Scorecard.flash_rows`. Hand-rolling a motion an asset/scene already does — "it's
   just a FadeIn" — is the thought that produces four different entrances, and itself
   the red flag that a shared primitive is missing.
+  - **TRIP-WIRE — before you type `FadeIn`/`Write`/`Create`/`LaggedStart`/`GrowFrom`/a
+    `.scale()` transition to bring an element ON or OFF screen, STOP and ask "does this
+    ELEMENT already appear in another scene?"** A titled view (a heatmap/plot + its
+    title), a board, a card, a prop, a tier list — if it (or its kind) shows up
+    elsewhere, it almost certainly has an ESTABLISHED entrance; find it and call it. Do
+    NOT reason about which primitive "looks right" until you've looked. If the motion is
+    trapped in a BASE CLASS or a sibling scene (so your scene can't call it), that is NOT
+    licence to hand-roll — PROMOTE it to a shared helper (ASK first) and call it from
+    both. (Bit us on hangman 16: the position-frequency view's row-by-row rise + its
+    title FadeIn live in `tier_letter_scene`; scene 16 isn't a subclass, so instead of
+    extracting them to a shared `views.py` and reusing, a `Write(title)` + ad-hoc
+    `LaggedStart(FadeIn…)` got invented — twice. The fix was `assets/views.py`
+    (`rise`/`view_title`), used by both.) The reuse map (preflight item 5) must name the
+    SOURCE method for every entrance/exit, grep-verified — an entrance you can't name a
+    source for is a HARD STOP.
 - **The extraction TRIGGER is duplication across the SECOND scene — not "several," not
   "someday."** The moment a prop/layout/motion that already lives inline in one scene is
   needed by a second, EXTRACT it to a shared asset (ASK first for the shared change) and
