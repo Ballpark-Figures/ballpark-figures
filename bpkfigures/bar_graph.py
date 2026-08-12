@@ -23,6 +23,21 @@ def _crisp_factory(ink):
     return lambda s: crisp_text(str(s), font=FONT, font_size=FONT_SIZE_SM, color=ink)
 
 
+def _place_label_baseline(lab, label, label_factory, x, baseline_y):
+    """Position ``lab`` so its TEXT BASELINE sits at ``baseline_y`` (x fixed at ``x``).
+    label_factory centres each label's bbox, so ascender/descender labels otherwise sit
+    at different heights. The baseline is measured with a trailing 'x' (no descender, so
+    its bbox bottom IS the baseline); falls back to the bbox bottom if that can't build."""
+    try:
+        probe = label_factory(str(label) + "x")
+        ref_baseline = probe.submobjects[-1].get_bottom()[1]     # the 'x' baseline
+        core = VGroup(*probe.submobjects[:-1])                    # the label's own glyphs
+        off = core.get_center()[1] - ref_baseline                # centre → baseline
+    except Exception:
+        off = lab.get_center()[1] - lab.get_bottom()[1]          # bbox bottom as baseline
+    lab.set_x(x).set_y(baseline_y + off)
+
+
 def get_bar_chart(
     items,
     *,
@@ -47,6 +62,9 @@ def get_bar_chart(
     show_labels=True,
     label_factory=None,
     label_buff=0.28,
+    baseline_labels=False,       # align labels on one text BASELINE (below), not by bbox
+                                 # top — so ascender/descender labels don't drift. Opt-in
+                                 # (default keeps the historical top-of-bbox placement).
     value_labels=False,
     value_factory=None,
     value_fmt=str,
@@ -91,6 +109,10 @@ def get_bar_chart(
     slot = width / (n_slots if n_slots else n)
     vmax = y_max if y_max is not None else max((v for _, v in items), default=1) or 1
 
+    # baseline-label mode: drop labels by a reference ascender height so an ascender
+    # label's TOP still lands ~label_buff below the bar (matches the top-align spacing)
+    cap_h = (label_factory("A").height if (show_labels and baseline_labels) else 0.0)
+
     bars, labels, values = VGroup(), VGroup(), VGroup()
     bar_of, label_of, value_of, cols = {}, {}, {}, {}
     for i, (label, value) in enumerate(items):
@@ -118,7 +140,10 @@ def get_bar_chart(
         col_parts = [bar]
         if show_labels:
             lab = label_factory(label)
-            lab.next_to(np.array([x, base, 0]), DOWN, buff=label_buff).set_x(x)
+            if baseline_labels:
+                _place_label_baseline(lab, label, label_factory, x, base - label_buff - cap_h)
+            else:
+                lab.next_to(np.array([x, base, 0]), DOWN, buff=label_buff).set_x(x)
             labels.add(lab)
             label_of[label] = lab
             col_parts.append(lab)
