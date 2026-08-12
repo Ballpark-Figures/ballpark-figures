@@ -1046,7 +1046,12 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   an object that didn't appear, off-screen label, wrong number, frame overflow, size
   mismatch) — these cost a full round-trip if missed. The agent does NOT iterate on
   subjective FEEL (exact run_times, easing, holds) — the user judges that from the video.
-  On handoff, NAME which timing/feel knobs you left at a guess.
+- **Do NOT offer, propose, or ask about a "timing pass" — the user ALWAYS does timing
+  themselves, AFTER recording the voiceover.** Leave every `run_time`/`wait` as an inlined,
+  editable guess (per the run_time rules) and move on; do NOT end a handoff with "want me
+  to do a timing pass?" or similar. Timing is entirely the user's, done later against the
+  VO — the agent's job is the objective build, not the pacing. (No need to enumerate the
+  timing knobs at handoff either; they're all inline literals the user will sweep anyway.)
 - **Every animation/wait exposes its `run_time`** in the subscene body so the user can
   retime — full rule in the run_time note under Scene structure.
 - **Use extended thinking for scene-building** (geometry + sequencing): the costly mistakes
