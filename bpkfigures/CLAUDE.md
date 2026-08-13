@@ -207,7 +207,14 @@ the "where do I look" map.
 - **A bar chart / histogram / distribution** → `bpkfigures.histogram.get_histogram`
   (standing or horizontal bars, x-ticks, title, per-bar labels, median highlight;
   pass `ink_color=CHALK` for dark/chalkboard scenes). For a labelled horizontal
-  double-bar comparison, `bar_graph.get_bar_graph`. A bar chart's ENTRANCE is
+  double-bar comparison, `bar_graph.get_bar_graph`. For SEVERAL series of a value-per-
+  category plotted side by side (grouped/paired bars over a shared x axis — e.g. avg misses
+  per WORD LENGTH under two weightings), `bar_graph.grouped_bar_chart(categories, series,
+  …)` (each series a `(name, color, values)` triple; adds x/y axes + y-ticks, per-category
+  labels, x-title, title, legend; returns role handles `.series`/`.bars`/`.rest`/`.legend`
+  for `grow_bars` + a fade-in of the rest). Used by hangman scenes 17 (optimal uniform vs
+  zipf) and 19 (uniform vs best-opener) — pass the two series + labels, don't hand-roll axes.
+  A bar chart's ENTRANCE is
   `bar_graph.grow_bars(scene, chart.bars, run_time, lag=…, extra=…)` (bars rise from the
   axis; `lag` staggers them L→R, `extra` fades the labels in alongside) — don't hand-roll
   a `FadeIn` or a per-scene `_grow_up`. NEVER hand-roll `Rectangle`
