@@ -2,7 +2,8 @@ from manim import *
 import numpy as np
 
 from bpkfigures.style import (FONT, FONT_SIZE_SM, FONT_SIZE_MD, FONT_SIZE_LG,
-                              ACCENT_FILL, crisp_text, crisp_paragraph)
+                              ACCENT_FILL, crisp_text, crisp_paragraph,
+                              place_on_baseline)
 
 
 # ═══ general categorical / metric BAR CHART (one value per label) ═════════════
@@ -21,21 +22,6 @@ from bpkfigures.style import (FONT, FONT_SIZE_SM, FONT_SIZE_MD, FONT_SIZE_LG,
 
 def _crisp_factory(ink):
     return lambda s: crisp_text(str(s), font=FONT, font_size=FONT_SIZE_SM, color=ink)
-
-
-def _place_label_baseline(lab, label, label_factory, x, baseline_y):
-    """Position ``lab`` so its TEXT BASELINE sits at ``baseline_y`` (x fixed at ``x``).
-    label_factory centres each label's bbox, so ascender/descender labels otherwise sit
-    at different heights. The baseline is measured with a trailing 'x' (no descender, so
-    its bbox bottom IS the baseline); falls back to the bbox bottom if that can't build."""
-    try:
-        probe = label_factory(str(label) + "x")
-        ref_baseline = probe.submobjects[-1].get_bottom()[1]     # the 'x' baseline
-        core = VGroup(*probe.submobjects[:-1])                    # the label's own glyphs
-        off = core.get_center()[1] - ref_baseline                # centre → baseline
-    except Exception:
-        off = lab.get_center()[1] - lab.get_bottom()[1]          # bbox bottom as baseline
-    lab.set_x(x).set_y(baseline_y + off)
 
 
 def get_bar_chart(
@@ -141,7 +127,8 @@ def get_bar_chart(
         if show_labels:
             lab = label_factory(label)
             if baseline_labels:
-                _place_label_baseline(lab, label, label_factory, x, base - label_buff - cap_h)
+                place_on_baseline(lab, [x, base - label_buff - cap_h],
+                                  factory=label_factory, string=label)
             else:
                 lab.next_to(np.array([x, base, 0]), DOWN, buff=label_buff).set_x(x)
             labels.add(lab)

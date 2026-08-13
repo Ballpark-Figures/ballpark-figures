@@ -85,6 +85,33 @@ def crisp_text(text, **kwargs):
     ss = _supersample(fs)
     return Text(text, font_size=fs * ss, **kwargs).scale(1 / ss)
 
+def place_on_baseline(mob, point, *, string=None, factory=None):
+    """Move ``mob`` so its TEXT BASELINE sits at ``point`` (x kept), instead of centring
+    its bounding box. crisp_text (like manim Text) centres each label's bbox at the
+    origin, so a row of mixed strings sits unevenly — ascender/descender words drift up
+    and down. Baseline alignment fixes that (descenders hang below the shared line).
+
+    The baseline is measured by appending 'x' (no descender, so its bbox bottom IS the
+    baseline). Pass ``factory(str)->mob`` for non-crisp_text labels (e.g. chalk) so the
+    probe matches their style; otherwise a crisp_text probe is used and the offset is
+    applied scale-independently via ``mob.text``. ``string`` overrides the measured text.
+    Returns ``mob``."""
+    s = str(string if string is not None else getattr(mob, "text", "") or "")
+    if not s:
+        return mob.move_to([point[0], point[1], 0])
+    if factory is not None:                       # same-style probe → offset is direct
+        probe = factory(s + "x")
+        off = (VGroup(*probe.submobjects[:-1]).get_center()[1]
+               - probe.submobjects[-1].get_bottom()[1])
+    else:                                         # crisp_text probe → scale-free ratio
+        probe = crisp_text(s + "x", font_size=48)
+        core = VGroup(*probe.submobjects[:-1])
+        ratio = ((core.get_center()[1] - probe.submobjects[-1].get_bottom()[1])
+                 / max(core.height, 1e-6))
+        off = ratio * mob.height
+    return mob.move_to([point[0], point[1] + off, 0])
+
+
 def crisp_paragraph(*lines, **kwargs):
     kwargs.setdefault("font", FONT)
     fs = kwargs.pop("font_size", DEFAULT_FONT_SIZE)
