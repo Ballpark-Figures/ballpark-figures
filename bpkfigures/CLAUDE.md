@@ -822,6 +822,18 @@ calls for; no titles/labels/narration that weren't asked for.
   lock, kill nothing and just re-run — the auto-takeover handles it. (Bit us 2026-08-07: an
   `rm -f` of the lock ran the agent's render on top of the user's, orphaning the user's
   manim child and risking cache corruption — recover with `--recompute`.)
+- **`InvalidDataError` at the concat step = a CORRUPT PARTIAL MOVIE FILE from an interrupted
+  render — find + delete it, it's NOT a scene bug.** A killed/crashed render truncates the
+  partial it was mid-writing (no `moov` atom), and manim REUSES partials by hash — so a LATER
+  render of ANY subscene whose concat list includes that partial fails at the ffmpeg combine
+  with `InvalidDataError: Invalid data found`. The traceback points at manim's
+  `combine_to_movie`, not your code, which is the tell. Fix: open the scene's
+  `media/videos/<scene>/<res>/partial_movie_files/<Scene>/partial_movie_file_list.txt`,
+  `ffprobe` each listed file (the corrupt one errors `moov atom not found`), delete THAT
+  file, and re-render (manim regenerates it clean). Scan the whole `partial_movie_files/
+  <Scene>/` for any that fail `ffprobe` to catch others. Nuking the folder also works
+  (regenerable build artifact) but forces a full re-render. (Bit us 2026-08-13: agent
+  fast-iterate kills left one truncated partial that blocked `render 18a` and the full scene.)
 
 ## Snapshot cache (`bpkfigures/scene.py`)
 - Rendering one subscene loads the LATEST VALID snapshot at or before the prior
