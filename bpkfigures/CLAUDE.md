@@ -295,6 +295,18 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
     `get_bar_chart(baseline_labels=True)`. A SINGLE isolated label doesn't need it — this
     is specifically for a set that must share a line. (Bit us on hangman 18: bar labels,
     then the beat-a table, both centred so descender words rode ~0.07u high.)
+  - **A COUNTING / animated number WITH a label → ONE `crisp_text` rebuilt via `become()`,
+    NOT a static label + a separate animated number you then align.** Splitting
+    "Average Misses: 4.23" into a label mobject + a number mobject forces you to hand-align
+    their baselines — and the label's descenders/ascenders differ from the digits, so they
+    drift vertically (the same trap as above). Instead build the WHOLE string as one
+    `crisp_text` and drive it with an updater that `become()`s the full string from a
+    `ValueTracker`: `num.add_updater(lambda m: m.become(crisp_text(f"…: {tr.get_value():.2f}",
+    …)))` — label + number then share a baseline for free. Keep it from jittering/resizing
+    with a FIXED left edge + a FIXED scale (measure a reference string ONCE for the scale;
+    do NOT `scale_to_fit_width` per frame — the digit-width variation would resize it). The
+    fixed PREFIX keeps its height/baseline constant as the number changes. (Recurred across
+    scenes/videos as a label-vs-number misalignment; the single-text form is the fix — hangman 18.)
 - **Panels sit on a card** — `get_card`/`card_behind` (`bpkfigures/card.py`) for the
   standard rounded surface, over a raw `RoundedRectangle`.
 - **To spotlight element(s), use the shared `highlight()`** (`bpkfigures/highlight.py`,
