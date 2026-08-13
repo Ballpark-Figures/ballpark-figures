@@ -82,8 +82,14 @@ def crisp_text(text, **kwargs):
     # built-in font by forgetting font=FONT (that was a real, repeated bug).
     kwargs.setdefault("font", FONT)
     fs = kwargs.pop("font_size", DEFAULT_FONT_SIZE)
+    # baseline_at=(x, y): sit the result on its TEXT BASELINE at that point (instead of
+    # bbox-centred) — for aligning several strings on one line (see place_on_baseline).
+    baseline_at = kwargs.pop("baseline_at", None)
     ss = _supersample(fs)
-    return Text(text, font_size=fs * ss, **kwargs).scale(1 / ss)
+    mob = Text(text, font_size=fs * ss, **kwargs).scale(1 / ss)
+    if baseline_at is not None:
+        place_on_baseline(mob, baseline_at, string=text)
+    return mob
 
 def place_on_baseline(mob, point, *, string=None, factory=None):
     """Move ``mob`` so its TEXT BASELINE sits at ``point`` (x kept), instead of centring

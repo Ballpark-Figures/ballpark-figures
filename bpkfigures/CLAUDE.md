@@ -285,6 +285,16 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
     words/letters out yourself (what hangman's chalk `_chalk_phrase` does). `get_bar_chart`'s
     own `title=` string hits this too — pass a pre-built, scaled mobject. Short strings are
     unaffected. (Bit us on hangman `05optimal`'s "Average Misses by Word Length" title.)
+  - **Aligning SEVERAL strings on one line (a table row/column, a row of labels)? Anchor
+    them by BASELINE, not `.move_to()`.** `crisp_text`/manim `Text` CENTRE each string's
+    bounding box, so ascender/descender words (`jog`, `say`) drift up/down off the line
+    when centred at the same `y` — and a word won't line up with the number beside it.
+    Use `crisp_text(s, …, baseline_at=(x, y))` (or `place_on_baseline(mob, (x, y))`,
+    both in `style.py`) to sit the string on its text BASELINE (descenders hang below), so
+    a row/column of mixed strings lines up. Bar labels get this via
+    `get_bar_chart(baseline_labels=True)`. A SINGLE isolated label doesn't need it — this
+    is specifically for a set that must share a line. (Bit us on hangman 18: bar labels,
+    then the beat-a table, both centred so descender words rode ~0.07u high.)
 - **Panels sit on a card** — `get_card`/`card_behind` (`bpkfigures/card.py`) for the
   standard rounded surface, over a raw `RoundedRectangle`.
 - **To spotlight element(s), use the shared `highlight()`** (`bpkfigures/highlight.py`,
