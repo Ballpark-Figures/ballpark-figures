@@ -641,6 +641,16 @@ calls for; no titles/labels/narration that weren't asked for.
   place X happens" is the trigger to refactor, not a checklist to grind. (Bit us on hangman
   scene 05: avg-miss formatting was scattered across ~6 callers with hand-rolled `:g`/hard-coded
   strings/per-call decimals; "2 dp everywhere" only stuck once it routed through one `_fmt`.)
+  - **BEFORE adding a behavior (a cap, a format, a motion tweak) to a REPEATED operation, find
+    EVERY place that does that operation — inline loops AND helpers — and if it's more than one,
+    UNIFY to a single function FIRST, then add the behavior once.** The specific tell that keeps
+    biting: you've ALREADY extracted a helper for the operation, yet other instances still do it
+    INLINE — that's a HALF-DONE refactor, and the inline copies are exactly what a later change
+    skips. Two look-alike forms of the same operation (a helper vs an inline loop) ARE the same
+    operation; route both through the helper. Making the same edit in the 2nd/3rd/4th spot is not
+    thoroughness — it's the signal you skipped the unify step. (Bit us on hangman scene 05: a
+    "cycle at most N candidates" cap landed in the 4 inline `choose_*` cycles but skipped the
+    shared `_solve_position_hits` cycle, so one beat kept cycling all of them.)
 - **REUSE AUDIT before you animate/build a beat: grep how the SAME job is already done — in this
   scene AND its sibling beats — and CALL it; don't hand-roll a worse copy.** The recurring
   failure is reinventing a motion the scene already has (a reveal, a reflow, a transform,
@@ -882,6 +892,18 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the video far better than the
   agent from stills — don't frame-hunt.
+- **A frame is only evidence if the render ACTUALLY RAN FRESH this time — confirm that
+  before you conclude anything from it.** The trap: a `cd`-reset (git resets cwd to the
+  repo root) makes the next `render NN` fail silently with "No file matching NN*.py", so
+  you read a STALE frame from an earlier build and "diagnose" a bug that's already fixed
+  (or never existed). So: check the render's own output says it rendered (not "No file
+  matching"), `cd scenes/` in its OWN call before every render batch, and prefer
+  introspection (dump the mobject's opacity/position/identity to a file and READ it) over
+  re-rendering-and-squinting for an OBJECTIVE fact. And if the USER says they don't see
+  the problem you think you see, BELIEVE THAT — re-verify from a clean render before
+  spending another cycle; their video is ground truth, your maybe-stale frame is not.
+  (Bit us on hangman 05: chased a "number won't fade" bug through many round-trips off
+  stale frames from cwd-reset render failures — the user didn't even see it.)
 - **Inspect a render ADVERSARIALLY — not "the end looks right".** For any change, check
   (a) the SPECIFIC element that changed + its neighbours, (b) the CORNERS/CENTRE for
   leftovers/duplicates, and (c) for a MOTION change, at least one MID-frame. The END
