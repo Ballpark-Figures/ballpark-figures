@@ -1001,6 +1001,14 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   builders ROLE HANDLES (`.root_dot`, `.kid[pat]`, `.levels`) so the pairing is by role,
   not fragile indices. (Bit us on `05optimal` e/f for ~6 rounds of exactly this.)
 - **Manim gotchas that each cost render round-trips:**
+  - **`FadeIn(mob, shift=v)` leaves `mob` at its CURRENT position** — it STARTS at
+    `current − v` and ENDS where `mob` already is. So do NOT ALSO pre-shift the mob (a
+    `mob.shift(DOWN*d)` before `FadeIn(mob, shift=UP*d)` stacks: the row ends `d` BELOW its
+    slot, not at it). To rise a NEW row into a target slot, build it AT the target and pass
+    the whole travel as the shift (`FadeIn(row_at_target, shift=UP*travel)`), or build it
+    below and animate `.shift(UP*travel)` — pick one, never both. (Bit us on hangman scene
+    20's reflow: newcomers landed 0.5 low — a persistent gap — AND only nudged 0.5 instead
+    of rising from the bottom, silently dropping the script's "come up from the bottom" clause.)
   - **`mob.animate(rate_func=…).set_value(…)` — the CALL form — silently fails to
     animate a `ValueTracker` inside a multi-animation `play()`** (reads as a jump at the
     end). Use plain `mob.animate.set_value(…)`; put the rate_func on the `play()`.
