@@ -849,6 +849,19 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   tree, a source switch-out, and lingering tallies on hangman `05optimal` before the user
   caught them. (This is OBJECTIVE artifact-hunting via mid-frames; motion FEEL is still
   the user's call, per the trip-wire below.)
+- **When the user names a SPECIFIC beat/element as broken — or asks whether you CHECKED
+  it — render THAT EXACT thing and LOOK at it FIRST, before any other work and before
+  answering.** Do NOT verify a NEIGHBOUR (the beat before/after, the empty state before
+  the change, the end state) and infer the flagged thing works; do NOT answer "did you
+  check X?" by talking about something else. Render X, read the frame, THEN respond. A
+  render of the specific broken beat is the ONLY acceptable evidence that it's fixed —
+  a passing `--check`, a neighbour that looks right, or an OLD frame from before a
+  restructure are all worthless here. (Bit us badly on hangman scene 16: the tier-fill
+  beats e–i rendered NOTHING for several iterations; each "verification" looked only at
+  the neighbouring beats — the empty grid before the fills, the win after — and inferred
+  the fills worked from a stale pre-restructure frame, so the break survived multiple
+  rounds, including one where the user asked point-blank whether it had been checked and
+  got an answer about an unrelated bug instead of a render.)
 - **Every spatial/quantitative claim carries its SOURCE inline — the printed number
   you pulled, or the words "eyeballed, not verified."** A bare spatial claim ("margins
   look even", "it's centred") IS the violation: the missing number is the tell you
