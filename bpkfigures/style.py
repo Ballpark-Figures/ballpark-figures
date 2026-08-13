@@ -58,6 +58,12 @@ CARD_FILL = "#F7F2E7"
 # Total bars (yahtzee CARD_ACCENT) and the semantic "miss / loss" red.
 CRIMSON = ManimColor("#B01E43")
 
+# Neutral "no data yet / inactive" fill — a medium grey that reads clearly as
+# placeholder against both WHITE (a real 0-value cell) and the accent fills, so an
+# element can sit un-populated before its data animates in (e.g. a heatmap cell
+# revealed only when its column is scaled in). Distinct from any accent/categorical.
+MUTED_GREY = ManimColor("#888888")
+
 FONT = "Inter"
 
 FONT_SIZE_XS = 15.0
