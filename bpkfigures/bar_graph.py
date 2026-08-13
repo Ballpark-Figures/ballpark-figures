@@ -239,6 +239,88 @@ def grow_bars(scene, bars, run_time, *, lag=0.0, extra=()):
     scene.play(anim, *extra, run_time=run_time)
 
 
+# ═══ grouped/paired bar chart over shared CATEGORIES ═════════════════════════
+#
+# Several series (each a (name, color, values) triple) plotted side by side over a
+# shared category axis — e.g. avg misses per WORD LENGTH under two weightings (the
+# "double plot" in scenes 17 and 19). Adds an x/y axis + y-ticks, per-category x
+# labels, an x-axis title, a chart title, and a legend. Promoted from the identical
+# `_strategy_chart`/`_double_chart` those two scenes each hand-rolled.
+
+def _series_legend(series, ink_color, pos, fs):
+    g = VGroup()
+    for name, color, _ in series:
+        sq = Square(side_length=0.28, fill_color=color, fill_opacity=1.0, stroke_width=0)
+        g.add(VGroup(sq, crisp_text(name, font_size=fs, color=ink_color)).arrange(RIGHT, buff=0.18))
+    return g.arrange(DOWN, buff=0.22, aligned_edge=LEFT).move_to(pos)
+
+
+def grouped_bar_chart(categories, series, *, title=None, x_title=None,
+                      ink_color=BLACK, y_ticks=(0, 2, 4, 6),
+                      width=12.6, height=3.8, cy=-0.25,
+                      bar_ratio=0.42, series_gap_frac=1 / 2.1, title_buff=1.15,
+                      legend_pos=None, x_label_fs=20, x_title_fs=24,
+                      title_fs=34, legend_fs=22, y_tick_fs=18):
+    """A grouped bar chart over shared ``categories`` (list of x labels). ``series`` is a
+    list of ``(name, color, values)`` triples, each ``values`` aligned to ``categories``;
+    bars for the same category are offset side by side. Adds x/y axes with ``y_ticks``,
+    per-category x labels, an ``x_title`` beneath, a ``title`` above, and a legend.
+
+    Returns a VGroup with role handles: ``.series`` (the per-series get_bar_chart groups),
+    ``.bars`` (flat list of every bar — pass to ``grow_bars``), ``.rest`` (axes + labels +
+    titles + legend, i.e. everything that is NOT a bar — fade this in as the bars grow),
+    ``.legend``, ``.title_mob``. Layout matches scenes 17/19's double plot; all text uses
+    ``ink_color`` (pass a dark ink for a light bg). NB ``title`` is a short string rendered
+    directly — a long one would wrap (crisp_text 240pt cap); pass a short chart title."""
+    cats = [str(c) for c in categories]
+    N = len(cats)
+    slot = width / N
+    ymax = max((v for _, _, vals in series for v in vals), default=1) or 1
+    base_y = cy - height / 2
+    step = slot * series_gap_frac
+    n = len(series)
+
+    series_groups = []
+    for i, (_name, color, vals) in enumerate(series):
+        off = (i - (n - 1) / 2) * step
+        chart = get_bar_chart(list(zip(cats, vals)), center=[off, cy, 0], width=width,
+                              height=height, y_max=ymax, n_slots=N, bar_color=color,
+                              bar_ratio=bar_ratio, show_labels=False)
+        series_groups.append(chart)
+
+    axes = VGroup(Line([-width / 2, base_y, 0], [width / 2, base_y, 0], color=ink_color, stroke_width=3),
+                  Line([-width / 2, base_y, 0], [-width / 2, base_y + height, 0], color=ink_color, stroke_width=3))
+    for t in y_ticks:
+        yy = base_y + t / ymax * height
+        tick = Line([-width / 2 - 0.12, yy, 0], [-width / 2, yy, 0], color=ink_color, stroke_width=2)
+        axes.add(tick, crisp_text(str(t), font_size=y_tick_fs, color=ink_color).next_to(tick, LEFT, buff=0.12))
+
+    xlabels = VGroup(*[crisp_text(c, font_size=x_label_fs, color=ink_color).move_to(
+                          [-width / 2 + (i + 0.5) * slot, base_y - 0.28, 0])
+                       for i, c in enumerate(cats)])
+
+    rest = VGroup(axes, xlabels)
+    if x_title:
+        rest.add(crisp_text(x_title, font_size=x_title_fs, color=ink_color).move_to([0, base_y - 0.78, 0]))
+    title_mob = None
+    if title:
+        title_mob = crisp_text(title, font_size=title_fs, color=ink_color,
+                               weight=BOLD).move_to([0, cy + height / 2 + title_buff, 0])
+        rest.add(title_mob)
+    legend = _series_legend(series, ink_color,
+                            legend_pos if legend_pos is not None else [4.6, cy + height / 2 - 0.2, 0],
+                            legend_fs)
+    rest.add(legend)
+
+    g = VGroup(*series_groups, rest)
+    g.series = series_groups
+    g.bars = [b for c in series_groups for b in c.bars]
+    g.rest = rest
+    g.legend = legend
+    g.title_mob = title_mob
+    return g
+
+
 def _make_bar(length, height, color, opacity=1.0, fade=False, n_seg=16):
     """A left-anchored horizontal bar whose LEFT edge sits at local x=0.
     ``fade`` renders it as segments whose opacity drops left→right (used to show
