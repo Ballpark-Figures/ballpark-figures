@@ -881,12 +881,16 @@ calls for; no titles/labels/narration that weren't asked for.
   rebuild the whole prefix. Combined with lazy building (above), editing a
   subscene's `_setup_<name>` invalidates only that subscene onward, so the heavy
   early build-up stays cached.
-- Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING the scene
-  file AND the render/resolve CLI tooling, which never affect output) + a
-  per-subscene dependency digest. Editing a later subscene (or code only it uses)
+- Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING ALL scene
+  files AND the render/resolve CLI tooling, which never affect output) + a
+  per-subscene dependency digest. Scenes are INDEPENDENT: editing a SIBLING scene
+  (e.g. `06tiers.py` while working `05`) does NOT invalidate this scene — its own
+  code is captured by the digest. Editing a later subscene (or code only it uses)
   leaves earlier snapshots valid; editing an asset/config/shared helper (or
   `scene.py`/`style.py`) invalidates them; editing `render.py`/`resolve.py` does
-  NOT. Bump `SNAPSHOT_VERSION` to force-invalidate.
+  NOT. Bump `SNAPSHOT_VERSION` to force-invalidate. (A snapshot MISS now prints
+  WHICH key term changed — `srchash` vs `digest` — so a surprise full-replay is
+  diagnosable at a glance.)
 - **A scene-file MODULE CONSTANT the subscene reads IS captured in its digest —
   editing it invalidates the snapshot.** The digest repr's the VALUE of every
   module-level constant a subscene's code closure references, of ANY stable-repr
