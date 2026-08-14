@@ -31,6 +31,9 @@ def get_bar_chart(
     width=8.0,
     height=4.0,
     y_max=None,
+    y_min=0.0,                   # value mapped to the AXIS (bar base). Default 0 = bars
+                                 # grow from zero; set > 0 for a zoomed/clipped y-axis
+                                 # (bars + ticks measure from y_min, not 0).
     n_slots=None,
     orientation="vertical",
     bar_color=ACCENT_FILL,
@@ -94,6 +97,7 @@ def get_bar_chart(
     # counts keeps each column at the same x — morph_bar_chart then never slides.
     slot = width / (n_slots if n_slots else n)
     vmax = y_max if y_max is not None else max((v for _, v in items), default=1) or 1
+    vspan = (vmax - y_min) or 1     # value range mapped across the bar height
 
     # baseline-label mode: drop labels by a reference ascender height so an ascender
     # label's TOP still lands ~label_buff below the bar (matches the top-align spacing)
@@ -103,7 +107,7 @@ def get_bar_chart(
     bar_of, label_of, value_of, cols = {}, {}, {}, {}
     for i, (label, value) in enumerate(items):
         x = left + (i + 0.5) * slot
-        h = max(value / vmax * height, 1e-3)
+        h = max((value - y_min) / vspan * height, 1e-3)
         col = (highlight or {}).get(label, bar_color)
         bw = slot * bar_ratio
         if bar_outline in ("open", "closed"):
@@ -149,7 +153,7 @@ def get_bar_chart(
     yticks = VGroup()
     if y_ticks:
         for t in y_ticks:
-            y = base + t / vmax * height
+            y = base + (t - y_min) / vspan * height
             tick = Line([left - 0.12, y, 0], [left, y, 0], color=ink_color,
                         stroke_width=2)
             tl = y_tick_factory(t)
@@ -181,8 +185,9 @@ def get_bar_chart(
     elements.x_axis, elements.y_axis = xa, ya
     elements.yticks = yticks if len(yticks) else None
     elements.title = title_text
-    elements.chart_geom = {"y_max": vmax, "width": width, "height": height,
-                           "n": n, "center": np.array(center, dtype=float),
+    elements.chart_geom = {"y_max": vmax, "y_min": y_min, "width": width,
+                           "height": height, "n": n,
+                           "center": np.array(center, dtype=float),
                            "base": base, "bar_ratio": bar_ratio}
     return elements
 
