@@ -265,7 +265,8 @@ def grouped_bar_chart(categories, series, *, title=None, x_title=None,
                       width=12.6, height=3.8, cy=-0.25,
                       bar_ratio=0.42, series_gap_frac=1 / 2.1, title_buff=1.15,
                       legend_pos=None, x_label_fs=20, x_title_fs=24,
-                      title_fs=34, legend_fs=22, y_tick_fs=18):
+                      title_fs=34, legend_fs=22, y_tick_fs=18,
+                      series_highlight=None, bands=None):
     """A grouped bar chart over shared ``categories`` (list of x labels). ``series`` is a
     list of ``(name, color, values)`` triples, each ``values`` aligned to ``categories``;
     bars for the same category are offset side by side. Adds x/y axes with ``y_ticks``,
@@ -288,9 +289,11 @@ def grouped_bar_chart(categories, series, *, title=None, x_title=None,
     series_groups = []
     for i, (_name, color, vals) in enumerate(series):
         off = (i - (n - 1) / 2) * step
+        # series_highlight[i] = {category: color} recolours individual bars (e.g. unsolved lengths)
+        hl = (series_highlight or [None] * n)[i]
         chart = get_bar_chart(list(zip(cats, vals)), center=[off, cy, 0], width=width,
                               height=height, y_max=ymax, n_slots=N, bar_color=color,
-                              bar_ratio=bar_ratio, show_labels=False)
+                              highlight=hl, bar_ratio=bar_ratio, show_labels=False)
         series_groups.append(chart)
 
     axes = VGroup(Line([-width / 2, base_y, 0], [width / 2, base_y, 0], color=ink_color, stroke_width=3),
@@ -317,9 +320,22 @@ def grouped_bar_chart(categories, series, *, title=None, x_title=None,
                             legend_fs)
     rest.add(legend)
 
-    g = VGroup(*series_groups, rest)
+    # bands: [(series_idx, category, top_value, color, opacity), …] — a translucent fill from a bar's
+    # OWN top (its value) up to ``top_value`` (e.g. a lower→upper uncertainty range on an unsolved bar)
+    band_mobs = VGroup()
+    for si, cat, top, bcolor, opacity in (bands or []):
+        bar = series_groups[si].bar_of[str(cat)]
+        top_y = base_y + top / ymax * height
+        h = max(1e-3, top_y - bar.get_top()[1])
+        rect = Rectangle(width=bar.width, height=h, fill_color=bcolor, fill_opacity=opacity,
+                         stroke_width=0)
+        rect.move_to([bar.get_center()[0], bar.get_top()[1] + h / 2, 0])
+        band_mobs.add(rect)
+
+    g = VGroup(*series_groups, band_mobs, rest)
     g.series = series_groups
     g.bars = [b for c in series_groups for b in c.bars]
+    g.bands = band_mobs
     g.rest = rest
     g.legend = legend
     g.title_mob = title_mob
