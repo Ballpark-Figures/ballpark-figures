@@ -283,15 +283,22 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
   `font_size`/`color`; a number in an asset (e.g. a scorecard cell) uses that asset's
   size/colour, not your own. (Symptom this prevents: text in manim's built-in font
   because a hand-built `Text` omitted the font — subtly wrong next to everything.)
-  - **A LONG single-line `crisp_text` string WRAPS/clips — build it small and scale up.**
-    `crisp_text` supersamples up to a 240pt cap (`TEXT_SS_MAX_FONT`), so at any
-    `font_size >= 24` the underlying `Text` renders at ~240pt, where a long phrase
-    exceeds pango's line width and wraps (or drops trailing words). A chart TITLE or any
-    long label is the usual victim. Fixes: `crisp_text(text, font_size=10, …)
-    .scale_to_fit_width(w)` (low underlying pt → one line, then scaled up), or lay the
-    words/letters out yourself (what hangman's chalk `_chalk_phrase` does). `get_bar_chart`'s
-    own `title=` string hits this too — pass a pre-built, scaled mobject. Short strings are
-    unaffected. (Bit us on hangman `05optimal`'s "Average Misses by Word Length" title.)
+  - **`crisp_text` no longer wraps long strings — this is FIXED in `style.py` (don't
+    re-apply the old build-small-and-scale workaround).** Root cause (worth knowing): manim
+    wraps a `Text` at `config["pixel_width"]` — a RESOLUTION-dependent pixel count
+    (144p=256, 480p=854, 1080p=1920) — and caches the SVG by a hash (`Text._text2hash`)
+    that EXCLUDES it. Combined with crisp_text's up-to-240pt supersample (wide in Pango's
+    raster), a long title wrapped at LOW resolution, and — the nasty part — a low-res
+    `--very-fast`/`--fast` preview BAKED a wrapped SVG that then persisted into the 1080p
+    render (the final render alone was fine). `crisp_text`/`crisp_paragraph` now pin the
+    Pango wrap width to ∞ during the `Text` build (`_no_pango_wrap`), so a single-line
+    string renders on ONE line at EVERY resolution. So just call `crisp_text(text,
+    font_size=…)` directly — no `scale_to_fit_width`, no word-by-word layout, no pre-built
+    title mobject. If you ever DO see a wrapped title, it's a STALE cached SVG from before
+    the fix: delete the `media/texts/` dirs once and re-render. Real multi-line still uses
+    `crisp_paragraph` (explicit newlines; Pango honours those regardless of width). (The
+    old workaround bit us on `05optimal`'s title and again on scene 22's; the fix removes
+    the whole class.)
   - **Aligning SEVERAL strings on one line (a table row/column, a row of labels)? Anchor
     them by BASELINE, not `.move_to()`.** `crisp_text`/manim `Text` CENTRE each string's
     bounding box, so ascender/descender words (`jog`, `say`) drift up/down off the line
