@@ -325,15 +325,21 @@ class BpkScene(Scene):
     def _load_snapshot(self, idx, names):
         if os.environ.get("RECOMPUTE", "0") == "1":
             return False
+        let = _letter(idx)
         path = self._snapshot_path(idx)
         if not os.path.exists(path):
+            print(f"[bpk] snapshot miss at {let}: no file")
             return False
         try:
             with open(path, "rb") as f:
                 bundle = pickle.load(f)
-        except Exception:
+        except Exception as e:
+            print(f"[bpk] snapshot miss at {let}: load {type(e).__name__}")
             return False
-        if bundle.get("key") != self._prefix_key(idx, names):
+        stored, cur = bundle.get("key"), self._prefix_key(idx, names)
+        if stored != cur:
+            print(f"[bpk] snapshot miss at {let}: key mismatch "
+                  f"(stored {str(stored)[:8]} != current {cur[:8]})")
             return False
         for k, v in bundle["attrs"].items():
             setattr(self, k, v)
