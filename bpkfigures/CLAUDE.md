@@ -1014,6 +1014,16 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   the design fork to the user — do NOT ship attempt three of a band-aid. (Bit us 2026-08-07:
   letter-drift/dot-pop/board-edge were all one moving-camera coupling; ~10 band-aids before
   the one-line reframe — pin the camera — dissolved them all.)
+  - **When the mystery is in the FRAMEWORK/TOOLING (a cache miss, a stale render, a hash that
+    "randomly" changes), STOP theorizing and INSTRUMENT: add a targeted diagnostic that PRINTS
+    the actual cause, then read it — don't chase hypotheses through render after render.** A
+    silent failure path (an `except: return False`, a key compared but not reported) is itself
+    the bug to fix first: make it SAY why. And when the diagnostic is broadly useful, LEAVE it
+    in — a permanent one-glance answer beats re-deriving it next time. (Bit us this session: the
+    "random 200-animation replay" got chased through RecursionError and "non-determinism" guesses
+    across a dozen renders; the moment a `_load_snapshot` miss-log + a source-file-set dump were
+    added, the real cause — `_source_hash` hashing every SIBLING scene, so editing scene 06
+    invalidated scene 05 — fell out immediately. The miss-log stayed in.)
 - **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what they
   asked and flag-ask — do NOT swap in a different design.** Substituting your own
   concept, even to solve a real problem, is a silent override — the worst error here. A
