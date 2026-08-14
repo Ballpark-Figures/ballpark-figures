@@ -323,6 +323,10 @@ def grouped_bar_chart(categories, series, *, title=None, x_title=None,
     g.rest = rest
     g.legend = legend
     g.title_mob = title_mob
+    # value->screen mapping (a reference line at value v sits at
+    # base_y + v / ymax * height); a plain dict so the chart stays picklable.
+    g.chart_geom = {"base_y": base_y, "ymax": ymax, "height": height,
+                    "width": width, "cy": cy}
     return g
 
 
