@@ -663,6 +663,16 @@ calls for; no titles/labels/narration that weren't asked for.
   operation once. (Bit us on hangman scene 05: hand-rolled node-reveals, per-beat reflows, and
   the "one at a time" value handling instead of reusing the drill's ride-in / one `_gap_up` /
   one label builder — the user: "you seem to be constantly trying to reinvent things.")
+- **When you MATCH a recurring element ("the same X we use elsewhere", "bring back that
+  chart/board/prop"), match by MEDIUM/CONTEXT — and if it exists in SEVERAL forms, SURFACE
+  them, don't grep the first title hit.** A recap chart/view/prop often appears in more than one
+  style (a CHALK line-outline version on the chalkboard vs a crisp FILLED version on the brand
+  bg; a greedy vs an optimal data cut) under DIFFERENT titles. "Bring it back" means the form
+  from the SAME background the new scene uses, not whichever name a grep finds first — so before
+  reusing, check which medium the new scene is on and which sibling instance lives there, and
+  when two+ named versions exist, present the options (or ask) rather than silently pick one.
+  (Bit us on hangman scene 21: a chalkboard recap chart got matched to the BRAND-bg scene 17
+  title instead of the chalkboard scene 04 one — one round-trip.)
 - **When a scene evolves a repeating STRUCTURE, write the RECIPE into its docstring so the
   repeats are mechanical.** A per-level back-up, a per-turn walk-through, a montage of N cases:
   once the first one or two are built and approved, record the step-by-step (which beats, which
@@ -1019,6 +1029,13 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
     with side effects, can leave the group behind). Only `remove()` TOP-LEVEL mobjects;
     to drop an in-group text, rebuild the group or hard-clear (`for m in
     list(self.mobjects): self.remove(m)`).
+  - **A decoration hung on a composite as an ATTRIBUTE (not a submobject) is SKIPPED by a
+    group `FadeOut`/`FadeIn` → it lingers.** `chart.xtitle = mob` (then `FadeIn(chart.xtitle)`
+    separately) leaves `mob` OUTSIDE `chart`'s submobject tree, so a later `FadeOut(chart)`
+    doesn't touch it and it stays on screen into the next beat. Add it as a real submobject
+    (`chart.add(mob)`; keep the `.xtitle` handle for reference) so every group op includes it,
+    or fade it explicitly. (Bit us on hangman scene 21: an added x-axis title lingered past the
+    chart's fade-out.)
   - **A whole-object `Transform`/`ReplacementTransform`/`TransformFromCopy` of a COMPOSITE
     (tree, grid cell) pairs its submobjects BY INDEX** → a blob morph (parts fly to the
     wrong counterparts). Pair pieces EXPLICITLY by role and transform each to its match.
