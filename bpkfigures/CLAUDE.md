@@ -898,6 +898,19 @@ calls for; no titles/labels/narration that weren't asked for.
   deliberately not captured, as the address would poison the cache) and a *huge*
   numpy array (numpy truncates its repr with `…`, so two differ only past the
   cutoff). Ordinary layout/position/size constants are safe.
+- **CLASS attributes are the blind spot — keep TUNABLE constants at MODULE level, and
+  NEVER reference the scene class by name (`ClassName.attr`) inside a method.** The digest
+  captures MODULE constants by value (above) but NOT a class attribute read via `self.X`
+  (it's neither a walked method nor a module constant → invisible), so tuning a
+  `class`-level constant silently does nothing until `--recompute`. Worse, naming the class
+  (`Scene05._CACHE`) makes the digest fall back to hashing `inspect.getsource(THE WHOLE
+  CLASS)` — so ANY edit to ANY method re-keys EVERY beat whose closure reaches that method
+  (looks like random mass-invalidation; it's deterministic over-capture). So: put tunable
+  sizes/counts/positions at MODULE level (captured → tuning invalidates); reserve class
+  attributes for RUNTIME CACHES that should NOT be captured, and read them via `self._cache`
+  (an attribute name), never `ClassName._cache`. (Bit us on hangman scene 05: a
+  `Scene05._NUM_REF` number cache made every avg-number beat, g onward, re-render on any
+  edit — the class-name reference dragged the whole class source into their digests.)
 - Don't build a mobject carrying a LAMBDA updater (`always_redraw(lambda …)` or
   `.add_updater(lambda …)`) in `setup_scene` — the lambda can't be pickled, which
   breaks the whole scene's snapshot. Build those in the subscene. A BARE
