@@ -802,7 +802,12 @@ calls for; no titles/labels/narration that weren't asked for.
   light-blue, coarse layout) and 144p answers them — faster wall-clock (big on the heavy
   tree scenes) AND far fewer image tokens when you READ the PNG. Reach for `--fast` only
   when the check genuinely needs pixels: glyph legibility, a subtle artifact the user
-  flagged, fine spacing. And remember: motion/feel is the USER's call (stills can't judge
+  flagged, fine spacing. **A TEXT wrap/clip/overflow anomaly IS a legibility check —
+  verify it at `--fast`, NEVER `--very-fast`: at 144p a one-line title reads as two and a
+  wrapped one reads as "tiny", so `--very-fast` will MISDIAGNOSE it and send you patching
+  the wrong thing** (bit us on scene 22's titles — several wrong workarounds off 144p
+  frames before a `--fast` render + reading the manim source showed the real cause). And
+  remember: motion/feel is the USER's call (stills can't judge
   it), and precise spatial facts come from MEASURED coordinates (`get_left/right/center`
   via a print), not squinting at pixels — so the render is usually just gross confirmation,
   which `--very-fast` covers. Note `--very-fast` at 3fps snaps `--frames T` to the nearest
