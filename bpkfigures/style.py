@@ -1,3 +1,5 @@
+import contextlib
+
 from manim import *
 
 BG_COLOR = ManimColor.from_rgb((2, 164, 211))
@@ -77,6 +79,26 @@ TEXT_SS_MAX_FONT = 240
 def _supersample(font_size):
     return max(1.0, min(TEXT_SS, TEXT_SS_MAX_FONT / font_size))
 
+@contextlib.contextmanager
+def _no_pango_wrap():
+    """Force an effectively-infinite Pango wrap width while a Text/Paragraph is built.
+
+    manim wraps a ``Text`` at ``config["pixel_width"]`` — a RESOLUTION-dependent pixel
+    count (144p=256, 480p=854, 1080p=1920) — and caches the resulting SVG by a hash that
+    EXCLUDES it (``Text._text2hash``). Two consequences bit us repeatedly: crisp_text
+    supersamples to up to 240pt (very wide in Pango's raster), so a long string wraps at
+    low resolutions; and because the cache ignores the width, a low-res *preview* bakes a
+    WRAPPED SVG that then persists into the final 1080p render. crisp_text and
+    crisp_paragraph are single-line-per-string (real multi-line goes through explicit
+    newlines, which Pango honours regardless of width), so width-wrapping is never wanted
+    — pin it wide so output is one line at EVERY render resolution."""
+    old = config["pixel_width"]
+    config["pixel_width"] = max(old, 1 << 20)
+    try:
+        yield
+    finally:
+        config["pixel_width"] = old
+
 def crisp_text(text, **kwargs):
     # Default to our brand FONT so callers can't accidentally render in manim's
     # built-in font by forgetting font=FONT (that was a real, repeated bug).
@@ -86,7 +108,8 @@ def crisp_text(text, **kwargs):
     # bbox-centred) — for aligning several strings on one line (see place_on_baseline).
     baseline_at = kwargs.pop("baseline_at", None)
     ss = _supersample(fs)
-    mob = Text(text, font_size=fs * ss, **kwargs).scale(1 / ss)
+    with _no_pango_wrap():
+        mob = Text(text, font_size=fs * ss, **kwargs).scale(1 / ss)
     if baseline_at is not None:
         place_on_baseline(mob, baseline_at, string=text)
     return mob
@@ -122,4 +145,5 @@ def crisp_paragraph(*lines, **kwargs):
     kwargs.setdefault("font", FONT)
     fs = kwargs.pop("font_size", DEFAULT_FONT_SIZE)
     ss = _supersample(fs)
-    return Paragraph(*lines, font_size=fs * ss, **kwargs).scale(1 / ss)
+    with _no_pango_wrap():                     # each explicit line stays one line (see crisp_text)
+        return Paragraph(*lines, font_size=fs * ss, **kwargs).scale(1 / ss)
