@@ -15,7 +15,8 @@ Handles on the returned VGroup:
 """
 from manim import *
 
-from bpkfigures.style import crisp_paragraph, FONT_SIZE_MD
+from bpkfigures.style import crisp_paragraph, FONT_SIZE_MD, CARD_FILL, MUTED_GREY
+from bpkfigures.chalkboard import BOARD_NAVY
 
 
 def _tail(hw, hh, side, length, spread, base=0.0, tip_off=-0.35, radius=0.0):
@@ -63,16 +64,23 @@ def _tail(hw, hh, side, length, spread, base=0.0, tip_off=-0.35, radius=0.0):
     return Polygon(b1, tip, b2), tip
 
 
-def speech_bubble(text, *, font_size=FONT_SIZE_MD, text_color=BLACK,
-                  fill_color=WHITE, stroke_color=BLACK, stroke_width=3.0,
-                  corner_radius=0.28, pad_w=0.5, pad_h=0.4, min_width=1.1,
-                  tail="bottom left", tail_len=0.85, tail_spread=0.18,
-                  tail_base=0.0, tail_tip=-0.35, pill=False):
-    """A comic speech bubble sized to ``text`` (may contain ``\\n``).
+def speech_bubble(text, *, font_size=FONT_SIZE_MD, text_color=BOARD_NAVY,
+                  fill_color=CARD_FILL, stroke_color=MUTED_GREY, stroke_width=2.0,
+                  corner_radius=0.28, pad_w=0.30, pad_h=0.30, min_width=1.45,
+                  tail="left", tail_len=0.5, tail_spread=0.175,
+                  tail_base=-0.375, tail_tip=-0.625, pill=True):
+    """A speech bubble sized to ``text`` (may contain ``\\n``).
+
+    Defaults to the house look — a warm ``CARD_FILL`` PILL (stadium ends) with a
+    soft ``MUTED_GREY`` outline, ``BOARD_NAVY`` ink, and a short ``left`` tail
+    whose base hugs the cap and whose tip drops to the bubble's bottom edge.
+    Override any of these for a different bubble.
 
     ``tail`` is a vertical tail ``top/bottom`` × ``left/''/right`` (e.g.
     ``"bottom left"``, ``"top"``) or a horizontal tail ``"left"``/``"right"``
-    (the speaker is off to that side). ``pill=True`` gives fully-rounded
+    (the speaker is off to that side); for a horizontal tail, ``tail_base``
+    slides the attach point along the edge and ``tail_tip`` sets the tip's
+    height (both fractions of the half-height). ``pill=True`` gives fully-rounded
     (stadium) ends — the body's corner radius becomes half its height, so a
     short single-line label reads as a capsule. The bubble body is centred on
     ORIGIN before you ``move_to`` it."""
