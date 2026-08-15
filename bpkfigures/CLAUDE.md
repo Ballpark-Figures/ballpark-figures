@@ -1133,6 +1133,13 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   --cached <dir>` keeps them on disk). CAUTION: scope cache/pkl ignores to the animations
   tree — do NOT blanket-ignore `*.pkl`, since solver data under `math/data/` and
   `math/notebooks/data/` is intentionally tracked.
+- **Notebooks vs `Script.md` in a commit sweep (e.g. `/push-videos`): commit notebooks,
+  leave `Script.md`.** `math/notebooks/*.ipynb` are the synced math/exploration pipeline
+  (`math/` is tracked + synced), so a forgot-to-commit sweep SHOULD commit them. But
+  `animations/Script.md` is the Markdown EXPORT of a Google-Doc table (the Doc is canonical
+  — that's why each cell flattens to one line on export), so a local edit is a regenerated
+  export, not authoritative: do NOT auto-commit `Script.md` in a sweep — leave it dirty for
+  the user to commit re-exports deliberately (same for a stray `scenes/Script.md` copy).
 
 ## Starting a new scene
 How the user likes a brand-new `scenes/NN<name>.py` built:
