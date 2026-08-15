@@ -758,6 +758,8 @@ def _stitch_one(target, frames_spec, padded):
     # glob is `NN_*` (letter=""), which never matches a subscene clip (`NN<letter>_*`).
     for f in resolve.clean_stale(classname, prefix, "", full_output):
         print(f"[render] removed stale {f}", file=sys.stderr)
+    for f in resolve.clean_orphans(prefix):
+        print(f"[render] removed orphan {f}", file=sys.stderr)
     dest = _stitch_full(prefix, full_output)
     if dest is None:
         return None
@@ -819,6 +821,9 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     # clean stale outputs for this slot
     for f in resolve.clean_stale(classname, target[:2], letter, output):
         print(f"[render] removed stale {f}", file=sys.stderr)
+    # ...and sweep whole slots past the current last subscene (removed subscenes)
+    for f in resolve.clean_orphans(target[:2]):
+        print(f"[render] removed orphan {f}", file=sys.stderr)
 
     # build the env (explicit -> no leak from a prior interrupted run)
     env = dict(os.environ)

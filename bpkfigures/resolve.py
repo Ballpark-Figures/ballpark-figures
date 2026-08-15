@@ -119,6 +119,42 @@ def clean_stale(classname, prefix, letter, keep_output):
                         pass
     return removed
 
+def clean_orphans(prefix):
+    """Remove rendered videos for subscene SLOTS PAST the current last subscene — the
+    REMOVED-subscene case (e.g. a scene cut from 30 subscenes to 13 leaves 05n_*.mp4 ..
+    05zb_*.mp4 orphaned). `clean_stale` only sweeps ONE slot's renamed files WHEN you
+    render that letter, so a slot that no longer exists is never rendered again and would
+    linger forever; this sweeps every slot whose label index is >= the current subscene
+    count, so SHRINKING a scene self-cleans on its next render. The full-scene slot (NN_)
+    and every in-range letter are kept, so it never touches a live render (the in-progress
+    output is always in range). Scans media/videos AND media/padded_videos (mirrors
+    clean_stale); image-only (@still/@thumbnail) scenes have no videos here, so it's a
+    no-op for them. Returns the files removed."""
+    path = _find_file(prefix)
+    _classname, subs, _still = _parse(path)
+    count = len(subs)
+    stem = path[:-3]                                    # NNname.py -> NNname
+    removed = []
+    for tree in ("videos", "padded_videos"):
+        base = os.path.join("media", tree, stem)
+        for quality_dir in glob.glob(os.path.join(base, "*")):
+            for mp4 in glob.glob(os.path.join(quality_dir, f"{prefix}*.mp4")):
+                rest = os.path.basename(mp4)[len(prefix):-4]   # <label>_<method> | _<method>
+                label = rest.split("_", 1)[0]           # "" for the full-scene NN_ slot
+                if not label:
+                    continue                            # full-scene render — keep
+                try:
+                    idx = label_to_index(label)
+                except ValueError:
+                    continue                            # unrecognized name — leave it alone
+                if idx >= count:
+                    try:
+                        os.remove(mp4)
+                        removed.append(mp4)
+                    except OSError:
+                        pass
+    return removed
+
 def main():
     args = sys.argv[1:]
     do_clean = "--clean" in args
