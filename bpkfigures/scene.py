@@ -188,7 +188,16 @@ def _scene_source_digest(cls, method_names):
                         r = repr(val)
                     except Exception:
                         r = f"const:{ref}"
-                    parts[f"const:{ref}"] = f"const:{ref}" if " at 0x" in r else r
+                    # Fall back to the deterministic NAME key for a value whose repr is
+                    # not stable across processes: a memory address (`<Foo at 0x…>`), OR
+                    # manim's global `config` object — its repr embeds RENDER-SPECIFIC
+                    # fields (output_file/scene_names differ per subscene target), so a
+                    # scene that reads `config.frame_x_radius` (as CLAUDE.md recommends)
+                    # would otherwise get a DIFFERENT digest for every render target and
+                    # never reuse a snapshot. Its snapshot-relevant fields (frame size)
+                    # live in manim.cfg, not a .py, so they're out of scope here anyway.
+                    unstable = " at 0x" in r or type(val).__name__ == "ManimConfig"
+                    parts[f"const:{ref}"] = f"const:{ref}" if unstable else r
 
     h = hashlib.md5()
     for qual in sorted(parts):
@@ -276,14 +285,26 @@ class BpkScene(Scene):
         # render.py / resolve.py are the CLI wrapper — never imported during a
         # scene render, so their source can't change output. Exclude them too, so
         # editing the render script doesn't needlessly invalidate every snapshot.
+        sh, dg = self._prefix_key_parts(idx, names)
+        return hashlib.md5(f"v{SNAPSHOT_VERSION}{sh}{dg}".encode()).hexdigest()
+
+    def _prefix_key_parts(self, idx, names):
+        """(source_hash, scene_digest) — the two non-version key terms, exposed so a snapshot MISS
+        can report WHICH one changed: source_hash = project .py hash (asset/config/bpkfigures edit),
+        digest = the scene-code closure for setup_scene + subscenes 0..idx."""
+        cls = type(self)
+        scene_file = os.path.realpath(inspect.getfile(cls))
         tooling = {os.path.realpath(os.path.join(_BPK_DIR, f))
                    for f in ("render.py", "resolve.py")}
-        srcs = [
-            f"v{SNAPSHOT_VERSION}",
-            _source_hash(self._project_roots(), exclude={scene_file} | tooling),
-            _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])),
-        ]
-        return hashlib.md5("".join(srcs).encode()).hexdigest()
+        # exclude EVERY scene file in this scene's directory, not just our own: scenes are
+        # INDEPENDENT (this scene's own code is captured by the digest), so hashing a sibling
+        # scene would make editing scene 06 invalidate scene 05's snapshots — the user works
+        # several scenes at once, so that mis-coupling is a constant, silent full-replay.
+        scene_dir = os.path.dirname(scene_file)
+        siblings = {os.path.realpath(os.path.join(scene_dir, f))
+                    for f in os.listdir(scene_dir) if f.endswith(".py")}
+        return (_source_hash(self._project_roots(), exclude=siblings | tooling),
+                _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])))
 
     def _snapshot_path(self, idx):
         os.makedirs(SNAPSHOT_DIR, exist_ok=True)
@@ -291,8 +312,10 @@ class BpkScene(Scene):
 
     def _save_snapshot(self, idx, names):
         user_keys = set(self.__dict__) - self._baseline_keys
+        sh, dg = self._prefix_key_parts(idx, names)   # stored too, so a later miss says which changed
         bundle = {
-            "key": self._prefix_key(idx, names),
+            "key": hashlib.md5(f"v{SNAPSHOT_VERSION}{sh}{dg}".encode()).hexdigest(),
+            "srchash": sh, "digest": dg,
             "attrs": {k: self.__dict__[k] for k in user_keys},
             "mobjects": list(self.mobjects),  # same dump -> identity preserved
             # camera state lives on self.camera (a baseline key, so NOT in attrs); save
@@ -316,15 +339,26 @@ class BpkScene(Scene):
     def _load_snapshot(self, idx, names):
         if os.environ.get("RECOMPUTE", "0") == "1":
             return False
+        let = _letter(idx)
         path = self._snapshot_path(idx)
         if not os.path.exists(path):
+            print(f"[bpk] snapshot miss at {let}: no file")
             return False
         try:
             with open(path, "rb") as f:
                 bundle = pickle.load(f)
-        except Exception:
+        except Exception as e:
+            print(f"[bpk] snapshot miss at {let}: load {type(e).__name__}")
             return False
-        if bundle.get("key") != self._prefix_key(idx, names):
+        sh, dg = self._prefix_key_parts(idx, names)
+        cur = hashlib.md5(f"v{SNAPSHOT_VERSION}{sh}{dg}".encode()).hexdigest()
+        if bundle.get("key") != cur:
+            which = []
+            if bundle.get("srchash") != sh:
+                which.append(f"srchash {str(bundle.get('srchash'))[:6]}->{sh[:6]}")
+            if bundle.get("digest") != dg:
+                which.append(f"digest {str(bundle.get('digest'))[:6]}->{dg[:6]}")
+            print(f"[bpk] snapshot miss at {let}: key mismatch [{', '.join(which) or 'version'}]")
             return False
         for k, v in bundle["attrs"].items():
             setattr(self, k, v)

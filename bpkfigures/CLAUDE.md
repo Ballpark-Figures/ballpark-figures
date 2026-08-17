@@ -16,6 +16,18 @@ load wherever you're working. Video-specific rules live in that video's own
   that exact choice IS the spec — not a suggestion to improve on with your own
   judgment. Implement it literally ("disappear" ≠ "fade", "centered" =
   measure-and-center).
+- **A request that states a CONVENTION applies EVERYWHERE that convention holds — not
+  just the spot in front of you; and "all"/"everywhere"/"2 decimals" means LITERALLY all.**
+  The failure mode is treating each message as the smallest local edit that satisfies its
+  sentence: the user says "2 decimal places for average misses" and you change only the beat
+  you're on, or "cycle through all the candidates" and you cycle one. Before editing, ask
+  "is this a one-off or a RULE?" — a format, a behaviour, a layout/motion convention, a
+  rounding, a naming — and if it's a rule, apply it to every place it holds AND make that the
+  default going forward. When the same rule then forces you to edit many call sites, that is
+  itself the signal to CENTRALIZE (see § Reuse over reinvention: one source of truth). Making
+  the user come back and say "I meant everywhere" is the tell you scoped it too narrowly.
+  (Bit us on hangman scene 05: "all candidates", "2 dp", "bare numbers", "one at a time" each
+  had to be repeated because they were first applied to only the current beat.)
 - **Disagreeing is fine; silently overriding is NOT.** If you think a different
   approach is better, FLAG IT AND ASK FIRST, then follow the user's decision.
   Willfully deviating from an explicit instruction — even when your alternative
@@ -72,6 +84,18 @@ traceable to the user's OWN computations, never re-derived by the agent.
   a solver output / data file (`math/data/…`), a notebook/module helper (`math/…`,
   e.g. `state_explorer.py`), or a value the user gave you — and read it from there.
   The machinery already exists; use it. If two sources exist, ask which is canonical.
+- **The METRIC/UNIT is part of the product too — use the pipeline's exact definition,
+  don't substitute a plausible proxy.** When a scene visualizes a quantity the pipeline
+  already defines (a weighting, an EV, a frequency, a probability), encode it the SAME way
+  the pipeline does — e.g. the frequency WEIGHTING the solver uses is the linear
+  `round(10**zipf)` per-billion rate (`wordlist.freq_weights`), NOT the log `zipf`. Picking
+  a different-but-related encoding because it "reads cleaner" (log for linear, raw for
+  normalized, a smoothed/binned version) silently swaps the metric — that's inventing the
+  MODELING, same class of error as inventing the number. When two encodings of the same
+  quantity exist, use the one the pipeline/weighting actually uses, or ASK. (Bit us on
+  scene 17: defaulted the "word frequency" bars to log zipf when the weighting is the
+  linear rate — the user caught it. NB flagging a resulting ugly VISUAL for the user to
+  decide on is RIGHT; quietly switching the metric to dodge the ugliness is the error.)
 - **A blank is fine; a silent number is not.** Leaving a value stubbed and FLAGGED
   is always acceptable. Filling it with a number you computed yourself is not.
 - **If it genuinely isn't available**, stop and flag. Then the user points you to
@@ -185,6 +209,29 @@ the "where do I look" map.
   vocabulary.)
 - **A free-floating panel/table/plot** → sit it on a card: `get_card`/`card_behind`
   (card.py). Not a raw RoundedRectangle.
+- **A bar chart / histogram / distribution** → `bpkfigures.histogram.get_histogram`
+  (standing or horizontal bars, x-ticks, title, per-bar labels, median highlight;
+  pass `ink_color=CHALK` for dark/chalkboard scenes). For a labelled horizontal
+  double-bar comparison, `bar_graph.get_bar_graph`. For SEVERAL series of a value-per-
+  category plotted side by side (grouped/paired bars over a shared x axis — e.g. avg misses
+  per WORD LENGTH under two weightings), `bar_graph.grouped_bar_chart(categories, series,
+  …)` (each series a `(name, color, values)` triple; adds x/y axes + y-ticks, per-category
+  labels, x-title, title, legend; returns role handles `.series`/`.bars`/`.rest`/`.legend`
+  for `grow_bars` + a fade-in of the rest). Used by hangman scenes 17 (optimal uniform vs
+  zipf) and 19 (uniform vs best-opener) — pass the two series + labels, don't hand-roll axes.
+  A bar chart's ENTRANCE is
+  `bar_graph.grow_bars(scene, chart.bars, run_time, lag=…, extra=…)` (bars rise from the
+  axis; `lag` staggers them L→R, `extra` fades the labels in alongside) — don't hand-roll
+  a `FadeIn` or a per-scene `_grow_up`. NEVER hand-roll `Rectangle`
+  bars — the `lint.py` check flags fill-only `Rectangle` bars built in a loop. If
+  the shared helper lacks a knob you need (a colour, a label style, a mode), EXTEND
+  it (backwards-compatible optional param) rather than rebuild — see "IMPROVE THE
+  ASSET" under § Reuse over reinvention. NOTE the split: `get_histogram` is for a
+  DISTRIBUTION (counts/probabilities over an integer value-axis, `crisp_text`
+  labels); a categorical / metric bar chart (a value per label — e.g. hangman scene
+  04's avg-misses-by-length, or a sorted letter-frequency chart with written-font
+  labels + a morphing mode) is a DIFFERENT asset. Don't force-fit one into the
+  other — improve/extend the right shared helper (or build it if missing).
 - **Spotlight element(s)** → `highlight()` (highlight.py, holds by default).
   **Emphasise one OF a group** → dim the rest (save_state/Restore; scenes 07/08).
 - **A frame-edge position** → read `config.frame_x_radius/​y_radius` (8.0/4.5) at
@@ -202,6 +249,15 @@ the "where do I look" map.
   `show_keep_anims`/`regroup_anims`; a big right-side number + caption beside a left-sat
   card follows scene 05's `perfect_average` (caption above, number below — a promote
   candidate).
+- **A generic ENTRANCE/REVEAL (fade-in, rise-in, grow-in) of a chart/group** → route it
+  through a SHARED motion; don't hand-roll a fresh `FadeIn` per scene. Bars → the bar
+  chart's `bar_graph.grow_bars`; a row-by-row list/grid rise → the `_rise` cascade (tier
+  scenes / scene 08); spotlight-then-hold → `highlight(persist=True)`; a plain group
+  appear → a bare `FadeIn` is fine, but choose it deliberately. Reinventing an entrance
+  every scene is a drift the user has explicitly flagged (`_grow_up` was hand-rolled in
+  scenes 04/05 + yahtzee 07 before it became `grow_bars`). On the 2nd hand-roll of the
+  same entrance, PROMOTE it to a shared helper (a backwards-compatible addition you can
+  just make and mention — see § Reuse over reinvention).
 
 **A job that ISN'T listed and you're copying from another scene IS the signal** — grep,
 PROMOTE the pattern into the shared asset, add a row here. Each video keeps its own
@@ -232,6 +288,44 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
   `font_size`/`color`; a number in an asset (e.g. a scorecard cell) uses that asset's
   size/colour, not your own. (Symptom this prevents: text in manim's built-in font
   because a hand-built `Text` omitted the font — subtly wrong next to everything.)
+  - **`crisp_text` no longer wraps long strings — this is FIXED in `style.py` (don't
+    re-apply the old build-small-and-scale workaround).** Root cause (worth knowing): manim
+    wraps a `Text` at `config["pixel_width"]` — a RESOLUTION-dependent pixel count
+    (144p=256, 480p=854, 1080p=1920) — and caches the SVG by a hash (`Text._text2hash`)
+    that EXCLUDES it. Combined with crisp_text's up-to-240pt supersample (wide in Pango's
+    raster), a long title wrapped at LOW resolution, and — the nasty part — a low-res
+    `--very-fast`/`--fast` preview BAKED a wrapped SVG that then persisted into the 1080p
+    render (the final render alone was fine). `crisp_text`/`crisp_paragraph` now pin the
+    Pango wrap width to ∞ during the `Text` build (`_no_pango_wrap`), so a single-line
+    string renders on ONE line at EVERY resolution. So just call `crisp_text(text,
+    font_size=…)` directly — no `scale_to_fit_width`, no word-by-word layout, no pre-built
+    title mobject. If you ever DO see a wrapped title, it's a STALE cached SVG from before
+    the fix: delete the `media/texts/` dirs once and re-render. Real multi-line still uses
+    `crisp_paragraph` (explicit newlines; Pango honours those regardless of width). (The
+    old workaround bit us on `05optimal`'s title and again on scene 22's; the fix removes
+    the whole class.)
+  - **Aligning SEVERAL strings on one line (a table row/column, a row of labels)? Anchor
+    them by BASELINE, not `.move_to()`.** `crisp_text`/manim `Text` CENTRE each string's
+    bounding box, so ascender/descender words (`jog`, `say`) drift up/down off the line
+    when centred at the same `y` — and a word won't line up with the number beside it.
+    Use `crisp_text(s, …, baseline_at=(x, y))` (or `place_on_baseline(mob, (x, y))`,
+    both in `style.py`) to sit the string on its text BASELINE (descenders hang below), so
+    a row/column of mixed strings lines up. Bar labels get this via
+    `get_bar_chart(baseline_labels=True)`. A SINGLE isolated label doesn't need it — this
+    is specifically for a set that must share a line. (Bit us on hangman 18: bar labels,
+    then the beat-a table, both centred so descender words rode ~0.07u high.)
+  - **A COUNTING / animated number WITH a label → ONE `crisp_text` rebuilt via `become()`,
+    NOT a static label + a separate animated number you then align.** Splitting
+    "Average Misses: 4.23" into a label mobject + a number mobject forces you to hand-align
+    their baselines — and the label's descenders/ascenders differ from the digits, so they
+    drift vertically (the same trap as above). Instead build the WHOLE string as one
+    `crisp_text` and drive it with an updater that `become()`s the full string from a
+    `ValueTracker`: `num.add_updater(lambda m: m.become(crisp_text(f"…: {tr.get_value():.2f}",
+    …)))` — label + number then share a baseline for free. Keep it from jittering/resizing
+    with a FIXED left edge + a FIXED scale (measure a reference string ONCE for the scale;
+    do NOT `scale_to_fit_width` per frame — the digit-width variation would resize it). The
+    fixed PREFIX keeps its height/baseline constant as the number changes. (Recurred across
+    scenes/videos as a label-vs-number misalignment; the single-text form is the fix — hangman 18.)
 - **Panels sit on a card** — `get_card`/`card_behind` (`bpkfigures/card.py`) for the
   standard rounded surface, over a raw `RoundedRectangle`.
 - **To spotlight element(s), use the shared `highlight()`** (`bpkfigures/highlight.py`,
@@ -274,10 +368,16 @@ here: a render used another branch's older scene file, a mid-render switch crash
 snapshot save).
 - **Keep ALL concurrent work on ONE shared branch — `main`.** Different scenes are
   different files, so tabs don't collide; do NOT create `scene-NN-*` branches.
-- **The one habit that makes this safe: stage by EXPLICIT PATH** — `git add
-  animations/scenes/NN<name>.py`, never `git add -A`/`.`. The shared working tree means a
-  bulk add sweeps EVERY tab's in-progress files into one commit; commit only the file(s)
-  that tab changed.
+- **Commit with a PATHSPEC, don't just stage by explicit path — `git commit <paths> -m
+  …`, never a bare `git commit`.** Staging by path (`git add animations/scenes/NN<name>.py`,
+  never `git add -A`/`.`) is necessary but NOT sufficient: a bare `git commit` commits the
+  whole INDEX, and on the shared working tree another tab (or a running `/push-videos`) may
+  have OTHER files staged — so a bare commit sweeps them into yours even though your own
+  `git add` was clean. Naming the paths on the `commit` itself (`git commit path1 path2 -m
+  …`) builds the commit from just those paths' working-tree changes, ignoring whatever else
+  sits in the shared index. (Bit us 2026-08-08: a bare `git commit` of a scene, run while a
+  `/push-videos` was in flight in another tab, swept staged solver-output JSON into the
+  scene commit — harmless data-wise, tracked anyway, but a mixed, mislabeled commit.)
 - **Shared resources** (`bpkfigures/`, `config.py`, `assets/`): don't have two tabs
   editing the SAME shared file at once — sequence those. (Editing a shared file while
   another tab merely renders is fine.)
@@ -302,6 +402,18 @@ How the user wants the agent to record things worth remembering:
   BEHAVIOURAL rule, propose the text and ASK first (§ Following instructions). Either way
   SURFACE it in the moment — else the convention lives only in one scene's code and the
   next scene re-breaks it.
+- **RECORD-ON-CORRECTION: when the user corrects a TERM or CONVENTION you misread, write
+  its definition into the right CLAUDE.md THAT TURN — don't just fix the one instance.**
+  A misunderstood domain term ("written font" = the hand-drawn chalk strokes, not the Inter
+  `crisp_text`) or a convention you got wrong is a re-guess waiting to happen in the next
+  scene or the next video; fixing only the current use leaves the wrong assumption live.
+  Recording the DEFINITION (video-specific → that video's CLAUDE.md; general → here) puts
+  it in-context for every future session, so it can't be re-guessed. This is a FACTUAL
+  correction, so record it proactively and say you did (it's not a new behavioural rule
+  needing approval). The tell: the user asks some version of "do you not know what that
+  means?" — that means a definition is missing from the docs. (Bit us: "written font" was
+  guessed as Inter through two builds; the fix was the definition in the video CLAUDE.md,
+  not just the one swap.)
 - **Default to CLAUDE.md** for anything the user wants the agent to know: loaded every
   session and synced across machines via git — unlike memory, which is local to one
   machine and only surfaces via recall. When unsure where something goes, don't
@@ -421,6 +533,19 @@ comes from working AROUND it.
 Match its visual look and its **sparse on-screen text** — not necessarily its
 exact animation primitives. Render ONLY text the script's column 2 explicitly
 calls for; no titles/labels/narration that weren't asked for.
+- **A number or phrase in the VOICEOVER (column 1) does NOT license putting it ON
+  SCREEN — column 1 is what's SPOKEN, column 2 is what's DISPLAYED.** This is the single
+  most common way "text not in column 2" sneaks in: a beat's narration cites stats ("__%
+  of words start with a consonant", "the 2nd letter is a vowel __% of the time") and the
+  agent captions them onto the view — but column 2 only asked for the view/chart. Show
+  ONLY what column 2 names; the narrated numbers are HEARD, not captioned. (A chart/view's
+  own CANONICAL title from an established convention — e.g. the letter view's "Location
+  Frequencies" — IS part of the view and fine; a fresh number, callout, or explanatory
+  label is not.) Corollary: a chart the script DOES call for (a pie, a bar) inherently
+  shows its value — that's the chart, not an added caption. If you think an extra on-screen
+  number/label would genuinely help, ASK; never add it silently. (Bit us repeatedly on
+  hangman scene 08: captioned the voiceover's start/end/2nd-position percentages onto the
+  frequency grid the script only asked to "put in".)
 
 ## Scene structure (LAZY per-subscene building)
 - **Build lazily, in the OWNER subscene — not up front in `setup_scene`.** Each
@@ -540,6 +665,68 @@ calls for; no titles/labels/narration that weren't asked for.
   churn.
 
 ## Reuse over reinvention
+- **Touching many call sites for ONE logical change is a SMELL — centralize, don't fan out.**
+  When you catch yourself "updating every place that formats the value / draws the badge /
+  computes the offset," STOP: that's duplication asking to be a single source of truth. Extract
+  ONE helper (`_fmt`, `_value_label`, a builder) that every site routes through, so the next
+  change to that concept is a one-line edit in one spot instead of a hunt. "I need to find every
+  place X happens" is the trigger to refactor, not a checklist to grind. (Bit us on hangman
+  scene 05: avg-miss formatting was scattered across ~6 callers with hand-rolled `:g`/hard-coded
+  strings/per-call decimals; "2 dp everywhere" only stuck once it routed through one `_fmt`.)
+  - **BEFORE adding a behavior (a cap, a format, a motion tweak) to a REPEATED operation, find
+    EVERY place that does that operation — inline loops AND helpers — and if it's more than one,
+    UNIFY to a single function FIRST, then add the behavior once.** The specific tell that keeps
+    biting: you've ALREADY extracted a helper for the operation, yet other instances still do it
+    INLINE — that's a HALF-DONE refactor, and the inline copies are exactly what a later change
+    skips. Two look-alike forms of the same operation (a helper vs an inline loop) ARE the same
+    operation; route both through the helper. Making the same edit in the 2nd/3rd/4th spot is not
+    thoroughness — it's the signal you skipped the unify step. (Bit us on hangman scene 05: a
+    "cycle at most N candidates" cap landed in the 4 inline `choose_*` cycles but skipped the
+    shared `_solve_position_hits` cycle, so one beat kept cycling all of them.)
+- **REUSE AUDIT before you animate/build a beat: grep how the SAME job is already done — in this
+  scene AND its sibling beats — and CALL it; don't hand-roll a worse copy.** The recurring
+  failure is reinventing a motion the scene already has (a reveal, a reflow, a transform,
+  a label) because you didn't look. Before writing an animation: (1) name the SIBLING beat this
+  one mirrors (the previous level's version, the reference scene) and the EXACT helpers/patterns
+  it reuses (`_transform_move` ride-in, the `_gap_up` reflow, `_ctree`, the value-label builder);
+  (2) if the pattern lives inline in a sibling and you're about to copy it, that's the signal to
+  PROMOTE it to a shared helper (ask first) and have both call it. Repeated beats (a per-level
+  back-up, a per-turn play-out) are the SAME operation with different handles — write the
+  operation once. (Bit us on hangman scene 05: hand-rolled node-reveals, per-beat reflows, and
+  the "one at a time" value handling instead of reusing the drill's ride-in / one `_gap_up` /
+  one label builder — the user: "you seem to be constantly trying to reinvent things.")
+- **When you MATCH a recurring element ("the same X we use elsewhere", "bring back that
+  chart/board/prop"), match by MEDIUM/CONTEXT — and if it exists in SEVERAL forms, SURFACE
+  them, don't grep the first title hit.** A recap chart/view/prop often appears in more than one
+  style (a CHALK line-outline version on the chalkboard vs a crisp FILLED version on the brand
+  bg; a greedy vs an optimal data cut) under DIFFERENT titles. "Bring it back" means the form
+  from the SAME background the new scene uses, not whichever name a grep finds first — so before
+  reusing, check which medium the new scene is on and which sibling instance lives there, and
+  when two+ named versions exist, present the options (or ask) rather than silently pick one.
+  (Bit us on hangman scene 21: a chalkboard recap chart got matched to the BRAND-bg scene 17
+  title instead of the chalkboard scene 04 one — one round-trip.)
+- **When a scene evolves a repeating STRUCTURE, write the RECIPE into its docstring so the
+  repeats are mechanical.** A per-level back-up, a per-turn walk-through, a montage of N cases:
+  once the first one or two are built and approved, record the step-by-step (which beats, which
+  helpers, which convention each step obeys) in the scene docstring — so the remaining repeats
+  reuse it verbatim and survive context compaction instead of being re-derived (and re-broken).
+  (hangman scene 05's "BACK-UP BEAT RECIPE" is the reference.)
+- **When a shared asset ALMOST fits but is missing something, IMPROVE THE ASSET — do
+  NOT hand-roll your own version.** This is the DEFAULT, and the single most important
+  rule here: if `get_histogram` / a scorecard / a card / any `bpkfigures` helper can't do
+  what a scene needs (a dark-theme colour, a written-font label, a categorical/sorted
+  mode, a new entrance), the fix is to EXTEND the shared helper so it can — not to build a
+  parallel local copy that drifts. Preserve backwards compatibility to whatever degree
+  possible (add an OPTIONAL param defaulting to today's behaviour, so existing callers are
+  byte-identical), and prefer an additive change. A backwards-compatible ADDITION you can
+  just make (and mention at handoff); a change that alters existing behaviour/output or
+  can't stay backwards-compatible still gets flagged first (§ "ASK before editing
+  bpkfigures/"). Reaching for a local hand-rolled variant because the shared asset "doesn't
+  quite do it" is the exact move that produced hangman scene 04's private `_vbars`/
+  `_avg_chart` bar charts (and nearly a third copy in scene 03) — improving the shared bar
+  chart was the right move all along. Corollary: don't MISUSE a near-neighbour asset to
+  dodge the work either (a categorical bar chart is not a `get_histogram`); if the honest
+  home doesn't exist yet, build/extend it, don't force-fit.
 - **The convention-check is NOT a new-scene gate — it fires on every EDIT too, and the
   tripwire is INVENTING A VALUE.** The new-scene PREFLIGHT styling pass applies identically
   when you ADD an element while editing: **the moment you type a NEW literal/constant — a
@@ -566,6 +753,31 @@ calls for; no titles/labels/narration that weren't asked for.
   `Scorecard.flash_rows`. Hand-rolling a motion an asset/scene already does — "it's
   just a FadeIn" — is the thought that produces four different entrances, and itself
   the red flag that a shared primitive is missing.
+  - **TRIP-WIRE — before you type `FadeIn`/`Write`/`Create`/`LaggedStart`/`GrowFrom`/a
+    `.scale()` transition to bring an element ON or OFF screen, STOP and ask "does this
+    ELEMENT already appear in another scene?"** A titled view (a heatmap/plot + its
+    title), a board, a card, a prop, a tier list — if it (or its kind) shows up
+    elsewhere, it almost certainly has an ESTABLISHED entrance; find it and call it. Do
+    NOT reason about which primitive "looks right" until you've looked. If the motion is
+    trapped in a BASE CLASS or a sibling scene (so your scene can't call it), that is NOT
+    licence to hand-roll — PROMOTE it to a shared helper (ASK first) and call it from
+    both. (Bit us on hangman 16: the position-frequency view's row-by-row rise + its
+    title FadeIn live in `tier_letter_scene`; scene 16 isn't a subclass, so instead of
+    extracting them to a shared `views.py` and reusing, a `Write(title)` + ad-hoc
+    `LaggedStart(FadeIn…)` got invented — twice. The fix was `assets/views.py`
+    (`rise`/`view_title`), used by both.) The reuse map (preflight item 5) must name the
+    SOURCE method for every entrance/exit, grep-verified — an entrance you can't name a
+    source for is a HARD STOP.
+- **The extraction TRIGGER is duplication across the SECOND scene — not "several," not
+  "someday."** The moment a prop/layout/motion that already lives inline in one scene is
+  needed by a second, EXTRACT it to a shared asset (ASK first for the shared change) and
+  have both use it — don't inline a second copy. Leaving it duplicated is what makes the
+  NEXT reinvention easy: when reuse means "copy another scene's constants by hand," a
+  fresh hand-rolled variant is the path of least resistance, so the duplication silently
+  breeds a third divergent copy. Make reuse a one-line import and reinvention stops being
+  the easy option. (Bit us: the hangman board lived inline in 02 AND 94; a third scene
+  invented its own layout instead — the fix was extracting `assets/game_board.py` and
+  migrating all three, which should have happened when the 2nd scene needed it.)
 - **Read assets to CALL them, not just to imitate their look.** The reference scene shows
   *which methods do the work*: a keep/reroll beat IS `DiceBoard.keep` + `roll_rest`, not
   hand-placed coordinates. Before a gameplay beat, name the exact asset method each sub-beat
@@ -615,7 +827,12 @@ calls for; no titles/labels/narration that weren't asked for.
   light-blue, coarse layout) and 144p answers them — faster wall-clock (big on the heavy
   tree scenes) AND far fewer image tokens when you READ the PNG. Reach for `--fast` only
   when the check genuinely needs pixels: glyph legibility, a subtle artifact the user
-  flagged, fine spacing. And remember: motion/feel is the USER's call (stills can't judge
+  flagged, fine spacing. **A TEXT wrap/clip/overflow anomaly IS a legibility check —
+  verify it at `--fast`, NEVER `--very-fast`: at 144p a one-line title reads as two and a
+  wrapped one reads as "tiny", so `--very-fast` will MISDIAGNOSE it and send you patching
+  the wrong thing** (bit us on scene 22's titles — several wrong workarounds off 144p
+  frames before a `--fast` render + reading the manim source showed the real cause). And
+  remember: motion/feel is the USER's call (stills can't judge
   it), and precise spatial facts come from MEASURED coordinates (`get_left/right/center`
   via a print), not squinting at pixels — so the render is usually just gross confirmation,
   which `--very-fast` covers. Note `--very-fast` at 3fps snaps `--frames T` to the nearest
@@ -669,6 +886,18 @@ calls for; no titles/labels/narration that weren't asked for.
   lock, kill nothing and just re-run — the auto-takeover handles it. (Bit us 2026-08-07: an
   `rm -f` of the lock ran the agent's render on top of the user's, orphaning the user's
   manim child and risking cache corruption — recover with `--recompute`.)
+- **`InvalidDataError` at the concat step = a CORRUPT PARTIAL MOVIE FILE from an interrupted
+  render — find + delete it, it's NOT a scene bug.** A killed/crashed render truncates the
+  partial it was mid-writing (no `moov` atom), and manim REUSES partials by hash — so a LATER
+  render of ANY subscene whose concat list includes that partial fails at the ffmpeg combine
+  with `InvalidDataError: Invalid data found`. The traceback points at manim's
+  `combine_to_movie`, not your code, which is the tell. Fix: open the scene's
+  `media/videos/<scene>/<res>/partial_movie_files/<Scene>/partial_movie_file_list.txt`,
+  `ffprobe` each listed file (the corrupt one errors `moov atom not found`), delete THAT
+  file, and re-render (manim regenerates it clean). Scan the whole `partial_movie_files/
+  <Scene>/` for any that fail `ffprobe` to catch others. Nuking the folder also works
+  (regenerable build artifact) but forces a full re-render. (Bit us 2026-08-13: agent
+  fast-iterate kills left one truncated partial that blocked `render 18a` and the full scene.)
 
 ## Snapshot cache (`bpkfigures/scene.py`)
 - Rendering one subscene loads the LATEST VALID snapshot at or before the prior
@@ -677,12 +906,16 @@ calls for; no titles/labels/narration that weren't asked for.
   rebuild the whole prefix. Combined with lazy building (above), editing a
   subscene's `_setup_<name>` invalidates only that subscene onward, so the heavy
   early build-up stays cached.
-- Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING the scene
-  file AND the render/resolve CLI tooling, which never affect output) + a
-  per-subscene dependency digest. Editing a later subscene (or code only it uses)
+- Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING ALL scene
+  files AND the render/resolve CLI tooling, which never affect output) + a
+  per-subscene dependency digest. Scenes are INDEPENDENT: editing a SIBLING scene
+  (e.g. `06tiers.py` while working `05`) does NOT invalidate this scene — its own
+  code is captured by the digest. Editing a later subscene (or code only it uses)
   leaves earlier snapshots valid; editing an asset/config/shared helper (or
   `scene.py`/`style.py`) invalidates them; editing `render.py`/`resolve.py` does
-  NOT. Bump `SNAPSHOT_VERSION` to force-invalidate.
+  NOT. Bump `SNAPSHOT_VERSION` to force-invalidate. (A snapshot MISS now prints
+  WHICH key term changed — `srchash` vs `digest` — so a surprise full-replay is
+  diagnosable at a glance.)
 - **A scene-file MODULE CONSTANT the subscene reads IS captured in its digest —
   editing it invalidates the snapshot.** The digest repr's the VALUE of every
   module-level constant a subscene's code closure references, of ANY stable-repr
@@ -694,6 +927,19 @@ calls for; no titles/labels/narration that weren't asked for.
   deliberately not captured, as the address would poison the cache) and a *huge*
   numpy array (numpy truncates its repr with `…`, so two differ only past the
   cutoff). Ordinary layout/position/size constants are safe.
+- **CLASS attributes are the blind spot — keep TUNABLE constants at MODULE level, and
+  NEVER reference the scene class by name (`ClassName.attr`) inside a method.** The digest
+  captures MODULE constants by value (above) but NOT a class attribute read via `self.X`
+  (it's neither a walked method nor a module constant → invisible), so tuning a
+  `class`-level constant silently does nothing until `--recompute`. Worse, naming the class
+  (`Scene05._CACHE`) makes the digest fall back to hashing `inspect.getsource(THE WHOLE
+  CLASS)` — so ANY edit to ANY method re-keys EVERY beat whose closure reaches that method
+  (looks like random mass-invalidation; it's deterministic over-capture). So: put tunable
+  sizes/counts/positions at MODULE level (captured → tuning invalidates); reserve class
+  attributes for RUNTIME CACHES that should NOT be captured, and read them via `self._cache`
+  (an attribute name), never `ClassName._cache`. (Bit us on hangman scene 05: a
+  `Scene05._NUM_REF` number cache made every avg-number beat, g onward, re-render on any
+  edit — the class-name reference dragged the whole class source into their digests.)
 - Don't build a mobject carrying a LAMBDA updater (`always_redraw(lambda …)` or
   `.add_updater(lambda …)`) in `setup_scene` — the lambda can't be pickled, which
   breaks the whole scene's snapshot. Build those in the subscene. A BARE
@@ -710,6 +956,39 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the video far better than the
   agent from stills — don't frame-hunt.
+- **A frame is only evidence if the render ACTUALLY RAN FRESH this time — confirm that
+  before you conclude anything from it.** The trap: a `cd`-reset (git resets cwd to the
+  repo root) makes the next `render NN` fail silently with "No file matching NN*.py", so
+  you read a STALE frame from an earlier build and "diagnose" a bug that's already fixed
+  (or never existed). So: check the render's own output says it rendered (not "No file
+  matching"), `cd scenes/` in its OWN call before every render batch, and prefer
+  introspection (dump the mobject's opacity/position/identity to a file and READ it) over
+  re-rendering-and-squinting for an OBJECTIVE fact. And if the USER says they don't see
+  the problem you think you see, BELIEVE THAT — re-verify from a clean render before
+  spending another cycle; their video is ground truth, your maybe-stale frame is not.
+  (Bit us on hangman 05: chased a "number won't fade" bug through many round-trips off
+  stale frames from cwd-reset render failures — the user didn't even see it.)
+- **Inspect a render ADVERSARIALLY — not "the end looks right".** For any change, check
+  (a) the SPECIFIC element that changed + its neighbours, (b) the CORNERS/CENTRE for
+  leftovers/duplicates, and (c) for a MOTION change, at least one MID-frame. The END
+  frame HIDES objective motion bugs — a lingering copy, a switched-out source, a blob
+  morph — even when it can't judge feel. "End grid looks right → done" shipped a doubled
+  tree, a source switch-out, and lingering tallies on hangman `05optimal` before the user
+  caught them. (This is OBJECTIVE artifact-hunting via mid-frames; motion FEEL is still
+  the user's call, per the trip-wire below.)
+- **When the user names a SPECIFIC beat/element as broken — or asks whether you CHECKED
+  it — render THAT EXACT thing and LOOK at it FIRST, before any other work and before
+  answering.** Do NOT verify a NEIGHBOUR (the beat before/after, the empty state before
+  the change, the end state) and infer the flagged thing works; do NOT answer "did you
+  check X?" by talking about something else. Render X, read the frame, THEN respond. A
+  render of the specific broken beat is the ONLY acceptable evidence that it's fixed —
+  a passing `--check`, a neighbour that looks right, or an OLD frame from before a
+  restructure are all worthless here. (Bit us badly on hangman scene 16: the tier-fill
+  beats e–i rendered NOTHING for several iterations; each "verification" looked only at
+  the neighbouring beats — the empty grid before the fills, the win after — and inferred
+  the fills worked from a stale pre-restructure frame, so the break survived multiple
+  rounds, including one where the user asked point-blank whether it had been checked and
+  got an answer about an unrelated bug instead of a render.)
 - **Every spatial/quantitative claim carries its SOURCE inline — the printed number
   you pulled, or the words "eyeballed, not verified."** A bare spatial claim ("margins
   look even", "it's centred") IS the violation: the missing number is the tell you
@@ -760,6 +1039,16 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   the design fork to the user — do NOT ship attempt three of a band-aid. (Bit us 2026-08-07:
   letter-drift/dot-pop/board-edge were all one moving-camera coupling; ~10 band-aids before
   the one-line reframe — pin the camera — dissolved them all.)
+  - **When the mystery is in the FRAMEWORK/TOOLING (a cache miss, a stale render, a hash that
+    "randomly" changes), STOP theorizing and INSTRUMENT: add a targeted diagnostic that PRINTS
+    the actual cause, then read it — don't chase hypotheses through render after render.** A
+    silent failure path (an `except: return False`, a key compared but not reported) is itself
+    the bug to fix first: make it SAY why. And when the diagnostic is broadly useful, LEAVE it
+    in — a permanent one-glance answer beats re-deriving it next time. (Bit us this session: the
+    "random 200-animation replay" got chased through RecursionError and "non-determinism" guesses
+    across a dozen renders; the moment a `_load_snapshot` miss-log + a source-file-set dump were
+    added, the real cause — `_source_hash` hashing every SIBLING scene, so editing scene 06
+    invalidated scene 05 — fell out immediately. The miss-log stayed in.)
 - **If a fix to a USER-SPECIFIED shape/layout hits a snag, revert to exactly what they
   asked and flag-ask — do NOT swap in a different design.** Substituting your own
   concept, even to solve a real problem, is a silent override — the worst error here. A
@@ -771,7 +1060,29 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Animation timing: use trackers/updaters** (value- or `dt`-driven), NOT computed-time
   guesses (`Succession(Wait(t_guess), …)`) — guessed timings are fragile; a value/dt-
   driven effect fires correctly regardless of surrounding pacing.
+- **A complex/novel beat: LOCK THE STATIC END-FRAME before animating.** Build the final
+  composition, render the STILL, iterate structure/layout/colour/text to the user's
+  approval FIRST — only then wire the motion. Animating while the target still changes
+  guarantees rework: every design tweak invalidates the motion. (Bit us on hangman
+  `05optimal` e/f: ~5 rounds re-doing motion on a static design still changing under it.)
+- **Design an animation as a per-mobject LEDGER, not a choice of primitive.** Before
+  coding a transition, write down for EACH on-screen mobject: does it MOVE (to where),
+  TRANSFORM into which target, get CREATED, or get DESTROYED (how). REUSE existing
+  mobjects by default; only create genuinely-new things. Transitions are PIECE-BY-PIECE
+  (each node → its node, each edge → its edge); a whole-object `Transform`/
+  `ReplacementTransform`/`TransformFromCopy` of a COMPOSITE (a tree, a card) pairs
+  submobjects by index and reads as a chaotic blob morph or a switch-out. Give the
+  builders ROLE HANDLES (`.root_dot`, `.kid[pat]`, `.levels`) so the pairing is by role,
+  not fragile indices. (Bit us on `05optimal` e/f for ~6 rounds of exactly this.)
 - **Manim gotchas that each cost render round-trips:**
+  - **`FadeIn(mob, shift=v)` leaves `mob` at its CURRENT position** — it STARTS at
+    `current − v` and ENDS where `mob` already is. So do NOT ALSO pre-shift the mob (a
+    `mob.shift(DOWN*d)` before `FadeIn(mob, shift=UP*d)` stacks: the row ends `d` BELOW its
+    slot, not at it). To rise a NEW row into a target slot, build it AT the target and pass
+    the whole travel as the shift (`FadeIn(row_at_target, shift=UP*travel)`), or build it
+    below and animate `.shift(UP*travel)` — pick one, never both. (Bit us on hangman scene
+    20's reflow: newcomers landed 0.5 low — a persistent gap — AND only nudged 0.5 instead
+    of rising from the bottom, silently dropping the script's "come up from the bottom" clause.)
   - **`mob.animate(rate_func=…).set_value(…)` — the CALL form — silently fails to
     animate a `ValueTracker` inside a multi-animation `play()`** (reads as a jump at the
     end). Use plain `mob.animate.set_value(…)`; put the rate_func on the `play()`.
@@ -782,6 +1093,25 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
     with side effects, can leave the group behind). Only `remove()` TOP-LEVEL mobjects;
     to drop an in-group text, rebuild the group or hard-clear (`for m in
     list(self.mobjects): self.remove(m)`).
+  - **A decoration hung on a composite as an ATTRIBUTE (not a submobject) is SKIPPED by a
+    group `FadeOut`/`FadeIn` → it lingers.** `chart.xtitle = mob` (then `FadeIn(chart.xtitle)`
+    separately) leaves `mob` OUTSIDE `chart`'s submobject tree, so a later `FadeOut(chart)`
+    doesn't touch it and it stays on screen into the next beat. Add it as a real submobject
+    (`chart.add(mob)`; keep the `.xtitle` handle for reference) so every group op includes it,
+    or fade it explicitly. (Bit us on hangman scene 21: an added x-axis title lingered past the
+    chart's fade-out.)
+  - **A whole-object `Transform`/`ReplacementTransform`/`TransformFromCopy` of a COMPOSITE
+    (tree, grid cell) pairs its submobjects BY INDEX** → a blob morph (parts fly to the
+    wrong counterparts). Pair pieces EXPLICITLY by role and transform each to its match.
+  - **Regrouping existing submobjects into a NEW `VGroup`, animating that, then
+    `remove(original_container)` leaves the pieces ON SCREEN.** The original container is
+    no longer in `scene.mobjects` (only its pieces are, added top-level), so `remove`/
+    `FadeOut(container)` is a no-op → a lingering duplicate. Track and fade the ACTUAL
+    on-screen mobjects, not the stale container.
+  - **After a copy-based reveal (`TransformFromCopy` into nested pieces) the on-screen
+    mobjects are dual-tracked** (top-level + nested), so later `FadeOut`/`remove` misbehave.
+    `self.clear()` + `self.add(*clean_groups)` at the end re-establishes clean containers
+    (seamless — the pieces are already at their final pose).
 
 ## Git / new repos
 - **Commit and push WITHOUT asking — this OVERRIDES Claude Code's default.** In this
@@ -797,6 +1127,14 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   which NEVER auto-approves (forces a prompt) regardless of how the git allow-rules are
   set — the biggest single source of commit prompts a whole session (2026-07-27). Use
   `-m "subject" -m "body para" -m "footer"` instead.
+- **Keep `<` and `>` OUT of commit-message text (and any allowlisted command's args) —
+  they read as REDIRECTIONS and force a prompt even inside a quoted `-m` string.** The
+  permission checker scans the raw command for `<`/`>` (per the redirection rule above)
+  BEFORE it honours quoting, so an arrow like `A->B`, `X <-> Y`, or `foo->bar` in a
+  commit message trips it every time (bit us 2026-08-11 — an `A <-> B` message prompted).
+  Write "A to B", "X vs Y", "foo yields bar" — plain words, no angle brackets. Same for
+  `|`, `&`, `;`, `(`, `)` if they'd land unquoted-looking in a message; safest to avoid
+  shell metacharacters in `-m` text entirely.
 - **For the CURRENT workspace repo, use BARE `git` (no `-C`).** Bare `git add <path>` /
   `git commit -m …` match the standing `Bash(git add *)` / `Bash(git commit *)` rules and
   do NOT prompt (verified 2026-07-28: a bare `git commit` ran clean where the SAME
@@ -820,6 +1158,13 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
   --cached <dir>` keeps them on disk). CAUTION: scope cache/pkl ignores to the animations
   tree — do NOT blanket-ignore `*.pkl`, since solver data under `math/data/` and
   `math/notebooks/data/` is intentionally tracked.
+- **Notebooks vs `Script.md` in a commit sweep (e.g. `/push-videos`): commit notebooks,
+  leave `Script.md`.** `math/notebooks/*.ipynb` are the synced math/exploration pipeline
+  (`math/` is tracked + synced), so a forgot-to-commit sweep SHOULD commit them. But
+  `animations/Script.md` is the Markdown EXPORT of a Google-Doc table (the Doc is canonical
+  — that's why each cell flattens to one line on export), so a local edit is a regenerated
+  export, not authoritative: do NOT auto-commit `Script.md` in a sweep — leave it dirty for
+  the user to commit re-exports deliberately (same for a stray `scenes/Script.md` copy).
 
 ## Starting a new scene
 How the user likes a brand-new `scenes/NN<name>.py` built:
@@ -865,12 +1210,22 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   two-open-box turn-12 state with rest-of-GAME EVs, not a generic single-box
   illustration). If neither column pins it down, FLAG-and-ASK.
   (5) **each on-screen element → the shared helper/value it renders through — a STYLING
-  pass, not just content.** Name what each element comes from: text → `crisp_text`
-  (right `font_size`/`color`), never a raw `Text`; colours → the specific
+  pass, not just content. Write this out as a REUSE MAP, and put it in the scene's
+  DOCSTRING (not just the chat) so it's permanent, greppable, and reviewable later.**
+  One line per major element → the EXACT existing source it comes from: text →
+  `crisp_text` (right `font_size`/`color`), never a raw `Text`; colours → the specific
   `style.py`/`config.py` name (score green/red, gold highlight, `ACCENT_FILL`), never a
-  hand-picked hex; a prop ENTRANCE or box fill/flash → the existing asset method
-  (`Scorecard.slide_in`, `flash_rows`, dice helpers), never a hand-rolled FadeIn. A cell
-  you can't map to a helper is the flag to STOP and find it (or ask). **Re-run at
+  hand-picked hex; a prop / its ENTRANCE / box fill / flash / on-screen LAYOUT → the
+  existing asset or a SIBLING scene's actual constants (`Scorecard.slide_in`, `flash_rows`,
+  dice helpers, `game_board`'s `BLANK_*`/`HANG_*`), never a hand-rolled FadeIn or a
+  re-derived layout. **This is the gate that catches REINVENTION: the failure mode isn't
+  copying a constant and tweaking it — it's building a plausible NEW variant of something
+  that already exists (a whole board layout, a chart style). Naming the source for every
+  element forces you to look; an element you CANNOT name an existing source for is a HARD
+  STOP — grep the assets AND the sibling scenes, and if there's genuinely no source,
+  FLAG-and-ASK before building it. Never invent a variant of a thing a sibling scene
+  already renders.** (Because the map is user-visible at preflight, an invented entry gets
+  caught BEFORE any code is built on it — the cheapest possible point.) **Re-run at
   handoff** on a verification frame: read the STYLING (text in `FONT`? colours semantic?
   reused props render as elsewhere?), not just position/overlap. **NOT new-scene-only —
   it re-runs whenever you ADD an element while EDITING; the tripwire is typing a new
@@ -894,6 +1249,22 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   emitting it. Removing a subscene shifts every LATER letter, orphaning the old
   highest-letter video (`resolve --clean` only cleans letters you render) — delete that
   orphaned `NN<letter>_*.mp4` by hand.
+- **SUBSCENE COUNT MUST EQUAL BEAT COUNT — one `@subscene` per `---`/`—`-delimited
+  script beat, NEVER more.** The subscene letters (a, b, c…) map 1:1 onto the beats, in
+  order. Do NOT invent extra subscenes, and do NOT split ONE beat across several. The
+  trap is a MULTI-STEP beat — a whole played-out game, a montage, a several-guess
+  sequence: it is written as ONE beat (one `—` segment), so it stays ONE subscene whose
+  BODY unrolls the steps (a lockstep `for` over the guesses, or explicit per-step calls
+  each with its own `run_time`). It does NOT become one subscene per guess. (A per-guess
+  subscene is right ONLY when the SCRIPT gives each guess its own beat — e.g. the
+  standalone 94chalkgame, where each guess IS a `—` segment; contrast the game INSIDE
+  hangman scene 16's single beat j, which is one subscene.) Conversely a no-op beat (the
+  thing it asks for is already true — "move the list to centre" when it's already centred)
+  still gets its beat's subscene, but with an EMPTY/near-empty body (its VO plays over the
+  static hold) — do NOT replace it with an invented animation. **At handoff, re-zip:
+  list the beats a,b,c… and confirm exactly one subscene per beat, same letters.** (Bit
+  us on hangman 05 and 16: a played-out game and an "establish" flourish were split/
+  invented into extra subscenes, drifting the letter↔beat mapping the user tunes against.)
 - **Start from a blank scene** (the setup_scene/@subscene pattern), not a copy — but
   informed by what you read above.
 - **Build from the script.** Stick to what `Script.md` column 2 calls for — don't invent
@@ -915,6 +1286,20 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   from the scene's constants ("opening this box reads better") and silently break the
   beat's meaning. The build PREFLIGHT reads column 1+2 per beat; this keeps that grounding
   alive through the ITERATION passes, where it lapses.
+- **A CONTENT choice — WHICH words / examples / samples a beat SHOWS — is governed by the
+  beat's VOICEOVER (`Script.md` column 1), not just column 2's mechanic; CITE the clause it
+  serves at the point of decision.** Picking which items to display (the cutoff-region
+  words, an example set, a sampled subset, a montage's words) must SERVE the voiceover's
+  point, not merely satisfy column 2's slot. Before/while choosing, re-read that beat's
+  column-1 voiceover, let its INTENT constrain the pick, and then RECORD that intent as a
+  comment BESIDE the content flag (in the data module / asset) so the pick — and the next
+  edit — can't drift from it. This extends the build-preflight "read column 1, not column 2
+  alone" to DATA authoring and ITERATION, where the mechanic can look right while the
+  SELECTION quietly misses the point. There's no static check for "does this content serve
+  the voiceover" (it's semantic), so the enforcement IS this discipline: the flag cites its
+  clause. (Bit us: scene-03's cutoff words were all recognizable, silently breaking the
+  voiceover's "a cutoff where I knew about HALF the words near it" — the whole point of the
+  beat. The fix was a familiar/obscure mix + the intent recorded on the flag.)
 - **For animation FEEL/timing: build a quick ROUGH version, render + grab frames, iterate
   from the user's reaction.** Don't over-build the first pass; render and verify after
   every visual change.
@@ -926,7 +1311,12 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   an object that didn't appear, off-screen label, wrong number, frame overflow, size
   mismatch) — these cost a full round-trip if missed. The agent does NOT iterate on
   subjective FEEL (exact run_times, easing, holds) — the user judges that from the video.
-  On handoff, NAME which timing/feel knobs you left at a guess.
+- **Do NOT offer, propose, or ask about a "timing pass" — the user ALWAYS does timing
+  themselves, AFTER recording the voiceover.** Leave every `run_time`/`wait` as an inlined,
+  editable guess (per the run_time rules) and move on; do NOT end a handoff with "want me
+  to do a timing pass?" or similar. Timing is entirely the user's, done later against the
+  VO — the agent's job is the objective build, not the pacing. (No need to enumerate the
+  timing knobs at handoff either; they're all inline literals the user will sweep anyway.)
 - **Every animation/wait exposes its `run_time`** in the subscene body so the user can
   retime — full rule in the run_time note under Scene structure.
 - **Use extended thinking for scene-building** (geometry + sequencing): the costly mistakes

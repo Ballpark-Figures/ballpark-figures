@@ -10,6 +10,9 @@ remembering (and that got missed while EDITING this-or-that scene):
   - a one-use `run_time` local (`rt = 1.2` … run_time=rt) -> inline the literal at the call site
   - a recalled manim DEFAULT frame bound (7.11 / 14.22)  -> read config.frame_x_radius/​y_radius
   - `.scale(...)` chained on a get_scorecard()/get_two_scorecards() -> enters full-size via slide_in
+  - a HAND-ROLLED BAR CHART (fill-only `Rectangle` bars with a data-driven
+      height/width, built in a loop) -> use bpkfigures.histogram.get_histogram
+      (ink_color=CHALK for dark/chalkboard scenes) / bar_graph.get_bar_graph
 
 It is WARN-ONLY: it never changes the exit code and never blocks a render. The
 judgment-based conventions still live in CLAUDE.md; this only mechanises the few
@@ -50,6 +53,8 @@ class _Linter(ast.NodeVisitor):
         self.local = set(local_names)            # names ASSIGNED in this file (a
         #   local `GRAY = "#…"` constant is not manim's palette — its hex def is
         #   flagged where it's written, so don't also flag every use of the name)
+        self._loop_depth = 0                     # >0 while visiting inside a loop
+        #   (so a `Rectangle(...)` bar built per-iteration can be recognised)
 
     def _warn(self, lineno, msg):
         self.warnings.append((lineno, msg))
@@ -63,6 +68,10 @@ class _Linter(ast.NodeVisitor):
             self._warn(node.lineno,
                        f"raw {name}(...) — use crisp_text/crisp_paragraph "
                        f"(bpkfigures.style), never a bare manim text mobject")
+        # a fill-only Rectangle with a DATA-DRIVEN height/width, built in a loop =
+        # a hand-rolled bar chart -> the shared histogram/bar-graph asset
+        if name == "Rectangle" and self._loop_depth > 0:
+            self._check_hand_rolled_bar(node)
         # `.scale(...)` chained DIRECTLY on a scorecard factory call
         if (name == "scale" and isinstance(f, ast.Attribute)
                 and isinstance(f.value, ast.Call)):
@@ -75,6 +84,39 @@ class _Linter(ast.NodeVisitor):
                            f"FULL size at its canonical centre via slide_in / "
                            f"slide_two_in; don't .scale() it (it reads tiny)")
         self.generic_visit(node)
+
+    # ── loop tracking (so a per-iteration Rectangle bar is recognisable) ──────
+    def _visit_loop(self, node):
+        self._loop_depth += 1
+        self.generic_visit(node)
+        self._loop_depth -= 1
+
+    visit_For = _visit_loop
+    visit_While = _visit_loop
+    visit_ListComp = _visit_loop
+    visit_SetComp = _visit_loop
+    visit_DictComp = _visit_loop
+    visit_GeneratorExp = _visit_loop
+
+    def _check_hand_rolled_bar(self, node):
+        """`node` is a `Rectangle(...)` call inside a loop. Flag it as a hand-rolled
+        bar iff it's fill-only (`stroke_width=0`) AND at least one of its height/
+        width is DATA-DRIVEN (not a numeric literal) — the bar idiom. A fixed-size
+        rectangle grid (both dims literal) is left alone."""
+        kw = {k.arg: k.value for k in node.keywords if k.arg}
+        sw = kw.get("stroke_width")
+        if not (isinstance(sw, ast.Constant) and sw.value == 0):
+            return
+        def data_driven(v):
+            return v is not None and not (isinstance(v, ast.Constant)
+                                          and isinstance(v.value, (int, float))
+                                          and not isinstance(v.value, bool))
+        if data_driven(kw.get("height")) or data_driven(kw.get("width")):
+            self._warn(node.lineno,
+                       "hand-rolled bar chart (fill-only Rectangle bars in a loop) — "
+                       "use bpkfigures.histogram.get_histogram (ink_color=CHALK for "
+                       "dark/chalkboard scenes) or bar_graph.get_bar_graph; if the "
+                       "shared helper lacks a knob, ADD the param, don't rebuild")
 
     # ── inline hex colours  +  recalled default frame bounds ──────────────────
     def visit_Constant(self, node):
