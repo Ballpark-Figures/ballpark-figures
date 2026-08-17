@@ -1,5 +1,10 @@
 # Ballpark-Figures — shared animation conventions
 
+<!-- canary: each video's CLAUDE.md tells the agent to look for this token. -->
+**SHARED-RULES-LOADED** — if an agent cannot see this token in its context, the
+video's `@CLAUDE.shared.md` import silently failed and it is running without any
+of the rules below. See "Import canary" in that video's `CLAUDE.md`.
+
 Cross-video rules for all videos in this repo (`battleship/`, `yahtzee/`, …).
 `bpkfigures/` is the shared package every video imports, so these conventions
 load wherever you're working. Video-specific rules live in that video's own
@@ -391,6 +396,26 @@ comes from working AROUND it.
   re-`cd scenes/` in its own call before every background render batch that follows git.
 - **Grab render frames with `render … --frames … --extract`, then READ the PNGs** (Read
   tool) — one allowlisted call, no re-render, no hand-rolled `ffmpeg` chains.
+
+## Long-running jobs (agent)
+- **When the user is at the machine, hand over a copy-pasteable command block
+  instead of running a long job yourself** — build → cheap verification gate →
+  launch, and state what output confirms success. A multi-hour job pinning every
+  core makes their desktop unusable and takes the start time out of their hands.
+  When they're away and have asked for results waiting on their return, drive it
+  to completion instead; same shape either way.
+- **Make long jobs survivable**: `nohup` so they outlive the terminal, resumable
+  from their own output (skip work already recorded, flush per unit), and logged
+  to a file. Pair the launch with a `tail -F` line — capital `-F`, because a
+  backgrounded job creates its log *after* the shell forks and `-f` loses that
+  race and exits.
+- **Assume the machine reboots under you.** Windows Update restarts outside
+  active hours. A Scheduled Task pointing at a resume script turns that from a
+  lost night into a few lost minutes; pausing updates expires and gets forgotten,
+  a resume script does not.
+- **A cache that took hours to warm deserves a snapshot path.** If a job builds
+  large in-memory state, add save/load for it before the first forced restart,
+  not after.
 
 ## The Battleship video is the model
 Match its visual look and its **sparse on-screen text** — not necessarily its
