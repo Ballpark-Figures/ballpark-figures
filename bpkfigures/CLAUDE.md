@@ -618,6 +618,15 @@ calls for; no titles/labels/narration that weren't asked for.
   passed the literal at the call site — never a hardcoded run_time buried where the
   caller can't reach it. The ONE exception: a named local for the lockstep case (the
   SAME value driving several same-length plays in sync).
+  - **NEVER put a `run_time` at MODULE level (top of the scene file).** run_times live at
+    the `self.play` call site as inline literals. The only exceptions — the lockstep-loop
+    named local and the dense-subscene helper parameter — both live INSIDE the owning
+    subscene. If a value genuinely must be a named variable, it goes at the top of that
+    SUBSCENE, never the top of the file: a file-top run_time constant is unreachable from
+    the call the user is retuning, and (unlike a layout/position constant, which is
+    module-level so the snapshot digest captures it) a run_time has no such reason to sit
+    there. So a `ROW_TIME = 4.0` / `ZOOM_OUT_RT = 4.0` at file top is off-convention —
+    inline it at its call, or make it a subscene-local for the lockstep/helper case.
 - **Every animation WE author exposes a single `run_time` that scales the WHOLE
   animation.** Any method/closure we write that plays (scene helper, ASSET method,
   local `roll()`/`count_in()`) takes ONE `run_time` meaning the ENTIRE duration: when
@@ -636,6 +645,21 @@ calls for; no titles/labels/narration that weren't asked for.
   narration); otherwise write consecutive `self._step(...)` / `self.wait(...)` lines
   with per-step literals (keep SOURCED numbers referenced from their data list). Ref:
   scenes 12a, 05.
+- **DISTINCT animations that land on DIFFERENT parts of the script's text must be
+  SEPARATE `self.play` calls in the subscene body — NEVER bundled inside one helper.**
+  Same principle as the loop rule above, one level finer: a helper that fires several
+  plays back-to-back (`word+lines`, then pie A, then pie B) collapses moments the
+  VOICEOVER pronounces on separate sentences into one un-seamed block, so the user can't
+  drop a `self.wait()` between them or retime one independently — exactly the timing knob
+  they own. So when a beat's animation maps to more than one clause/sentence of column 1
+  (an "after" pie for one sentence, a "before" pie for the next; a reveal then its
+  emphasis; a build then its payoff), a shared helper may only BUILD + RETURN the
+  mobjects (`_build_<row>() -> handles`); the PLAYS live in the body, one per clause, each
+  with its own inline `run_time`, with a natural seam between for a wait. A helper that
+  BOTH builds and plays is fine ONLY when its plays are one indivisible moment on one
+  clause. (Bit us on hangman scene 08 g/h: `_adjacency_row` fanned the after- and
+  before-pies in one call, so the two pies — narrated as two separate sentences — couldn't
+  be waited between; fixed by splitting into `_build_adjacency_row` + body plays.)
 - **A DENSE, multi-phase subscene → split each phase into a private helper taking its
   `run_time`s as PARAMETERS, so the BODY reads as a timeline of `self._phase(1.0)`
   calls.** The inline-literal rule above stays the default for a SIMPLE subscene; but
@@ -1230,28 +1254,48 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   reused props render as elsewhere?), not just position/overlap. **NOT new-scene-only —
   it re-runs whenever you ADD an element while EDITING; the tripwire is typing a new
   value/constant (see § Reuse over reinvention).**
-- **Beats are delimited by a literal `---` in BOTH columns — split on it to recover the
-  beat↔voiceover↔animation mapping.** `Script.md` is a 2-column Google-Doc table whose
-  Markdown export FLATTENS each cell to ONE line (no newlines), so without the `---` a
-  scene's voiceover and animation are two run-on blobs with beat boundaries lost. Parse
-  by splitting BOTH cells on `---` and zipping: segment *i* of voiceover pairs with
-  segment *i* of animation = beat *i* = subscene (a, b, c…). If segments are
-  letter-tagged (`a)` … `b)` …), pair by tag. This is what makes items (3)/(4) possible.
-- **If a multi-beat scene's row has NO `---` delimiters, STOP and ASK the user to add
+- **The RIGHT column (animation) DRIVES the beats; two delimiters, `--` vs `---`, control
+  whether the LEFT column (voiceover) advances.** `Script.md` is a 2-column Google-Doc table
+  whose Markdown export FLATTENS each cell to ONE line (no newlines), so a scene's voiceover
+  and animation would be two run-on blobs without delimiters. Read the RIGHT column top to
+  bottom — each delimiter starts a NEW beat = subscene (a, b, c…):
+  - **`---` (three hyphens)** → new beat AND advance to the NEXT left-column voiceover
+    section. This is the "normal" boundary — its `---` lines up with a `---` in the left
+    column.
+  - **`--` (two hyphens)** → new beat that stays paired with the SAME left-column voiceover
+    section as the beat before it. This is the sanctioned way for SEVERAL subscenes to share
+    ONE voiceover section; it consumes no left-column delimiter.
+
+  So: split the RIGHT column on both `--` and `---` → one beat per piece; split the LEFT
+  column on `---` only; a beat advances the left pointer iff its leading delimiter was `---`.
+  Example — right column `A -- B --- C` → beats a/b/c; a (A) and b (B) both pair with
+  voiceover section 1, c (C) pairs with section 2 (the left column has 2 sections split by
+  one `---`). If segments are letter-tagged (`a)` … `b)` …), pair by tag. This is what makes
+  items (3)/(4) possible.
+  - **BACKWARDS COMPATIBLE:** older scripts use ONLY `---` (no `--` anywhere), so every beat
+    advances the left section — identical to the previous strict 1:1 zip. Nothing changes for
+    an all-`---` script.
+- **If a multi-beat scene's row has NO delimiters, STOP and ASK the user to add
   them — do NOT guess the boundaries** (the mapping is unrecoverable from the flattened
   export). A genuinely single-beat scene needs none; the trigger is several beats
-  crammed into one run-on cell. Watch too for a MISMATCHED `---` count between columns
-  (an empty beat still needs an empty segment, `… --- (no change) --- …`) — a mismatch
-  silently shifts the pairing, so flag it.
+  crammed into one run-on cell. Watch too for a MISMATCHED `---` count between columns:
+  the left-column `---` count must equal the RIGHT-column `---` count (the `--` boundaries
+  are ignored for this alignment — they add beats WITHIN a left section). An empty beat
+  still needs an empty segment (`… --- (no change) --- …`); a `---` mismatch silently shifts
+  the pairing, so flag it.
 - **A beat with an EMPTY animation column (voiceover-only) gets NO subscene** — don't
   create a do-nothing `self.wait` subscene; its voiceover plays over the neighbours'
   framework holds. Still COUNT it when zipping (so later beats stay aligned), but skip
   emitting it. Removing a subscene shifts every LATER letter, orphaning the old
   highest-letter video (`resolve --clean` only cleans letters you render) — delete that
   orphaned `NN<letter>_*.mp4` by hand.
-- **SUBSCENE COUNT MUST EQUAL BEAT COUNT — one `@subscene` per `---`/`—`-delimited
-  script beat, NEVER more.** The subscene letters (a, b, c…) map 1:1 onto the beats, in
-  order. Do NOT invent extra subscenes, and do NOT split ONE beat across several. The
+- **SUBSCENE COUNT MUST EQUAL BEAT COUNT — one `@subscene` per RIGHT-column beat (each
+  `--`/`---`/`—`-delimited segment), NEVER more.** The subscene letters (a, b, c…) map 1:1
+  onto the beats, in order. NOTE the beat count is the number of RIGHT-column segments, which
+  can EXCEED the number of left-column voiceover sections — a `--` boundary adds a subscene
+  under the SAME voiceover section (see the delimiter rule above), so several subscenes
+  legitimately share one voiceover section. Do NOT invent extra subscenes beyond the
+  delimiters, and do NOT split ONE beat across several. The
   trap is a MULTI-STEP beat — a whole played-out game, a montage, a several-guess
   sequence: it is written as ONE beat (one `—` segment), so it stays ONE subscene whose
   BODY unrolls the steps (a lockstep `for` over the guesses, or explicit per-step calls
