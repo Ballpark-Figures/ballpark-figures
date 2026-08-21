@@ -33,6 +33,19 @@ load wherever you're working. Video-specific rules live in that video's own
   Willfully deviating from an explicit instruction — even when your alternative
   seems reasonable — is a serious error that can cause major problems later.
   Flagging-then-asking is always acceptable; substituting without asking is not.
+- **When EXPLAINING existing code, do NOT manufacture justification for it — if a choice
+  looks off, SAY SO.** Asked what a piece of code does, describe the mechanism plainly;
+  but when the CHOICE looks dubious — a copy-pasted default, a partial value nobody
+  decided on, an inconsistency with a sibling — FLAG it as a question, don't dress it up
+  as deliberate convention. A confident-sounding rationale for why something is "correct
+  by convention" is worse than the doubt, because it launders a likely bug into settled
+  fact and stops anyone questioning it. Notice-and-flag beats explain-and-defend. (Bit us
+  2026-08-20: a partial `lag_ratio=0.5` on chalk strokes — wrong, and pervasive across 24
+  sites in 9 scenes — went unnoticed for the whole video, and when the user asked about it
+  the agent wrote paragraphs justifying it as intentional rather than noticing it was
+  wrong. The user was rightly concerned BOTH that the issue persisted this long AND that
+  the agent tried to justify it. Swept to `lag_ratio=1.0` everywhere; the fix changed no
+  timings, since `run_time` scales the whole `LaggedStart` regardless of lag.)
 - **A user's inline description of an ANIMATION is a spec — run the same
   clause-by-clause checklist you'd run on a `Script.md` column.** When the user
   describes an effect in prose ("little green lines, one at a time, very quickly,
@@ -236,6 +249,15 @@ the "where do I look" map.
   **Emphasise one OF a group** → dim the rest (save_state/Restore; scenes 07/08).
 - **A frame-edge position** → read `config.frame_x_radius/​y_radius` (8.0/4.5) at
   runtime. Never hardcode/recall 7.11/4.0.
+- **Something spills off-frame (a label, tree, grid too wide/tall)** → `fit_to_frame(mob,
+  buff=…)` (style.py) — scales it DOWN to fit the frame (or a `width`/`height` region)
+  minus a buff. Don't hand-roll a width-clamp (scene 05 did, repeatedly).
+- **A COUNTING number WITH a label** (e.g. "Average Misses: 4.22" that ticks) →
+  `CrispCounter(prefix, tracker, left=…, y=…, font_size=…)` (style.py): the whole
+  label+number is ONE `crisp_text` on a FIXED left edge, `become()`-driven from a
+  ValueTracker so it never jitters/resizes, with the number flashing green-up/crimson-down
+  (`.count(scene, value, run_time, flash=…)`). Don't hand-roll it (scenes 05 & 18 each did,
+  and re-broke the rolling-counter resize). See § Shared visual vocabulary.
 - **Every `run_time`** → an inlined literal at the call site (named local only for a
   lockstep loop). (§ Scene structure.)
 - **Any displayed number** → SOURCED from the pipeline (data module + committed cache),
@@ -314,18 +336,16 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
     `get_bar_chart(baseline_labels=True)`. A SINGLE isolated label doesn't need it — this
     is specifically for a set that must share a line. (Bit us on hangman 18: bar labels,
     then the beat-a table, both centred so descender words rode ~0.07u high.)
-  - **A COUNTING / animated number WITH a label → ONE `crisp_text` rebuilt via `become()`,
-    NOT a static label + a separate animated number you then align.** Splitting
-    "Average Misses: 4.23" into a label mobject + a number mobject forces you to hand-align
-    their baselines — and the label's descenders/ascenders differ from the digits, so they
-    drift vertically (the same trap as above). Instead build the WHOLE string as one
-    `crisp_text` and drive it with an updater that `become()`s the full string from a
-    `ValueTracker`: `num.add_updater(lambda m: m.become(crisp_text(f"…: {tr.get_value():.2f}",
-    …)))` — label + number then share a baseline for free. Keep it from jittering/resizing
-    with a FIXED left edge + a FIXED scale (measure a reference string ONCE for the scale;
-    do NOT `scale_to_fit_width` per frame — the digit-width variation would resize it). The
-    fixed PREFIX keeps its height/baseline constant as the number changes. (Recurred across
-    scenes/videos as a label-vs-number misalignment; the single-text form is the fix — hangman 18.)
+  - **A COUNTING / animated number WITH a label → use `CrispCounter` (style.py); do NOT
+    hand-roll it.** `CrispCounter(prefix, tracker, left=…, y=…, font_size=…)` builds the
+    WHOLE "Average Misses: 4.23" as ONE `crisp_text` on a FIXED left edge, `become()`-driven
+    from a `ValueTracker` (label + number share a baseline for free, no per-frame resize),
+    and `.count(scene, value, run_time, flash=…)` animates it with the number flashing
+    green-up / crimson-down (`flash="none"` for an undo). The failure mode it prevents:
+    splitting into a label mobject + a separate number you then hand-align (baselines drift,
+    the counter jitters/resizes as digit widths change) — which recurred across scenes/videos
+    and cost scenes 05 & 18 a pile of round-trips before it became this helper. If you need
+    something the helper can't do, EXTEND it (a backwards-compatible param), don't re-hand-roll.
 - **Panels sit on a card** — `get_card`/`card_behind` (`bpkfigures/card.py`) for the
   standard rounded surface, over a raw `RoundedRectangle`.
 - **To spotlight element(s), use the shared `highlight()`** (`bpkfigures/highlight.py`,
@@ -510,6 +530,21 @@ comes from working AROUND it.
   tool) — one allowlisted call, no re-render, no hand-rolled `ffmpeg` chains.
 
 ## Long-running jobs (agent)
+- **If the user ASKS YOU FOR A COMMAND to run, the deliverable is the COMMAND — hand it
+  over and do NOT run it yourself. They asked for it because they want to run it
+  themselves.** When the user says "give me a command to X", "how do I regenerate/render
+  Y", "what should I run" — give the copy-pasteable command and STOP. Do NOT then execute
+  it "to verify", "to prove it works", or "just one to be sure": they explicitly took the
+  running for themselves (their machine, their timing, their control — and often to avoid
+  clobbering already-finalized outputs like padded subscenes), and running it anyway takes
+  that away. If a claim needs backing, give the REASONING and tell them how THEY can check
+  (e.g. an `ffprobe` compare). This is NARROW and only about the "give me a command"
+  request — it does NOT restrict the normal build loop: when you're actively BUILDING or
+  ITERATING on the CURRENT scene, do your usual objective verification renders (1-3 fast
+  frames for wrong position/overlap/count/clipping) as you always would. The line: "give
+  me a command to run" → hand it over, they run it; "work on this scene" → verify as
+  normal. (Bit us 2026-08-20: asked for the commands to re-render, the agent ran a render
+  itself, twice — the user wanted to run it themselves. Give the command; let them run it.)
 - **When the user is at the machine, hand over a copy-pasteable command block
   instead of running a long job yourself** — build → cheap verification gate →
   launch, and state what output confirms success. A multi-hour job pinning every
@@ -964,6 +999,8 @@ calls for; no titles/labels/narration that weren't asked for.
   (an attribute name), never `ClassName._cache`. (Bit us on hangman scene 05: a
   `Scene05._NUM_REF` number cache made every avg-number beat, g onward, re-render on any
   edit — the class-name reference dragged the whole class source into their digests.)
+  **`render … --check` now WARNS on a `ClassName.attr` self-reference** (`lint.py`), so this
+  footgun is caught at check time — fix the flagged line (`self.attr`) rather than ship it.
 - Don't build a mobject carrying a LAMBDA updater (`always_redraw(lambda …)` or
   `.add_updater(lambda …)`) in `setup_scene` — the lambda can't be pickled, which
   breaks the whole scene's snapshot. Build those in the subscene. A BARE

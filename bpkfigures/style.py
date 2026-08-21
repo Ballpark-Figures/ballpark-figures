@@ -147,3 +147,76 @@ def crisp_paragraph(*lines, **kwargs):
     ss = _supersample(fs)
     with _no_pango_wrap():                     # each explicit line stays one line (see crisp_text)
         return Paragraph(*lines, font_size=fs * ss, **kwargs).scale(1 / ss)
+
+
+def fit_to_frame(mob, *, buff=0.3, width=None, height=None):
+    """Scale ``mob`` DOWN (never up) so it fits inside the frame minus ``buff`` on each
+    side — the shared fix for the recurring "a label / tree / grid spills off-frame" redo
+    (scene 05 hand-rolled width-clamps repeatedly). Pass ``width``/``height`` to fit a
+    REGION instead of the whole frame. Reads the real frame bounds from ``config`` (never
+    a recalled 7.11/4.0). Returns ``mob`` (scaled in place)."""
+    max_w = (width if width is not None else 2 * config.frame_x_radius) - 2 * buff
+    max_h = (height if height is not None else 2 * config.frame_y_radius) - 2 * buff
+    f = min(max_w / max(mob.width, 1e-6), max_h / max(mob.height, 1e-6), 1.0)
+    if f < 1.0:
+        mob.scale(f)
+    return mob
+
+
+class CrispCounter:
+    """A label+value as ONE ``crisp_text`` driven by a ValueTracker, positioned by a
+    FIXED LEFT EDGE (never recentred) so counting never shifts or resizes it — the shared
+    fix for the recurring "rolling counter jitter / resize / wrap" redo (scenes 05 & 18
+    each hand-rolled this; see CLAUDE.md "A COUNTING number WITH a label"). The value is
+    ``fmt``-formatted and appended to ``prefix``; while counting, only the trailing NUMBER
+    glyphs flash (green up / crimson down, easing back to ``color``), the prefix stays put::
+
+        tr = ValueTracker(3.88)
+        c = CrispCounter("Average Misses: ", tr, left=x, y=y, font_size=30)
+        scene.add(c.mob)
+        c.count(scene, 4.22, run_time=1.5)                 # counts up, number flashes green
+        c.count(scene, 4.10, run_time=1.0, flash="none")   # an UNDO: count, no flash
+
+    The whole string is rebuilt via ``.become()`` each frame, so a bare ValueTracker (which
+    pickles fine) can live in ``setup_scene`` and only the updater is attached in the body."""
+
+    def __init__(self, prefix, tracker, *, left, y, font_size, color=BLACK,
+                 weight=NORMAL, fmt=None, up_color=None, down_color=None):
+        self.prefix, self.tracker = prefix, tracker
+        self.left, self.y, self.font_size = left, y, font_size
+        self.color, self.weight = color, weight
+        self.fmt = fmt or (lambda v: f"{v:.2f}")
+        self.up_color = ACCENT_GREEN if up_color is None else up_color
+        self.down_color = CRIMSON if down_color is None else down_color
+        self.mob = self._build(tracker.get_value(), color)
+
+    def _build(self, value, num_color):
+        numstr = self.fmt(value)
+        m = crisp_text(self.prefix + numstr, font_size=self.font_size,
+                       color=self.color, weight=self.weight)
+        m.move_to([self.left, self.y, 0], aligned_edge=LEFT)     # FIXED left edge — no recentre
+        if num_color != self.color and numstr:
+            m[-len(numstr):].set_color(num_color)                # recolour only the number glyphs
+        return m
+
+    def _updater(self, v0, v1, flash):
+        col = None if flash == "none" else (
+            self.up_color if v1 > v0 + 1e-9 else self.down_color if v1 < v0 - 1e-9 else None)
+
+        def upd(m):
+            v = self.tracker.get_value()
+            c = self.color
+            if col is not None and abs(v1 - v0) > 1e-9:
+                a = (v - v0) / (v1 - v0)                          # 0..1 count progress
+                t = 0.0 if a < 0.72 else (a - 0.72) / 0.28        # hold flash, then ease to base
+                c = interpolate_color(col, self.color, t)
+            m.become(self._build(v, c))
+        return upd
+
+    def count(self, scene, value, run_time, *, flash="auto"):
+        """Animate the tracker to ``value`` (the readout follows via a become() updater);
+        the number flashes by direction unless ``flash="none"`` (an undo/reset)."""
+        v0 = self.tracker.get_value()
+        self.mob.add_updater(self._updater(v0, value, flash))
+        scene.play(self.tracker.animate.set_value(value), run_time=run_time)
+        self.mob.clear_updaters()

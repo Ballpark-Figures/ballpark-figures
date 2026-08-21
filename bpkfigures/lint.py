@@ -8,6 +8,11 @@ remembering (and that got missed while EDITING this-or-that scene):
   - a hex colour literal ("#B01E43") inlined in a scene  -> name it in style.py / config.py
   - a raw manim palette colour (GREY, RED, …)            -> use a semantic style.py/config.py colour
   - a one-use `run_time` local (`rt = 1.2` … run_time=rt) -> inline the literal at the call site
+  - a HELPER method that calls self.play but exposes NO run_time param -> a helper
+      that plays takes a run_time the caller passes (@subscene beats are exempt —
+      their timing lives inline in the body). Only "no timing knob AT ALL" is flagged;
+      multi-knob helpers (rt_write/move_rt/…) satisfy it — the one-vs-many-knobs
+      judgment is semantic and stays in CLAUDE.md, not here.
   - a recalled manim DEFAULT frame bound (7.11 / 14.22)  -> read config.frame_x_radius/​y_radius
   - `.scale(...)` chained on a get_scorecard()/get_two_scorecards() -> enters full-size via slide_in
   - a HAND-ROLLED BAR CHART (fill-only `Rectangle` bars with a data-driven
@@ -45,6 +50,14 @@ _FRAME_DEFAULT_BOUNDS = (7.11, 14.22)
 _SCORECARD_FACTORIES = {"get_scorecard", "get_two_scorecards"}
 _LOOPS = (ast.For, ast.While, ast.ListComp, ast.SetComp, ast.DictComp,
           ast.GeneratorExp)
+# decorators whose method's timing lives INLINE in the body by design (a @subscene
+# is invoked with no args; @thumbnail/@still are static) — exempt from "needs a
+# run_time param". A helper called BY a subscene is not exempt.
+_EXEMPT_DECOS = {"subscene", "thumbnail", "still"}
+# a parameter name that counts as a timing knob: the run_time family only. dur/
+# fade/speed/t are deliberately NOT accepted — the convention calls those "the smell
+# to fix" (rename to run_time), so a helper exposing only those SHOULD still flag.
+_TIMING_PARAM_RE = re.compile(r"^(rt|run_time|.*_rt|rt_.*|.*_run_time)$")
 
 
 class _Linter(ast.NodeVisitor):
@@ -55,6 +68,8 @@ class _Linter(ast.NodeVisitor):
         #   flagged where it's written, so don't also flag every use of the name)
         self._loop_depth = 0                     # >0 while visiting inside a loop
         #   (so a `Rectangle(...)` bar built per-iteration can be recognised)
+        self._class_stack = []                   # enclosing class names (for the
+        #   ClassName.attr snapshot-digest footgun check)
 
     def _warn(self, lineno, msg):
         self.warnings.append((lineno, msg))
@@ -132,6 +147,26 @@ class _Linter(ast.NodeVisitor):
                        f"config.frame_x_radius / frame_y_radius, never a recalled default")
         self.generic_visit(node)
 
+    # ── snapshot-digest footgun: referencing the scene class BY NAME ──────────
+    def visit_ClassDef(self, node):
+        self._class_stack.append(node.name)
+        self.generic_visit(node)
+        self._class_stack.pop()
+
+    def visit_Attribute(self, node):
+        """Flag ``ClassName.attr`` inside ClassName's own body. Naming the class makes the
+        snapshot digest hash ``inspect.getsource`` of the WHOLE class, so editing ANY method
+        re-keys every subscene reaching this one (looks like random mass-invalidation). Read
+        a class attr via ``self.attr``; keep TUNABLE constants at MODULE level (captured by
+        value). See CLAUDE.md 'CLASS attributes are the blind spot'."""
+        if isinstance(node.value, ast.Name) and node.value.id in self._class_stack:
+            self._warn(node.lineno,
+                       f"{node.value.id}.{node.attr} — referencing the scene class by NAME "
+                       f"inside its own body poisons the snapshot digest (hashes the WHOLE "
+                       f"class source, so editing any beat re-renders every subscene). Read "
+                       f"it via self.{node.attr}; keep tunable constants at MODULE level")
+        self.generic_visit(node)
+
     # ── raw manim palette colours ────────────────────────────────────────────
     def visit_Name(self, node):
         if (isinstance(node.ctx, ast.Load) and node.id not in self.local
@@ -144,9 +179,56 @@ class _Linter(ast.NodeVisitor):
     # ── one-use run_time locals ──────────────────────────────────────────────
     def visit_FunctionDef(self, node):
         self._check_run_time_locals(node)
+        self._check_play_run_time(node)
         self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef
+
+    # ── a helper that plays but takes no run_time ─────────────────────────────
+    def _check_play_run_time(self, fn):
+        """Flag a method that calls self.play in its OWN body but exposes no run_time-
+        family parameter. @subscene/@thumbnail/@still (and setup_scene) are exempt —
+        their timing is inline literals by design. A nested closure that plays is its
+        own FunctionDef (checked on its own visit), so only DIRECT plays count here."""
+        decos = set()
+        for d in fn.decorator_list:
+            if isinstance(d, ast.Name):
+                decos.add(d.id)
+            elif isinstance(d, ast.Attribute):
+                decos.add(d.attr)
+            elif isinstance(d, ast.Call):
+                g = d.func
+                decos.add(g.id if isinstance(g, ast.Name)
+                          else g.attr if isinstance(g, ast.Attribute) else None)
+        if decos & _EXEMPT_DECOS or fn.name == "setup_scene":
+            return
+        if not self._plays_directly(fn):
+            return
+        a = fn.args
+        params = [p.arg for p in (a.posonlyargs + a.args + a.kwonlyargs)]
+        if any(_TIMING_PARAM_RE.match(p) for p in params):
+            return
+        self._warn(fn.lineno,
+                   f"helper `{fn.name}` calls self.play but exposes no run_time "
+                   f"parameter — a helper that plays takes a run_time the caller "
+                   f"passes (scale each sub-play by it); @subscene beats are exempt")
+
+    def _plays_directly(self, fn):
+        """True iff `fn`'s OWN body calls self.play / scene.play, NOT counting plays
+        inside a nested def/lambda (those are separate scopes, checked separately)."""
+        def walk(node):
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                    continue
+                if (isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
+                        and child.func.attr == "play"
+                        and isinstance(child.func.value, ast.Name)
+                        and child.func.value.id in ("self", "scene")):
+                    return True
+                if walk(child):
+                    return True
+            return False
+        return walk(fn)
 
     def _check_run_time_locals(self, fn):
         """Flag `name = <number>` where `name` is used EXACTLY once and that use is a
