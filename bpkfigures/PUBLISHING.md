@@ -54,12 +54,67 @@ Everything here is a large binary, so it's **gitignored — local, not synced**
 
 - **manim renders** — `animations/**/media/videos/**/*.mp4`, produced by `render`.
   These are **silent** (no audio).
-- **voiceover** — per-scene `*.wav` (Battleship keeps them in the video repo
-  root, e.g. `01Intro.wav`; edited in an Audacity project `audio.aup3`). *(verify
-  your own audio workflow)*
+- **voiceover** — **recorded directly in DaVinci** onto an audio track (see
+  "Recording the voiceover" below); no external DAW export step. (Battleship's
+  older per-scene `*.wav` + Audacity `audio.aup3` workflow is superseded.)
 - **music** — `music/` (video root): background track(s), `*.mp3`/`*.wav`.
 - **footage** — `footage/` (video root): the NON-manim clips (talking-head
   segments `THA`–`THL`, b-roll, screen recordings), `*.mp4`/`*.mov`.
+
+### Recording the voiceover (directly in DaVinci)
+
+The VO is recorded onto an audio track in DaVinci — no external DAW. **Confirm
+the timeline is the right fps/resolution (step 1) BEFORE recording**, so takes
+land on the correct frame grid.
+
+One-time setup (per project):
+1. Add a VO audio track: right-click the timeline audio-track header → **Add
+   Track → Mono** (mono for a single mic).
+2. **Patch the mic input** *(hardware-dependent — adjust to your interface)*:
+   **Fairlight** page → open the **Mixer** (top-right) → on the VO track's
+   channel strip, click the **Input** slot at the top → **Input…** → pick your
+   mic / audio interface as the source.
+
+Each recording session:
+3. **Arm the track**: click the **R** (record-enable) on that track's header (goes red).
+   The channel meter only shows the **live input** when the track is armed.
+4. Check levels while talking — aim for peaks around **−12 to −6 dB** (never clipping).
+5. Move the playhead to the take's start point.
+6. Press the round red **Record** in the transport → speak → **Stop**. The clip
+   records onto the armed track at the playhead.
+7. **Disarm** (click **R** off) when finished so a stray Record can't overwrite.
+
+**Mic + monitoring (Shure MV7+) — the STABLE-device setup that avoids dropouts:**
+- The mic is a **Shure MV7+** (USB). It's both an input AND an output (headphone
+  jack on the mic), so use it as BOTH: **System Settings → Sound → Input = Shure
+  MV7+ AND Output = Shure MV7+**, and **plug headphones into the mic's own
+  headphone jack** (not the Mac). DaVinci playback returns over USB to the mic →
+  your headphones, so you hear playback AND monitor your voice.
+- **Why this matters:** DaVinci binds its audio device **at launch** and **drops
+  the mic input whenever the macOS device set changes** — plugging headphones into
+  the *Mac*, a mute/unmute, or replugging USB all trigger it (symptoms: meter
+  freezes, or a rhythmic **click ~once/sec**). With input+output on the SAME single
+  device (the MV7+) and headphones in the mic, nothing changes mid-session, so it
+  holds. **Set the audio config FIRST, launch DaVinci LAST, then don't touch the
+  hardware.** If it does drop: re-patch the input (step 2), or quit+relaunch DaVinci.
+- **MV7+ red LED = MUTED** (easy to hit the touch panel by accident); tap the mute
+  icon to clear it. The touch panel also controls mic gain / headphone volume /
+  monitor mix — lock it in the **Shure MOTIV** app to avoid accidental taps.
+  Match sample rates (Audio MIDI Setup device = DaVinci Fairlight rate = **48 kHz**).
+
+**Noise gate (removes low-level room noise) — per-track, non-destructive:**
+- On the VO track's Mixer strip, double-click the **Dynamics** graph → the
+  **Dynamics** window (Expander/Gate · Compressor · Limiter). It's **per-track** (so
+  all VO on this one track is covered, and the music track stays untouched) and
+  applied on **playback** — the recorded files stay **raw/full**, so tweaks fix all
+  existing takes retroactively.
+- **Current setting:** the **"Breath Reduction"** factory preset, with **Hold = 150 ms**
+  and **Release = 300 ms** (lengthened from the preset so word-ENDINGS don't get
+  chopped — a gate closing too fast eats the volume tail-off of word-ends).
+- If word-ends still cut: raise **Release**/**Hold**, lower **Threshold**, or reduce
+  **Range** (attenuate rather than fully mute). If room noise creeps in between
+  phrases: raise **Threshold** a few dB. Keep **Attack** fast (~1–2 ms) so word-STARTS
+  aren't clipped.
 
 ## 3. Assemble (DaVinci Resolve)
 
@@ -70,6 +125,30 @@ step is the least documented — refine as needed.)*
 - Keep a **project backup**: `File → Export Project` → `.drp`. This is the
   editable project (Battleship keeps these in `Resolve Project Backups/`). It is
   **NOT** the deliverable and is **never uploaded** — it only reopens in DaVinci.
+
+### Audio loudness — make it consistent AND match YouTube
+
+Mix to **LUFS** (perceived loudness), not peak volume. **YouTube plays back at
+≈ −14 LUFS integrated and only turns LOUDER uploads DOWN — it never turns a quiet
+one UP.** So a mix under −14 just stays quiet (the "why is my video quieter than
+everyone else's" symptom). Target **≈ −14 LUFS integrated** for the final mix.
+
+1. **Match every dialogue clip to each other** (fixes talking-heads-quieter-than-VO):
+   select the clips (**Cmd+A** grabs all; silent manim renders are skipped
+   automatically), **right-click → Normalize Audio Levels…**, and set:
+   - **Normalization Mode: ITU-R BS.1770-4**
+   - **Target Loudness: −16 LKFS** (LKFS = LUFS; −16 is the per-clip working level,
+     leaving headroom under the −14 master target)
+   - **Target Level: −2.0 dBTP** (true-peak ceiling — leave as-is)
+   - **Set Level: INDEPENDENT** — the critical one: normalizes EACH clip separately
+     to the target so all sources land at the same loudness. *Relative* applies one
+     shared gain and would PRESERVE the mismatch — not what you want.
+2. **Lift the whole mix to YouTube level:** on the **Fairlight** page watch the
+   **Loudness** meter (read **Integrated / I**), put a **Limiter** on the Master /
+   Bus 1 with a **−1 dBTP** true-peak ceiling, and nudge the **master fader** until
+   Integrated reads **≈ −14 LUFS** over a representative play-through.
+3. **Music sits under dialogue:** roughly **−23 LUFS or lower**, ducked a few dB
+   further under speech.
 
 ## 4. Export the video (Deliver page)
 
