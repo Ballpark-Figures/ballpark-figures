@@ -17,6 +17,10 @@ notion/
 # Channel website — its own git repo, same as the sub-repos above.
 website/
 
+# Shared music library — its own PRIVATE git repo (licensed audio + catalog); not a
+# video. See music-library/README.md.
+music-library/
+
 # Per-scene git worktrees (<video>-sceneNN) — created by /scene for concurrent
 # sessions; they're checkouts of a sub-repo, never tracked by the umbrella.
 *-scene[0-9]*/
