@@ -215,6 +215,20 @@ The description body, chapters, and the specific tag list are per-video content
   the standing math/CS set — probability, statistics, expected value, dynamic programming,
   algorithms, game theory, combinatorics, math, word games — plus the specific game/topic.
 
+### Music licensing — Epidemic / Uppbeat, NOT Creator Music
+
+Background music is licensed through **Epidemic Sound** and **Uppbeat** (third-party
+services), not YouTube's in-house **Creator Music** library. So on the **Checks** tab,
+**ignore the "Are tracks from Creator Music missing? … Add" prompt** — that field is only
+for Creator Music tracks and does not apply to Epidemic/Uppbeat.
+
+To avoid a Content ID claim later (the Checks results are not final — claims can surface
+post-publish):
+- **Epidemic Sound:** confirm the YouTube channel is linked in the Epidemic account, so
+  their tracks are whitelisted against Content ID for this channel and any claim auto-clears.
+- **Uppbeat:** same channel link, and on the **free tier include the required credit code**
+  in the description (paid/premium doesn't require it).
+
 ## Quick reference
 
 - **Set the DaVinci project fps + resolution to match `manim.cfg` BEFORE importing**
