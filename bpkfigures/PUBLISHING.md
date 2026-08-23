@@ -188,6 +188,33 @@ clipped frames), and confirm audio is present and in sync.
   compression pass — don't pre-compress. (See the "99 = thumbnails" notes in the
   shared `CLAUDE.md`.)
 
+### Upload-form settings — the reusable choices (same every video)
+
+These are the deliberate per-upload settings that carry over from video to video.
+The description body, chapters, and the specific tag list are per-video content
+(don't reuse those verbatim) — everything below is the standing convention:
+
+- **Category:** Education · **Type:** Real life application.
+- **Audience:** *Not* made for kids. **Age restriction:** No. **Paid promotion:** No.
+- **AI use:** **No** — stylized `manim` animation + the creator's own voiceover meets
+  none of the three disclosure criteria (no real person made to say/do something, no
+  altered real footage, no realistic scene that didn't occur). It still must be
+  actively selected each time — the form starts blank and won't publish until answered.
+- **Video language: English — set it every time.** Auto-dubbing is enabled channel-wide,
+  and the source language is the prerequisite for dubbing + auto-captions to generate.
+- **Caption certification:** "This content has never aired on television in the U.S."
+- **License:** Standard YouTube · Distribution Everywhere · embedding on · publish-to-feed
+  + notify subscribers on · remixing video+audio allowed.
+- **Comments:** On · Basic moderation · Anyone · Sort by Top · show like count on.
+- **A/B title test:** up to 3 title variants, and **each variant can be paired with its
+  own thumbnail** (so two entries with the same title text but different thumbnails is a
+  valid distinct test, not a duplicate).
+- **Description structure:** one-line hook → Substack blog-post link → link to the most
+  relevant reference video (e.g. Jan Misali's hangman video) → chapters.
+- **Tags: worth adding** (the creator confirms they help). Mix per-video topic tags with
+  the standing math/CS set — probability, statistics, expected value, dynamic programming,
+  algorithms, game theory, combinatorics, math, word games — plus the specific game/topic.
+
 ## Quick reference
 
 - **Set the DaVinci project fps + resolution to match `manim.cfg` BEFORE importing**
