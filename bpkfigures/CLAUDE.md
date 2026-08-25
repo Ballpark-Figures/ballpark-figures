@@ -88,6 +88,41 @@ traceable to the user's OWN computations, never re-derived by the agent.
   specified — STOP and ask. (Bit us: an unrequested entropy-based opener ranking, with an
   unstated metric + uniform-distribution assumption, computed and run on the agent's own
   initiative during a "copy the primitives over" task.)
+- **Every BOUND, CAP, BUDGET or CUTOFF in a computation is part of the OBJECTIVE — name it,
+  and establish whether it BINDS, before trusting or reporting a single number from it.**
+  A depth limit, iteration cap, beam width, tolerance, timeout, or truncated candidate list
+  silently turns "the optimum" into "the optimum SUBJECT TO this bound" — a different
+  quantity, and the one that reaches the video. So before reporting any optimizer's output:
+  (1) LIST every such parameter, explicitly including ones INHERITED from existing code or
+  sitting in a default you never typed; (2) for each, state whether it binds and HOW YOU
+  KNOW; (3) if you cannot show it is non-binding, report the number as CONSTRAINED and say
+  so in those words.
+  - **FEASIBILITY IS NOT OPTIMALITY.** "A solution exists within the bound" does NOT imply
+    "the optimum lies within the bound" — an unconstrained optimum may deliberately exceed
+    the bound to do better on average. NEVER argue a cap is harmless because some valid
+    solution fits inside it. The only acceptable proof is re-running with the bound RELAXED
+    and showing the answer is unchanged.
+  - **An inherited default becomes YOUR decision the moment you reuse it in a new context.**
+    Porting a solver to a new ruleset, variant, or dataset changes what its parameters MEAN:
+    a cap that was slack in the original can bind hard in the variant. Re-derive every one
+    and surface it; carrying it silently is inventing the METHOD.
+  - **Asked "is X baked in?" / "does this affect Y?" — answer from the CODE's STRUCTURE, not
+    from the outputs.** "No INFEASIBLE rows appeared" describes what happened to fire, not
+    what the code computes; the question is what the SEARCH SPACE was. Quote the line that
+    implements the constraint. Output statistics are corroboration, never the answer.
+  - **NEVER pre-judge significance, and NEVER offer a SAMPLE as evidence about a POPULATION.**
+    "Most won't change", "that's rare", "this doesn't matter" are the USER'S calls, not yours
+    — a single changed value can invalidate a published result. Spot-checking N items says
+    nothing about the other 12,000; if a claim is about all of them, the only sound answers
+    are ALL of them or a PROOF. A sample may be used to PRICE an option, never to settle a
+    correctness question — and when you run one, say which of the two it is.
+  (Bit us 2026-08-23: the wordle solver's `--depth 6` was documented as never firing because
+  any opener can follow SALET's tree afterwards. That proves FEASIBILITY only. The agent
+  repeated it as proof the sweep's numbers were unconstrained expected-guess minima — they
+  are minima subject to a 6-guess guarantee — and separately carried the same cap into a new
+  hard-mode solver where it binds hard, returning NO number for 3 of the first 15 openers.
+  Then, asked whether 12,972 committed results were affected, offered a 3-opener spot check
+  as if it settled the question.)
 - **Never write new math for a displayed value.** If producing a number would
   require implementing ANY calculation — scoring, probability, EV, a reroll/
   combinatorial sum, a simulation, an aggregation — STOP and ASK FIRST, even when
@@ -1360,6 +1395,13 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
 ## Process
 - `Script.md` is reference, not a spec to enforce: do what the user asks and flag
   deviations.
+- **Before EXTENDING or EXPLAINING an existing pipeline, write its OBJECTIVE out in one
+  sentence — including every constraint — and get it confirmed.** "Minimises total guesses
+  over 2315 answers, subject to solving every answer within 6" is a different sentence from
+  "minimises expected guesses," and the difference is invisible until it bites. If you cannot
+  write that sentence from the code, you do not understand the pipeline well enough to build
+  on it or to describe it to the user. See § The numbers are the product for the bound/cap rule
+  this backstops.
 - **When an iteration changes WHAT'S DEPICTED — a game/card STATE, a value, which box is
   filled — RE-READ that beat's `Script.md` row FIRST.** Timing/layout/colour polish can be
   reasoned from the code, but a depicted-state change must be checked against the script —
