@@ -13,10 +13,10 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01                        # full scene
     render 01 sub                    # all subscenes, in order
     render 01d --stills              # stage 01d into <repo>/edit_clips/ (anim copy + a
-                                     # trailing still, + a leading still for subscene a)
-                                     # and, if it's already on the open DaVinci timeline,
-                                     # swap the new render in place. Supersedes --padded for
-                                     # the edit. Ranges work: render 04d- --stills, etc.
+                                     # trailing still, + a leading still for subscene a),
+                                     # and with DaVinci open, import it into the Media Pool
+                                     # (per-scene bin) — or refresh it in place on a
+                                     # re-render. Supersedes --padded. Ranges: 04d- --stills
     render 01 all                    # all subscenes, then the full scene — the full
                                      # scene is STITCHED from the subscene clips (trim
                                      # one framework hold per seam + concat), NOT a
@@ -226,14 +226,16 @@ def _extract_one_frame(mp4, t, out):
     return r.returncode == 0
 
 
-def _stills(prefix, letter, output, mp4):
+def _stills(prefix, letter, output, mp4, scene_module):
     """--stills: stage this subscene into `<repo>/edit_clips/` for DaVinci — a plain
     byte-copy of the mp4 (no re-encode) + a TRAILING still (last held frame), plus a
     LEADING still for subscene `a` (the scene's opening hold). Filenames sort into
     timeline order: `NN_lead_still.png`, `NNa_<m>.mp4`, `NNa_<m>_still.png`,
-    `NNb_<m>.mp4`, … Then, if Resolve is open with a clip ALREADY placed, swap the
-    fresh bytes in (matched by letter-agnostic identity, so re-lettering is handled).
-    Prints each staged file + its swap status."""
+    `NNb_<m>.mp4`, … Then, if Resolve is open, INGEST each file into the Media Pool
+    (a per-scene bin named `scene_module`): new files are imported so they appear in
+    the left-side master list, already-imported ones are refreshed in place (which
+    also updates any timeline instances). Matched by letter-agnostic identity, so
+    re-lettering is handled. Prints each staged file + its pool status."""
     edit_dir = os.path.join(_repo_root(), "edit_clips")
     os.makedirs(edit_dir, exist_ok=True)
     staged = []
@@ -248,7 +250,7 @@ def _stills(prefix, letter, output, mp4):
         if _extract_one_frame(mp4, 0.05, os.path.join(edit_dir, lead)):
             staged.append(lead)
     for name in staged:
-        print(f"[stills] edit_clips/{name}: {davinci.swap_if_live(edit_dir, name)}")
+        print(f"[stills] edit_clips/{name}: {davinci.ingest(edit_dir, name, bin_name=scene_module)}")
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
     try:
@@ -879,7 +881,8 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
             if p:
                 print(p)
         if stills:
-            _stills(target[:2], letter, output, mp4)
+            _stills(target[:2], letter, output, mp4,
+                    os.path.splitext(os.path.basename(path))[0])
         return 0
 
     # clean stale outputs for this slot (also the flat edit_clips/ dir when --stills)
@@ -959,7 +962,8 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
             if p:
                 print(p)
         if stills:
-            _stills(target[:2], letter, output, mp4)
+            _stills(target[:2], letter, output, mp4,
+                    os.path.splitext(os.path.basename(path))[0])
     return rc
 
 

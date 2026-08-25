@@ -107,16 +107,33 @@ def _identity(name):
     return (prefix, method, ext)
 
 
-def _find_item_by_identity(timeline, identity):
-    """Return the MediaPoolItem of the timeline clip with this (scene, method, ext)
-    identity, or None. Letter-agnostic, so a re-lettered clip is still found and
-    re-pointed rather than left offline."""
-    for ti in _video_items(timeline):
-        mpi = ti.GetMediaPoolItem()
-        p = _clip_path(mpi) if mpi else None
-        if p and _identity(p) == identity:
-            return mpi
+def _walk_folders(folder):
+    """Yield `folder` and every subfolder, recursively."""
+    yield folder
+    for sub in folder.GetSubFolderList() or []:
+        yield from _walk_folders(sub)
+
+
+def _find_pool_item(mp, identity):
+    """The MediaPoolItem ANYWHERE in the pool matching this (scene, method, ext)
+    identity, or None. Letter-agnostic, so a re-lettered clip is still found."""
+    for folder in _walk_folders(mp.GetRootFolder()):
+        for c in folder.GetClipList() or []:
+            p = _clip_path(c)
+            if p and _identity(p) == identity:
+                return c
     return None
+
+
+def _get_or_make_bin(mp, name):
+    """Find (or create) a top-level Media Pool bin `name`; the root folder if no name."""
+    root = mp.GetRootFolder()
+    if not name:
+        return root
+    for sub in root.GetSubFolderList() or []:
+        if sub.GetName() == name:
+            return sub
+    return mp.AddSubFolder(root, name) or root
 
 
 def _next_counter(swap_dir, stem, ext):
@@ -146,46 +163,70 @@ def _prune_swaps(swap_dir, stem, ext, keep, referenced):
                 pass
 
 
-# ── the one call render.py makes ──────────────────────────────────────────────
-def swap_if_live(edit_dir, import_name, resolve=None):
-    """If the clip `edit_dir/import_name` is already on the open timeline, swap in
-    its freshly-written bytes (via a new `.swap` copy so Resolve actually re-reads).
-
-    Returns a short status string:
-      'skipped: resolve not reachable' | 'skipped: no timeline' |
-      'not on timeline (import it once)' | 'replaced' | 'replace failed'
-    """
-    r = resolve or get_resolve()
-    if r is None:
-        return "skipped: resolve not reachable"
-    proj, tl = current_timeline(r)
-    if tl is None:
-        return "skipped: no timeline"
-
-    ident = _identity(import_name)
-    if ident is None:
-        return "skipped: unrecognized name"
-    mpi = _find_item_by_identity(tl, ident)          # matches across re-lettering
-    if mpi is None:
-        return "not on timeline (import it once)"
-
+# ── media-pool ingest (the one call render.py makes) ──────────────────────────
+def _swap_refresh(item, src, edit_dir, ident, referenced):
+    """Point `item` (a MediaPoolItem) at a fresh `.swap/<key>.<n><ext>` copy of `src`
+    so Resolve actually re-reads the changed bytes (a same-path overwrite is cached).
+    Updates the item EVERYWHERE it's used — the pool list AND any timeline instances —
+    then prunes older `.swap` versions nothing references. Returns True on success."""
     prefix, method, ext = ident
     key = f"{prefix}_{method}"                        # letter-free swap lineage
     swap_dir = os.path.join(edit_dir, ".swap")
     os.makedirs(swap_dir, exist_ok=True)
     n = _next_counter(swap_dir, key, ext)
     new_path = os.path.join(swap_dir, f"{key}.{n}{ext}")
-    shutil.copy2(os.path.join(edit_dir, import_name), new_path)
-
-    if not mpi.ReplaceClip(new_path):
+    shutil.copy2(src, new_path)
+    if not item.ReplaceClip(new_path):
         try:
             os.remove(new_path)
         except OSError:
             pass
-        return "replace failed"
+        return False
+    _prune_swaps(swap_dir, key, ext, keep=new_path, referenced=referenced)
+    return True
 
-    _prune_swaps(swap_dir, key, ext, keep=new_path, referenced=_timeline_sources(tl))
-    return "replaced"
+
+def ingest(edit_dir, import_name, bin_name=None, resolve=None):
+    """Ensure `edit_dir/import_name` is in the DaVinci **Media Pool** so it shows up in
+    the left-side master list, ready to drag:
+      * NEW      -> ImportMedia into the per-scene bin `bin_name` (created if needed).
+      * EXISTING -> refresh in place (the .swap trick), which also updates any timeline
+                    instances, then restore the clean list name.
+    Matched by letter-agnostic identity, so re-lettering is handled. Returns a short
+    status; a 'skipped: …' when Resolve is unreachable (caller degrades to files-only)."""
+    r = resolve or get_resolve()
+    if r is None:
+        return "skipped: resolve not reachable"
+    proj = r.GetProjectManager().GetCurrentProject()
+    if proj is None:
+        return "skipped: no project"
+    mp = proj.GetMediaPool()
+    ident = _identity(import_name)
+    if ident is None:
+        return "skipped: unrecognized name"
+    src = os.path.join(edit_dir, import_name)
+
+    item = _find_pool_item(mp, ident)
+    if item is None:                                 # NEW -> import into the scene bin
+        prev = mp.GetCurrentFolder()
+        mp.SetCurrentFolder(_get_or_make_bin(mp, bin_name))
+        ok = bool(mp.ImportMedia([src]))
+        if prev:
+            mp.SetCurrentFolder(prev)
+        return "imported to pool" if ok else "import failed"
+
+    # EXISTING -> refresh in place (updates the pool item + any timeline instances)
+    tl = proj.GetCurrentTimeline()
+    referenced = _timeline_sources(tl) if tl else set()
+    if not _swap_refresh(item, src, edit_dir, ident, referenced):
+        return "refresh failed"
+    # ReplaceClip may adopt the .swap basename in the list — restore the clean name
+    try:
+        if item.GetClipProperty("Clip Name") != import_name:
+            item.SetClipProperty("Clip Name", import_name)
+    except Exception:
+        pass
+    return "refreshed in pool"
 
 
 def orphan_clips(prefix, current_methods, resolve=None):

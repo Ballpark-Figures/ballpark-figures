@@ -185,18 +185,21 @@ stretchable stills remove the need to trim.
 - **Stills are the pacing:** stretch a still to hold as long as the VO needs.
   Animation SPEED still lives in manim (`run_time`s → re-render); DWELL/pacing lives
   in the stretched stills.
-- **Auto-swap on re-render:** if the subscene is already on the OPEN Resolve timeline,
-  `--stills` swaps the fresh render in **in place** (no delete/re-drag). Resolve caches
-  a path within a session, so it swaps via a hidden `edit_clips/.swap/` copy to force a
-  real re-read. Clips are matched by `(scene, @subscene method-name)`, **not the
-  letter**, so **re-lettering** from a split/merge/remove is handled automatically — the
-  clip is re-pointed, not orphaned.
-- **Duration changes** (the common case): the swap drops new content in at the same
-  position/in-point; drag the clip's **right edge** to the new length + refit the
-  following still.
-- **New / removed subscenes** can't be auto-placed/deleted — `--stills` reports them:
-  a new one prints `not on timeline (import it once)`; a removed/merged one prints
-  `ORPHAN on timeline: … delete this clip in DaVinci`.
+- **Auto-imported into the Media Pool:** with Resolve open, `--stills` puts each file
+  into the **Media Pool** (a per-scene bin named after the scene module), so it appears
+  in the left-side master list ready to drag — no manual import. New files are imported;
+  already-imported ones are **refreshed in place** on re-render (updating the pool item
+  AND any timeline instances), keeping their clean list name. Resolve caches a path
+  within a session, so the refresh routes through a hidden `edit_clips/.swap/` copy to
+  force a real re-read. Matched by `(scene, @subscene method-name)`, **not the letter**,
+  so **re-lettering** (split/merge/remove) is handled automatically.
+- **Duration changes** (the common case): the refresh drops new content in at the same
+  position/in-point on the timeline; drag the clip's **right edge** to the new length +
+  refit the following still.
+- **Placement stays manual:** a clip appears in the pool, but you drag it onto the
+  timeline yourself the first time (the API can't ripple to insert mid-timeline). A
+  **removed/merged** subscene's placed clip is reported: `ORPHAN on timeline: … delete
+  this clip in DaVinci`.
 - Runs the swap only where Resolve is reachable (the Mac); with Resolve closed / on the
   desktop it just writes the files. Powered by `bpkfigures/davinci.py`.
 
