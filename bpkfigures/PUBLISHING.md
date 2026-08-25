@@ -47,6 +47,46 @@ painful migration later (see the recovery note below).
 (This recovery is the Yahtzee 24→60 fix, 2026-07 — captured so it never has to be
 re-derived.)
 
+### Verified project settings (reference)
+
+Read directly from the **Hangman** project via the Resolve scripting API
+(DaVinci Resolve **Studio 21.0.4**, 2026-08-24). This is the checklist a new
+project should match; values are the same across videos **except fps** (per
+`manim.cfg`).
+
+**Format / timeline**
+- Timeline **and** output resolution **1920×1080**, pixel aspect **square**.
+- Timeline + playback frame rate = the video's `manim.cfg` `frame_rate`
+  (Hangman **60**).
+- Audio sample rate **48 kHz** (matches the Fairlight/mic rate in step 1's VO notes).
+
+**Track layout** (per timeline)
+- **1 video track** (`Video 1`); **3 mono audio tracks** (`Audio 1/2/3`).
+- Track **roles and fader levels are NOT readable via the API** — the −20 dB
+  music trims and which track is VO vs music/footage live in the project/template
+  and must be set by hand (see gaps below).
+
+**Color** — **DaVinci YRGB**, *not* colour-managed (`isAutoColorManage` off);
+timeline + output colour space **Rec.709 (Scene)**. Standard SDR path.
+
+**Delivery** — current render format/codec is **QuickTime `.mov` / H.264**
+(matches the shipped `<Video>.mov` in step 4). Built-in presets **"H.264 Master"**
+and **"YouTube - 1080p"** are also available as starting points.
+
+**Per-project paths — CHECK THESE whenever you clone/duplicate a project.** They
+do **not** auto-update, and in Hangman two were still pointing at the **battleship**
+folder (a duplicated-template leftover):
+- **Gallery stills** (`colorGalleryStillsLocation`) — was `…/battleship/.gallery`.
+  Should be this video's own folder, or PowerGrades/stills you grab save into
+  battleship instead of here.
+- **Cache clips** (`perfCacheClipsLocation`) — was `…/battleship/CacheClip`. Same
+  issue; render cache lands in the battleship folder.
+- Media location (`projectMediaLocation`) was correct (this video's repo).
+
+**Verify:** working luminance shows **"HDR 1000"** on an SDR Rec.709 project —
+almost certainly an inert template default under YRGB, but confirm HDR wasn't
+intended.
+
 ## 2. The pieces (where everything lives)
 
 Everything here is a large binary, so it's **gitignored — local, not synced**
@@ -125,6 +165,40 @@ step is the least documented — refine as needed.)*
 - Keep a **project backup**: `File → Export Project` → `.drp`. This is the
   editable project (Battleship keeps these in `Resolve Project Backups/`). It is
   **NOT** the deliverable and is **never uploaded** — it only reopens in DaVinci.
+
+### Edit clips — `render NN --stills` (anim + stretchable stills, auto-swap)
+
+The house workflow for laying scenes into DaVinci and keeping them in sync with
+re-renders. **Supersedes the `--padded` copies** (still available) — exact clips +
+stretchable stills remove the need to trim.
+
+- **`render NN<label> --stills`** (e.g. `render 04d --stills`, or a range
+  `render 04d- --stills` — same targeting as `--padded`) writes, into a flat
+  **`edit_clips/`** at the repo root (gitignored):
+  - the subscene's **animation** clip (a byte-copy of the render, no re-encode);
+  - a **trailing still** PNG of its last held frame (`NN<label>_<method>_still.png`);
+  - and for subscene **a**, a **leading still** (`NN_lead_still.png`) — the scene's
+    opening hold.
+- **Names sort into timeline order:** `NN_lead_still`, `NNa_<m>`, `NNa_<m>_still`,
+  `NNb_<m>`, … Set the media pool to **sort by Name**, select all → they lay in order
+  as `[anim a][still a][anim b][still b]…`.
+- **Stills are the pacing:** stretch a still to hold as long as the VO needs.
+  Animation SPEED still lives in manim (`run_time`s → re-render); DWELL/pacing lives
+  in the stretched stills.
+- **Auto-swap on re-render:** if the subscene is already on the OPEN Resolve timeline,
+  `--stills` swaps the fresh render in **in place** (no delete/re-drag). Resolve caches
+  a path within a session, so it swaps via a hidden `edit_clips/.swap/` copy to force a
+  real re-read. Clips are matched by `(scene, @subscene method-name)`, **not the
+  letter**, so **re-lettering** from a split/merge/remove is handled automatically — the
+  clip is re-pointed, not orphaned.
+- **Duration changes** (the common case): the swap drops new content in at the same
+  position/in-point; drag the clip's **right edge** to the new length + refit the
+  following still.
+- **New / removed subscenes** can't be auto-placed/deleted — `--stills` reports them:
+  a new one prints `not on timeline (import it once)`; a removed/merged one prints
+  `ORPHAN on timeline: … delete this clip in DaVinci`.
+- Runs the swap only where Resolve is reachable (the Mac); with Resolve closed / on the
+  desktop it just writes the files. Powered by `bpkfigures/davinci.py`.
 
 ### Audio loudness — make it consistent AND match YouTube
 

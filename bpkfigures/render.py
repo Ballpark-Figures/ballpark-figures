@@ -12,6 +12,11 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g 01h 01i               # several in sequence
     render 01                        # full scene
     render 01 sub                    # all subscenes, in order
+    render 01d --stills              # stage 01d into <repo>/edit_clips/ (anim copy + a
+                                     # trailing still, + a leading still for subscene a)
+                                     # and, if it's already on the open DaVinci timeline,
+                                     # swap the new render in place. Supersedes --padded for
+                                     # the edit. Ranges work: render 04d- --stills, etc.
     render 01 all                    # all subscenes, then the full scene — the full
                                      # scene is STITCHED from the subscene clips (trim
                                      # one framework hold per seam + concat), NOT a
@@ -66,6 +71,7 @@ import subprocess
 import sys
 
 from bpkfigures import resolve
+from bpkfigures import davinci
 
 
 def _run_manim(cmd, env, tail=None):
@@ -198,6 +204,60 @@ def _pad_video(mp4, seconds):
               f"{r.stderr.decode(errors='replace')[-600:]}", file=sys.stderr)
         return None
     return out
+
+
+def _repo_root():
+    """Walk up from cwd (run from animations/scenes/) to the git repo root, which
+    holds edit_clips/ at the top. Falls back to cwd if no .git is found."""
+    d = os.path.abspath(os.getcwd())
+    while d != os.path.dirname(d):
+        if os.path.isdir(os.path.join(d, ".git")):
+            return d
+        d = os.path.dirname(d)
+    return os.path.abspath(os.getcwd())
+
+
+def _extract_one_frame(mp4, t, out):
+    """Write ONE frame (t<0 = seconds-from-end, like ffmpeg -sseof) to `out`.
+    Returns True on success. Used for the held first/last frames (the stills)."""
+    seek = ["-sseof", str(t)] if t < 0 else ["-ss", str(t)]
+    r = subprocess.run([_ffmpeg(), "-y", *seek, "-i", mp4, "-frames:v", "1", out],
+                       capture_output=True)
+    return r.returncode == 0
+
+
+def _stills(prefix, letter, output, mp4):
+    """--stills: stage this subscene into `<repo>/edit_clips/` for DaVinci — a plain
+    byte-copy of the mp4 (no re-encode) + a TRAILING still (last held frame), plus a
+    LEADING still for subscene `a` (the scene's opening hold). Filenames sort into
+    timeline order: `NN_lead_still.png`, `NNa_<m>.mp4`, `NNa_<m>_still.png`,
+    `NNb_<m>.mp4`, … Then, if Resolve is open with a clip ALREADY placed, swap the
+    fresh bytes in (matched by letter-agnostic identity, so re-lettering is handled).
+    Prints each staged file + its swap status."""
+    edit_dir = os.path.join(_repo_root(), "edit_clips")
+    os.makedirs(edit_dir, exist_ok=True)
+    staged = []
+    anim = f"{output}.mp4"                       # NN<letter>_<method>.mp4 — stable import name
+    shutil.copy2(mp4, os.path.join(edit_dir, anim))
+    staged.append(anim)
+    trail = f"{output}_still.png"                # trailing hold = last frame
+    if _extract_one_frame(mp4, -0.1, os.path.join(edit_dir, trail)):
+        staged.append(trail)
+    if letter == "a":                            # leading hold = first frame; sorts first
+        lead = f"{prefix}_lead_still.png"
+        if _extract_one_frame(mp4, 0.05, os.path.join(edit_dir, lead)):
+            staged.append(lead)
+    for name in staged:
+        print(f"[stills] edit_clips/{name}: {davinci.swap_if_live(edit_dir, name)}")
+    # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
+    # Best-effort: never let the (advisory) orphan report break the staging/swap above.
+    try:
+        orphans = davinci.orphan_clips(prefix, resolve.subscene_methods(prefix))
+    except Exception:
+        orphans = []
+    for p in orphans:
+        print(f"[stills] ORPHAN on timeline: {os.path.basename(p)} — its subscene no "
+              f"longer exists; delete this clip in DaVinci")
 
 
 def _output_mp4(output):
@@ -642,13 +702,15 @@ def main(argv=None):
     _PLAY_DING = "--no-sound" not in argv
     frames_spec = None
     padded = None                # --padded [N]: also write a first/last-frame-padded copy
+    stills = "--stills" in argv  # --stills: stage anim+stills into edit_clips/ + swap-if-live
     tail = None                  # --tail N: capture manim output, emit only its last N lines
     rest = []
     i = 0
     while i < len(argv):
         a = argv[i]
         if a in ("--recompute", "--hq", "--state", "--fast", "--very-fast", "-ql",
-                 "--quiet", "--check", "--extract", "--thumb", "--thumbnail", "--no-sound"):
+                 "--quiet", "--check", "--extract", "--thumb", "--thumbnail", "--no-sound",
+                 "--stills"):
             pass
         elif a == "--frames":
             i += 1
@@ -687,7 +749,7 @@ def main(argv=None):
     if not targets:
         print("usage: render NN[label] [NN[label] ...] [NN all|sub] [NNa-c|NNb-|NN-f] "
               "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
-              "[--thumb] [--state] [--check] [--no-sound]")
+              "[--stills] [--thumb] [--state] [--check] [--no-sound]")
         return 2
 
     if check:
@@ -730,7 +792,7 @@ def main(argv=None):
             rc = _render_one(target, passthrough, recompute, fast, state,
                              frames_spec, quiet=quiet, tail=tail_n,
                              extract=extract, very_fast=very_fast, padded=padded,
-                             thumb=thumb)
+                             thumb=thumb, stills=stills)
             worst_rc = worst_rc or rc
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
@@ -776,7 +838,7 @@ def _stitch_one(target, frames_spec, padded):
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,
                 quiet=False, tail=None, extract=False, very_fast=False, padded=None,
-                thumb=False):
+                thumb=False, stills=False):
     """Resolve, (clean+render) or --state, and extract frames for one target.
 
     quiet -> pass `-v WARNING` to manim (suppresses its per-animation INFO log).
@@ -800,9 +862,9 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         return _print_state(path, classname, letter)
 
     if extract:
-        # post-process the ALREADY-rendered mp4 (extract frames and/or pad), no manim
-        if frames_spec is None and padded is None:
-            print("--extract needs --frames or --padded", file=sys.stderr)
+        # post-process the ALREADY-rendered mp4 (extract frames / pad / stage stills), no manim
+        if frames_spec is None and padded is None and not stills:
+            print("--extract needs --frames, --padded, or --stills", file=sys.stderr)
             return 2
         mp4 = _output_mp4(output)
         if not mp4:
@@ -816,13 +878,16 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
             p = _pad_video(mp4, padded)
             if p:
                 print(p)
+        if stills:
+            _stills(target[:2], letter, output, mp4)
         return 0
 
-    # clean stale outputs for this slot
-    for f in resolve.clean_stale(classname, target[:2], letter, output):
+    # clean stale outputs for this slot (also the flat edit_clips/ dir when --stills)
+    _edit = os.path.join(_repo_root(), "edit_clips") if stills else None
+    for f in resolve.clean_stale(classname, target[:2], letter, output, edit_dir=_edit):
         print(f"[render] removed stale {f}", file=sys.stderr)
     # ...and sweep whole slots past the current last subscene (removed subscenes)
-    for f in resolve.clean_orphans(target[:2]):
+    for f in resolve.clean_orphans(target[:2], edit_dir=_edit):
         print(f"[render] removed orphan {f}", file=sys.stderr)
 
     # build the env (explicit -> no leak from a prior interrupted run)
@@ -880,7 +945,7 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
                   f"under media/images/", file=sys.stderr)
         return rc
 
-    if frames_spec is not None or padded is not None:
+    if frames_spec is not None or padded is not None or stills:
         mp4 = _output_mp4(output)
         if not mp4:
             print(f"[render] could not find output mp4 for {output}",
@@ -893,6 +958,8 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
             p = _pad_video(mp4, padded)
             if p:
                 print(p)
+        if stills:
+            _stills(target[:2], letter, output, mp4)
     return rc
 
 

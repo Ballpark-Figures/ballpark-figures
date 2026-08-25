@@ -78,6 +78,15 @@ def subscene_letters(prefix):
     _classname, subs, _still = _parse(path)
     return [index_to_label(i) for i in range(len(subs))]
 
+def subscene_methods(prefix):
+    """The @subscene METHOD NAMES (not letters) of the NN scene, in order — the STABLE
+    identity part that render --stills / davinci match on across re-lettering (a split/
+    merge/remove shifts letters but not method names). Used to spot orphaned timeline
+    clips whose method no longer exists."""
+    path = _find_file(prefix)
+    _classname, subs, _still = _parse(path)
+    return list(subs)
+
 def is_still(target):
     """True if `target` should render as a STILL IMAGE (a PNG via manim -s) rather
     than a video, because it's decorated @still (incl. its @thumbnail specialization).
@@ -92,7 +101,7 @@ def is_still(target):
     idx = label_to_index(letter)
     return 0 <= idx < len(subs) and subs[idx] in still
 
-def clean_stale(classname, prefix, letter, keep_output):
+def clean_stale(classname, prefix, letter, keep_output, edit_dir=None):
     """Remove stale rendered videos for this NN<letter> slot whose subscene was
     renamed/reordered (e.g. an old 01b_all_outcomes.mp4 left behind when 01b is
     now 01b_pairs). Keeps `keep_output`. Scans every quality dir under the
@@ -117,9 +126,22 @@ def clean_stale(classname, prefix, letter, keep_output):
                         removed.append(mp4)
                     except OSError:
                         pass
+    # ...and the flat edit_clips/ staging dir (render --stills) — a LETTER slot only.
+    # Keeps the current subscene's anim AND its trailing still; drops a renamed beat's
+    # leftovers (e.g. old 01b_all_outcomes.mp4 + _still.png when 01b is now 01b_pairs).
+    # The leading still (NN_lead_still.png, no letter) never matches the slot glob.
+    if edit_dir and letter:
+        keep = {f"{keep_output}.mp4", f"{keep_output}_still.png"}
+        for f in glob.glob(os.path.join(edit_dir, f"{slot}*")):
+            if os.path.isfile(f) and os.path.basename(f) not in keep:
+                try:
+                    os.remove(f)
+                    removed.append(f)
+                except OSError:
+                    pass
     return removed
 
-def clean_orphans(prefix):
+def clean_orphans(prefix, edit_dir=None):
     """Remove rendered videos for subscene SLOTS PAST the current last subscene — the
     REMOVED-subscene case (e.g. a scene cut from 30 subscenes to 13 leaves 05n_*.mp4 ..
     05zb_*.mp4 orphaned). `clean_stale` only sweeps ONE slot's renamed files WHEN you
@@ -153,6 +175,27 @@ def clean_orphans(prefix):
                         removed.append(mp4)
                     except OSError:
                         pass
+    # ...and the flat edit_clips/ staging dir (render --stills): any letter slot past the
+    # current subscene count (anim + its trailing still). The leading still (no letter) is
+    # kept; a full-scene NN_ file isn't staged here so never appears.
+    if edit_dir:
+        for f in glob.glob(os.path.join(edit_dir, f"{prefix}*")):
+            if not os.path.isfile(f):
+                continue
+            rest = os.path.splitext(os.path.basename(f))[0][len(prefix):]
+            label = rest.split("_", 1)[0]
+            if not label:
+                continue
+            try:
+                idx = label_to_index(label)
+            except ValueError:
+                continue
+            if idx >= count:
+                try:
+                    os.remove(f)
+                    removed.append(f)
+                except OSError:
+                    pass
     return removed
 
 def main():
