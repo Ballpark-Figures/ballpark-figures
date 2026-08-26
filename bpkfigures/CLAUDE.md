@@ -33,6 +33,22 @@ load wherever you're working. Video-specific rules live in that video's own
   Willfully deviating from an explicit instruction — even when your alternative
   seems reasonable — is a serious error that can cause major problems later.
   Flagging-then-asking is always acceptable; substituting without asking is not.
+- **A QUESTION asks for an ANSWER — it is NOT permission to change anything.** When the
+  user ASKS something ("does X happen?", "what should I look for?", "how did Y work?",
+  "is Z still running?"), the deliverable is the ANSWER and nothing else. INVESTIGATING
+  is part of answering and is fine — read files, run read-only checks, measure. But do
+  NOT then fix, edit, refactor, or commit the thing you just diagnosed, however obvious
+  the fix looks. If the answer implies work worth doing, SAY SO IN A SENTENCE AND OFFER;
+  the user may well prefer to handle it a different way entirely (a system setting, by
+  hand, or not at all), and they cannot choose once you have already acted. **A question
+  answered AND acted on is worse than useless: the user now has to review and revert
+  work they never asked for.** (Bit us 2026-08-26: asked "does this computer keep running
+  when the screen turns off?", the agent answered — correctly — and ALSO rewrote two
+  solver wrapper scripts to add `caffeinate` and committed a CLAUDE.md note. The user
+  wanted to change a macOS setting instead, and the whole commit had to be reverted.)
+  This is the same principle as the "give me a command" rule in § Long-running jobs, one
+  step earlier: there the user asked for a command and the agent ran it; here the user
+  asked a question and the agent acted on the answer.
 - **When EXPLAINING existing code, do NOT manufacture justification for it — if a choice
   looks off, SAY SO.** Asked what a piece of code does, describe the mechanism plainly;
   but when the CHOICE looks dubious — a copy-pasted default, a partial value nobody
