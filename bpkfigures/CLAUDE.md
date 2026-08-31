@@ -33,6 +33,31 @@ load wherever you're working. Video-specific rules live in that video's own
   Willfully deviating from an explicit instruction — even when your alternative
   seems reasonable — is a serious error that can cause major problems later.
   Flagging-then-asking is always acceptable; substituting without asking is not.
+- **ONE COMMAND, THE ONE THEY ASKED FOR — never append an alternative.** The user
+  SCANS for the command block and does not read the prose around it, so every
+  command you emit is taken as "the thing I asked for". A second command is
+  therefore not a caveat, it is a redirect, and they will run it. When the user
+  names a specific input, file, parameter or method, that choice IS the spec, not
+  an opening position — they have usually already weighed it against earlier
+  results you cannot see.
+  - **Distinguish a CORRECTNESS problem from a CHOICE you would make differently.**
+    "This code would silently drop results" is YOURS to raise, every time, before
+    handing over anything. "A wider parent set would be more complete" is the
+    USER'S call — say nothing unless asked. Collapsing the second into the first
+    because both feel like "flagging a problem" is exactly the failure.
+  - If an alternative genuinely matters, it is ONE sentence with **no command
+    attached**, phrased as an offer they must accept ("say the word and I'll give
+    you the wider version"). Never put it in runnable form; a fenced block is an
+    instruction, whatever the surrounding sentence says.
+  - The tell: you already answered, and you are still typing.
+  - (Bit us 2026-08-31, three times in one session. Asked for 26-letter sextets
+    from 24-letter quints: answered correctly, then called it "a screen, not
+    complete" and supplied a different command using a 100M-row parent file. The
+    user ran that one; it wedged on a 12 GB load and could never have produced
+    the exhaustive answer anyway, since that file was itself truncated. Earlier
+    the same day: an unasked-for warning about a restriction the user had chosen
+    deliberately after reviewing results, and a "correction" of the user's own
+    diagnosis that was ruled out by the evidence they had already supplied.)
 - **A QUESTION asks for an ANSWER — it is NOT permission to change anything.** When the
   user ASKS something ("does X happen?", "what should I look for?", "how did Y work?",
   "is Z still running?"), the deliverable is the ANSWER and nothing else. INVESTIGATING
