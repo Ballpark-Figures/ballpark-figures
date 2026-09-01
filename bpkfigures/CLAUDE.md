@@ -97,6 +97,28 @@ load wherever you're working. Video-specific rules live in that video's own
     admitting it had no access to the other machine only when asked point-blank. The extra
     edits had to be reverted.)
 
+- **A WORKAROUND is an INTERIM, never a substitute for the ask — and NEVER pronounce
+  something not worth fixing before you have looked at the MECHANISM.** When the user
+  states a goal ("I want it to open Chrome", "I want this to work"), that goal IS the spec.
+  Offering a way around the broken part is fine AS AN INTERIM, alongside continuing to fix
+  it; offering it INSTEAD, and dressing that up as advice ("I'd stop chasing this", "it
+  isn't worth it", "you don't need that anyway"), is substituting your judgement for the
+  user's about their own goal — the § Following instructions failure, wearing a helpful hat.
+  It is also the USER'S call whether a thing is worth their time, never yours.
+  - **The investigation gate: you may not call something a dead end until you have read how
+    the thing actually WORKS.** One failing mechanism is not the only mechanism — a launcher,
+    a backend, a transport, a renderer almost always has a configuration knob selecting
+    among several. Go find the knob before concluding there isn't one. "I couldn't make it
+    work" and "it can't be made to work" are different claims and only the first is ever
+    yours to make from a single failed attempt.
+  - The tell: you are writing a sentence that tells the user to give up, or you are
+    proposing the workaround for the SECOND time. Both mean go read the mechanism.
+  - (Bit us 2026-09-01: `jupyter notebook` failed to open Chrome with an AppleScript -609.
+    The agent offered `--no-browser` twice and then said "I'd stop chasing this" — the user
+    pushed back, and the real fix was ONE line, `c.ServerApp.browser = "open %s"`, which
+    thirty seconds in the `webbrowser` docs would have surfaced. The AppleScript path was
+    just Jupyter's DEFAULT, not its only one.)
+
 - **When EXPLAINING existing code, do NOT manufacture justification for it — if a choice
   looks off, SAY SO.** Asked what a piece of code does, describe the mechanism plainly;
   but when the CHOICE looks dubious — a copy-pasted default, a partial value nobody
