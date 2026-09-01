@@ -74,6 +74,29 @@ load wherever you're working. Video-specific rules live in that video's own
   This is the same principle as the "give me a command" rule in § Long-running jobs, one
   step earlier: there the user asked for a command and the agent ran it; here the user
   asked a question and the agent acted on the answer.
+- **Asked to MATCH a machine, environment or setup you CANNOT OBSERVE, say so BEFORE you
+  touch anything — not after being asked whether you were guessing.** "Set it up like my
+  other laptop", "make this match the desktop", "the way it works in the other repo": if the
+  reference side is not readable from here (another machine's VSCode settings and extensions
+  live in `~/Library/Application Support/Code/` and `~/.vscode/`, neither of which syncs
+  through the repos), then you cannot match it — you can only guess at what differs. State
+  the limit in ONE sentence up front, say what you CAN verify on this side, and let the user
+  choose: wait until they are in front of the other machine, have them paste the relevant
+  config, or authorise a best-guess fix knowing it is one. Then act.
+  - **INFERENCE IS NOT OBSERVATION, and a fix built on inference must be LABELLED as such at
+    the moment you propose it** — "X is probably the difference" is a hypothesis, and
+    presenting the resulting edit as "setting it up like the other machine" launders it into
+    a fact. Diagnose what is provably wrong HERE and fix that on its own merits; never dress
+    it up as parity with something you have not seen.
+  - The tell: you are reasoning about what the other machine "probably" has, or you would be
+    embarrassed to be asked "do you actually know, or are you guessing?" — that question
+    should never be one the user has to ask. Answer it before they can.
+  - (Bit us 2026-09-01: asked to set the wordle venv up "the same way as my other laptop",
+    the agent inferred a cause, edited a committed `.code-workspace`, changed a global VSCode
+    user setting, and started sweeping three more videos plus the `/new-video` scaffold —
+    admitting it had no access to the other machine only when asked point-blank. The extra
+    edits had to be reverted.)
+
 - **When EXPLAINING existing code, do NOT manufacture justification for it — if a choice
   looks off, SAY SO.** Asked what a piece of code does, describe the mechanism plainly;
   but when the CHOICE looks dubious — a copy-pasted default, a partial value nobody
