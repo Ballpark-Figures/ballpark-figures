@@ -5,6 +5,7 @@
     { "path": "../dotclaude", "name": "dotclaude (private)" }
   ],
   "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder:wordle}/.venv/bin/python",
     "files.exclude": {
       "**/__pycache__": true,
       "**/*.pyc": true,
