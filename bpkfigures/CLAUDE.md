@@ -682,6 +682,21 @@ comes from working AROUND it.
   tool) — one allowlisted call, no re-render, no hand-rolled `ffmpeg` chains.
 
 ## Long-running jobs (agent)
+- **THE USER RUNS THE COMPUTATIONS — build the machinery, hand over the command, whatever
+  you estimate it will cost.** The agent writes the primitives, the gate and the search,
+  runs at most a bare CORRECTNESS smoke test (a check script, a toy input), and stops. This
+  is NOT scoped to LONG jobs: the size estimate is the AGENT'S, it is routinely wrong in
+  both directions, and "this one is only a few seconds" is the exact reasoning that produces
+  an unsanctioned run. A request phrased as a RESULT ("start by finding a single solution",
+  "let's see which openers win") is still a request for the MACHINERY that produces it — the
+  user decides when it runs, on their machine, at their timing. Backgrounding it does not
+  make it free; it just hides the decision. The tell: you are about to invoke, on the REAL
+  data, the thing you just built. (Bit us 2026-09-02: an Absurdle search was built and then
+  run by the agent because it looked small — it took 3.7s, but that was only knowable AFTER
+  the run, and one message earlier the same search had been forecast as C-solver-scale work.
+  The user: "We've always agreed on me doing the big computations. Why do you keep violating
+  this?") This SHARPENS the two rules below, which only fire when the user asks for a command
+  or when the job is visibly long; this one fires regardless.
 - **If the user ASKS YOU FOR A COMMAND to run, the deliverable is the COMMAND — hand it
   over and do NOT run it yourself. They asked for it because they want to run it
   themselves.** When the user says "give me a command to X", "how do I regenerate/render
