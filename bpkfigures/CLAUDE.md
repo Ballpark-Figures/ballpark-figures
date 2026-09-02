@@ -209,6 +209,37 @@ traceable to the user's OWN computations, never re-derived by the agent.
   hard-mode solver where it binds hard, returning NO number for 3 of the first 15 openers.
   Then, asked whether 12,972 committed results were affected, offered a 3-opener spot check
   as if it settled the question.)
+- **NEVER HARDCODE A VALUE THE PROGRAM EXISTS TO COMPUTE — not as a default, not as a
+  fallback, not "just so it runs".** A solver that searches for the best opener must never
+  contain an opener literal; a ranker must not name a winner; a threshold that decides an
+  outcome must not be typed in. The moment you write a domain ANSWER as a literal, the
+  program stops deriving it and starts asserting it — and the assertion is invisible,
+  because it looks like ordinary configuration.
+  - **Importing a result from a DIFFERENT problem is the worst form of this**, because it
+    carries a false implication of relevance. `SALET` is the optimum of the 2315-answer
+    Wordle problem; dropping it into a solver over 26^5 strings silently claims a standing
+    it does not have, in the exact program meant to settle the question.
+  - **If a value is genuinely needed to run, DERIVE it by a named rule in the code, or
+    REQUIRE the user to supply it and exit with a usage error. Prefer requiring.** "It
+    needs a default" is nearly always false: refusing to run is a fine default, and it is
+    the only one that cannot silently bias a result.
+  - **This is about ANSWERS, not bounds.** Array sizes, buffer limits, table bits, a
+    `MAXD` — configuration with no claim about the domain — are fine as literals. The test
+    is: could a reader mistake this constant for a finding? Could changing it change what
+    the program CONCLUDES rather than how fast it gets there?
+  - **A visit ORDER is a computation too.** Sweeping candidates in file order, or seeding a
+    search from a chosen point, decides what gets found first and what a stopped run
+    reports. Order by something derived and named (a lower bound, an explicit score), and
+    say what it is.
+  - The tell: you are typing a word, a name, or a domain quantity as a literal inside a
+    program whose job is to produce one — or you catch yourself thinking "it has to start
+    somewhere."
+  (Bit us 2026-09-01: a solver written to find the optimal opener over all 26^5 strings had
+  `openers[nopen++] = "salet"` as its no-arguments default, AND swept openers in raw file
+  order, so it both imported another problem's answer and let alphabetical position decide
+  what got examined first. The user had never asked for a start word and was rightly
+  angry: "especially in a mode where we are specifically trying to compute the optimal
+  start word using a specific computation.")
 - **Never write new math for a displayed value.** If producing a number would
   require implementing ANY calculation — scoring, probability, EV, a reroll/
   combinatorial sum, a simulation, an aggregation — STOP and ASK FIRST, even when
