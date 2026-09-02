@@ -716,6 +716,41 @@ comes from working AROUND it.
   large in-memory state, add save/load for it before the first forced restart,
   not after.
 
+## Building computational tools (agent) — three TELLS, not three principles
+These are written as triggers you can notice AT THE MOMENT OF ACTION, because the
+principled versions of all three were already in this file and got violated anyway,
+four times in one day (2026-09-01). A rule that needs you to realise a situation
+matches it is a rule that fires too late. **`math/solver/checkconventions.sh` enforces
+the mechanical parts, so run it as a gate rather than relying on any of this.**
+
+- **TELL: you are building a new program by copying the shape of an existing one.**
+  STOP and write down every constant, default, print branch, visit ORDER, argument
+  check and wrapper the source has, and say for each whether it transfers or is a
+  fresh decision. Porting is the activity that SUPPRESSES the noticing every other
+  rule here depends on: the source answers each local question before you think to
+  ask it, so "what does the old one do?" silently replaces "what does THIS problem
+  need?". (Bit us: a new solver inherited `MAXD 20` sized for a 2315-answer problem
+  into an 11.9-million-answer one, a print branch that dropped the average because
+  the ORIGINAL divided by 2315, a sweep with its ordering removed, an unchecked
+  `--depth-max` that corrupted memory, and an opener literal imported from a
+  different problem's optimum.)
+- **TELL: you are about to hand over a bare `./binary --flags ...` command line.**
+  A tool is NOT DONE until something knows how to run it with its output going
+  somewhere durable — the wrapper is part of the deliverable, not a nicety. Check
+  the sibling tools: if every one of them has a `run-*.sh` and yours does not,
+  that is the bug, and handing over the raw command line is how it stays hidden.
+  (Bit us: a solver shipped with no wrapper and an optional `--out`, so a full day
+  of multi-hour runs printed their answers to a terminal and saved NOTHING. The
+  "do not hand-roll the command line" rule was already in this file.)
+- **TELL: you are about to add a feature to code that nothing can contradict.**
+  Build the differential test FIRST. For search and optimisation code the error
+  rate is not uniform — it tracks whether an oracle exists. Where one did, subtle
+  real bugs surfaced immediately; where none did, four shipped in a day and the
+  USER found three of them. The best oracles are free: a new fast path must equal
+  the slow path it replaces, a symmetry collapse must equal the un-collapsed
+  search, a progress counter must total the thing it counts. If you cannot name
+  what would prove the change wrong, you are not ready to write it.
+
 ## The Battleship video is the model
 Match its visual look and its **sparse on-screen text** — not necessarily its
 exact animation primitives. Render ONLY text the script's column 2 explicitly
