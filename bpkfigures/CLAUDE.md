@@ -74,6 +74,20 @@ load wherever you're working. Video-specific rules live in that video's own
   This is the same principle as the "give me a command" rule in § Long-running jobs, one
   step earlier: there the user asked for a command and the agent ran it; here the user
   asked a question and the agent acted on the answer.
+  - **THE TELL IS THAT YOU ANSWERED, AND THEN KEPT GOING IN THE SAME TURN.** The rule
+    above is not usually broken by deciding to ignore it; it is broken by momentum. You
+    write the answer, the fix is obvious and small, you are already in the file — and the
+    next tool call edits it. So treat "I have now answered the question" as a FULL STOP:
+    the turn ends there unless the user's words contain an instruction, not merely an
+    implication. "Why wasn't X done?" is a question. "Don't we usually do X?" is a
+    question. Neither is "do X". If you would bet the user wants it, that is exactly the
+    case to offer in one sentence and let them say yes, because it costs one turn and a
+    wrong bet costs them a review-and-revert.
+  - (Bit us four times in one session, 2026-09-03/04: ran a multi-hour sweep the user
+    had only been shown the command for; `pkill`ed a pattern that also matched the
+    user's own run; started a search while "testing" that resume worked; and, asked
+    "why wasn't parallelisation implemented here?", answered correctly and then
+    implemented it. The last one had to be reverted mid-edit.)
 - **Asked to MATCH a machine, environment or setup you CANNOT OBSERVE, say so BEFORE you
   touch anything — not after being asked whether you were guessing.** "Set it up like my
   other laptop", "make this match the desktop", "the way it works in the other repo": if the
@@ -680,6 +694,40 @@ comes from working AROUND it.
   re-`cd scenes/` in its own call before every background render batch that follows git.
 - **Grab render frames with `render … --frames … --extract`, then READ the PNGs** (Read
   tool) — one allowlisted call, no re-render, no hand-rolled `ffmpeg` chains.
+
+## Never destroy work you did not create (agent)
+Two moves are almost never right, and both destroyed real work in one session:
+- **NEVER kill by PATTERN — `pkill -f <name>`, `killall` — always by the PID you are
+  sure of.** A pattern that matches your own stray process also matches the USER's run
+  of the same tool, its wrapper, and its `tee`. You cannot tell from `ps` afterwards
+  whose was whose, and the honest answer to "did you just kill my run?" becomes "I
+  cannot rule it out". If a wrapper prints the pid, kill that pid; if you did not note
+  the pid, you have already lost the right to kill anything.
+- **NEVER overwrite a results file in place** — no `cat > results.csv`, no `cp` onto a
+  log. A run in flight is appending to those, and an overwrite silently discards
+  everything it has accumulated AND the evidence that it was running. Write somewhere
+  else and move it only once you know nothing is writing there.
+- **Both rules bind hardest when you are "just testing".** The damage in both cases came
+  from verification steps, not from the work itself — a `--limit 3` that looked like a
+  dry run and actually started a search, and a `cat >` that looked like restoring a file
+  and actually clobbered a live one. Before any command that kills or overwrites, say
+  out loud what would happen if the user happened to be running the same tool right now.
+
+## A measurement is only evidence of what it actually measured (agent)
+Before reporting a number, name the QUESTION it answers and check that it is the
+question you asked. Three failures in one session, each of which produced a confident,
+completely wrong conclusion from a working program:
+- **The wrong CLOCK.** `clock()` sums CPU across threads, so a 35-second parallel run
+  reported 206 seconds and "parallelism made it slower". Durations shown to a human are
+  WALL time; if a program can ever be threaded, it has no business calling `clock()`.
+- **The wrong UNIVERSE.** "Possible answers" computed over the 12972-word guess list
+  instead of the 2315-word answer list collapsed the very distinction being measured,
+  and produced a confident correction that was itself wrong.
+- **The wrong REGIME.** A bound was A/B'd on the small word list, where it cannot bind,
+  and reported as useless — when the question was whether it binds on the large one.
+The shared failure is that all three were REAL measurements of something, just not of
+the thing being claimed. So: state the claim, state what varied and what was held
+fixed, and check the two match before the number reaches the user.
 
 ## Long-running jobs (agent)
 - **THE USER RUNS THE COMPUTATIONS — build the machinery, hand over the command, whatever
