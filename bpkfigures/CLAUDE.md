@@ -97,6 +97,23 @@ load wherever you're working. Video-specific rules live in that video's own
     admitting it had no access to the other machine only when asked point-blank. The extra
     edits had to be reverted.)
 
+- **The FLIP SIDE: when the local environment IS observable — installed tools, keys,
+  network, config, what's already set up — INSPECT it before advising, never describe it
+  from assumptions or memory.** You have a shell on THIS machine, so "is there a way to
+  set X up / do we have Y / is Z installed" is a question you can ANSWER by looking
+  (`which`, `ls ~/.ssh`, `tailscale status`, `grep` the config), not one to answer with
+  generic how-to prose. Writing setup instructions for a machine you can read is the tell
+  you skipped the check. Two failure shapes: (a) confidently saying something is NOT
+  possible / NOT present when a ten-second command would have shown it IS; (b) pitching a
+  from-scratch setup for something already configured. When a doc/memory states an
+  environment FACT ("cannot reach the desktop"), treat it as possibly stale and VERIFY
+  before repeating it — then fix the doc. (Bit us 2026-09-06: asked whether the agent
+  could SSH to the other machines and "is there a way to set it up," it gave two rounds of
+  generic Tailscale/keygen/ssh-copy-id instructions built on assumptions — when Tailscale
+  was already up on all three machines, a key already existed, the newer Mac was already
+  fully reachable, and the only stale note said the opposite. One `tailscale status` up
+  front would have replaced all of it.)
+
 - **A WORKAROUND is an INTERIM, never a substitute for the ask — and NEVER pronounce
   something not worth fixing before you have looked at the MECHANISM.** When the user
   states a goal ("I want it to open Chrome", "I want this to work"), that goal IS the spec.
