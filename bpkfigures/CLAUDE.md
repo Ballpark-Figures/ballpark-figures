@@ -748,7 +748,7 @@ comes from working AROUND it.
   large in-memory state, add save/load for it before the first forced restart,
   not after.
 
-## Building computational tools (agent) — three TELLS, not three principles
+## Building computational tools (agent) — four TELLS, not four principles
 These are written as triggers you can notice AT THE MOMENT OF ACTION, because the
 principled versions of all three were already in this file and got violated anyway,
 four times in one day (2026-09-01). A rule that needs you to realise a situation
@@ -782,6 +782,21 @@ the mechanical parts, so run it as a gate rather than relying on any of this.**
   the slow path it replaces, a symmetry collapse must equal the un-collapsed
   search, a progress counter must total the thing it counts. If you cannot name
   what would prove the change wrong, you are not ready to write it.
+- **TELL: you are changing a SHARED helper's BEHAVIOR (an ordering, a default, a
+  visit sequence, a format) to suit the ONE caller in front of you.** STOP and
+  enumerate EVERY caller — a behavior that is right for one can be wrong or
+  nonsensical for another. Scope the change to the caller that needs it (a
+  flag/param); do NOT flip global behavior for all of them, and do NOT change "the
+  entire system" to serve one task. A one-task need is a one-task change. The unit
+  of review for a shared-function edit is every caller, not the one motivating it.
+  (Bit us: a BISECTION visit-order was added to the shared `sweep_order()` for the
+  exhaustive sweep's stopped-run sampling — correct THERE — but `sweep_order()` also
+  feeds `--optimal-only --topk`'s opener SELECTION, where "dispatch the hardest
+  opener second" made `-k 2` examine the single WORST opener, `immix`. It shipped
+  because nothing asserted topk still picked the best splitters, and survived until
+  the user saw `immix` in a run. The fix was the one-line scoping the original
+  change should have had: `sweep_order(bisect)`, bisection for the full sweep,
+  ascending for topk.)
 
 ## The Battleship video is the model
 Match its visual look and its **sparse on-screen text** — not necessarily its
