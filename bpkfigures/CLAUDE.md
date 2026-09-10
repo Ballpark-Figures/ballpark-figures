@@ -1128,6 +1128,31 @@ calls for; no titles/labels/narration that weren't asked for.
 - **Don't override a helper's default args** unless asked or genuinely required
   — defaults are deliberate and shared. If a layout seems to "need" a non-default
   value, the layout is probably wrong; fix the layout.
+- **AN ESTABLISHED PROCEDURE IS THE SPEC — do not change how we already do something
+  without consulting first, and that includes BEHAVIOUR, not just constants.** If this
+  repo already does a job a particular way — what a run PRINTS and how often, what it
+  SAVES and where, when it REFUSES, the shape of a command, a naming scheme, a report
+  format, a cadence — that way IS the convention until the user changes it. Deviating is
+  the same silent override as ignoring an instruction (§ Following instructions), and it
+  is worse when it is invisible: a summarised printout, a quieter log, a renamed column,
+  a different default all look like the thing they replaced. So: match the established
+  behaviour exactly, and if you believe a change is an improvement, FLAG IT AND ASK — one
+  sentence, before building on it. **The printout is the PRODUCT, not decoration**: the
+  user watches these runs, and a line per event is often the whole reason a tool is worth
+  running attached. (Bit us 2026-09-10: a new race summarised "OUT 2342 openers" where the
+  established race prints every elimination as it happens — never asked for, never
+  flagged, and only caught because the user noticed the lines were missing.)
+- **A SECOND IMPLEMENTATION OF SOMETHING WE ALREADY DO IS THE DEFAULT MISTAKE, NOT THE
+  DEFAULT MOVE — REUSE THE CODE.** When a job already has a tool here (a race, a sweep, a
+  cascade, a report, an entrance), the deliverable is THAT TOOL doing the new job, not a
+  sibling of it. "It is a different game / a different objective / a different scene" is
+  exactly how the first one got written too, and every copy is a place a later fix reaches
+  only one of — which is how the same bug gets fixed three times and still ships. Sharing
+  only the "hard part" is not enough: the loop, the printing and the file handling drift
+  just as fast as the maths. If the existing tool genuinely cannot serve the new caller,
+  say precisely WHAT it cannot do and propose the split BEFORE building — never discover
+  it afterwards by handing over a second file. **The user has been bitten by this many
+  times and it is a standing instruction, not a preference.**
 - **When you PORT or ADAPT reference code, carry its constants/defaults over
   VERBATIM — a changed value must be FLAGGED, never silent.** Copying a
   solver/helper/scene from another video (or an earlier file) means its literals —
