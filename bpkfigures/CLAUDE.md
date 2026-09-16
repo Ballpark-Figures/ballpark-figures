@@ -49,6 +49,12 @@ load wherever you're working. Video-specific rules live in that video's own
     attached**, phrased as an offer they must accept ("say the word and I'll give
     you the wider version"). Never put it in runnable form; a fenced block is an
     instruction, whatever the surrounding sentence says.
+  - **NO COMMENTS INSIDE A COMMAND THE USER RUNS (the user's call).** A command
+    block handed over for the user to run carries ZERO inline comments — no `# ...`
+    annotations, no trailing `# what this does` on a line, nothing but the command
+    itself. The user copies the block verbatim; comments are noise they did not ask
+    for and clutter the paste. Every explanation goes in PROSE before or after the
+    block, never inside it. One command, no annotations.
   - The tell: you already answered, and you are still typing.
   - (Bit us 2026-08-31, three times in one session. Asked for 26-letter sextets
     from 24-letter quints: answered correctly, then called it "a screen, not
