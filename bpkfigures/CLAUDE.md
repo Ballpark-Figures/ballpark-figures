@@ -55,6 +55,29 @@ load wherever you're working. Video-specific rules live in that video's own
     itself. The user copies the block verbatim; comments are noise they did not ask
     for and clutter the paste. Every explanation goes in PROSE before or after the
     block, never inside it. One command, no annotations.
+  - **IF A CAVEAT WOULD CHANGE WHETHER THEY RUN IT, WITHHOLD THE COMMAND — never
+    put it in prose beside one.** The user SCANS for the command block and runs it;
+    the text around it is frequently not read at all. So prose CANNOT carry a
+    warning, and a command block handed over IS a recommendation to run it,
+    whatever sits next to it. **The test, applied before every command block you
+    write: if they run this having read NONE of my text, is that outcome fine?**
+    If no, there is no command this turn.
+    - **Two kinds of caveat, and only one may travel with a command.** How to READ
+      THE RESULT — "INFEASIBLE is expected here", "this is a screen, not a winner",
+      "watch the first completions to price it" — does not change whether to run,
+      so it rides alongside. Whether to run AT ALL — it would overwrite, clobber or
+      resume-skip real data; it needs a code change first; it will take days; it
+      does not answer the question asked — means NO COMMAND. State the blocker in a
+      sentence or two and end on a question or an offer.
+    - Once the blocker is gone (the user said go, or the fix is in), give the
+      command — one block, no alternative, as above.
+    - The tell: you are writing a command block AND a sentence beginning "note
+      that", "be aware", "this would" or "first you'll need to".
+    (Bit us 2026-09-17: asked for a hard-mode depth-5 command, the agent explained
+    in prose that the wrapper's fixed output path would make the run resume-skip
+    every opener and measure nothing, needing a one-line fix first — and then gave
+    the command anyway. The prose was correct; the command was still the wrong
+    deliverable.)
   - The tell: you already answered, and you are still typing.
   - (Bit us 2026-08-31, three times in one session. Asked for 26-letter sextets
     from 24-letter quints: answered correctly, then called it "a screen, not
