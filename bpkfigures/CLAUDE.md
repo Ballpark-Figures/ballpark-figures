@@ -797,7 +797,8 @@ fixed, and check the two match before the number reaches the user.
   Y", "what should I run" — give the copy-pasteable command and STOP. Do NOT then execute
   it "to verify", "to prove it works", or "just one to be sure": they explicitly took the
   running for themselves (their machine, their timing, their control — and often to avoid
-  clobbering already-finalized outputs like padded subscenes), and running it anyway takes
+  clobbering already-finalized outputs like staged `edit_clips/` subscenes, which a
+  `--stills` re-render swaps straight into the open timeline), and running it anyway takes
   that away. If a claim needs backing, give the REASONING and tell them how THEY can check
   (e.g. an `ffprobe` compare). This is NARROW and only about the "give me a command"
   request — it does NOT restrict the normal build loop: when you're actively BUILDING or
@@ -957,6 +958,15 @@ calls for; no titles/labels/narration that weren't asked for.
   one trailing hold after each subscene (so adjacent subscenes share a SINGLE 1s pause,
   not two). A subscene body must NOT begin or end with `self.wait(...)` — it stacks on
   the framework's hold and doubles the pause. Mid-subscene pacing waits are fine.
+- **SPEED lives in manim; DWELL lives in the EDIT — the subscene clip is the unit, and
+  the pause BETWEEN subscenes is a stretchable still, not frames we render.** This is the
+  house default (see `render … --stills` under § Rendering and the workflow in
+  `PUBLISHING.md`): each subscene stages as its own exact clip plus a PNG of its last
+  held frame, and the editor stretches that still to hold as long as the voiceover needs.
+  So the 1s `SUBSCENE_HOLD` is a SEAM the still butts against, **not** the real pause
+  length — never lengthen it, or add a trailing `self.wait`, to "leave room" for
+  narration. That room is made in DaVinci. What belongs in manim is how fast a thing
+  MOVES (`run_time`); how long the frame SITS is not a manim knob at all.
 - **Every `run_time` is an explicit NUMBER inlined at the call — not a one-use local.**
   Write `self.play(…, run_time=1.2)`, not `rt = 1.2` … `run_time=rt` (the point is the
   user tweaks the literal in place). Pass an explicit `run_time=` to every `self.play`
@@ -1236,9 +1246,23 @@ calls for; no titles/labels/narration that weren't asked for.
   seconds-from-end) beside the mp4 and prints paths (`--frames N` = N evenly spaced). Add
   `--extract` to pull frames from the ALREADY-rendered mp4 with NO re-render — then READ the
   PNGs; never hand-roll `ffmpeg` chains.
-- `render 01 sub --padded` writes, beside each mp4, a copy with its first/last frame frozen
-  at head/tail (default 10s/side, `--padded 3` = 3s) into `padded_videos/` — an editing aid.
-  Composes with `--extract` (pad an existing mp4, no re-render); re-encodes (crf 18).
+- **`render 01d --stills` is THE way a subscene reaches the edit — it SUPERSEDES
+  `--padded`, which is legacy and should not be offered as the editing aid.** It stages
+  into a flat gitignored `edit_clips/` at the repo root: the subscene's animation clip (a
+  **byte-copy** of the render, no re-encode) + a **trailing still** PNG of its last held
+  frame, plus a **leading still** for subscene `a`. Names sort into timeline order
+  (`NN_lead_still`, `NNa_<m>`, `NNa_<m>_still`, `NNb_<m>`, …). Same targeting as any other
+  render, ranges included (`render 04d- --stills`), and it composes with `--extract` (stage
+  an already-rendered mp4, no re-render). **With Resolve open it also INGESTS each file
+  into the Media Pool** (per-scene bin), importing a new one and **refreshing an existing
+  one in place — which updates timeline instances too**, so re-rendering a subscene swaps
+  it into the cut automatically; matched by `(scene, @subscene method)`, so re-lettering is
+  handled. Placement on the timeline stays manual. Powered by `bpkfigures/davinci.py`;
+  full workflow in `PUBLISHING.md`. See the SPEED-vs-DWELL rule under § Scene structure for
+  why the stills are the pacing.
+- `render 01 sub --padded` (LEGACY, superseded by `--stills`) writes, beside each mp4, a
+  copy with its first/last frame frozen at head/tail (default 10s/side, `--padded 3` = 3s)
+  into `padded_videos/`. Still works; don't reach for it or suggest it for new work.
 - **`render 99a` renders a STATIC thumbnail automatically** — scene `99` is the reserved
   slot, so any `99*` target passes manim `-s -qk` (4K) with NO flag (the ONE path for
   thumbnails; don't hand-roll `manim -s -qk`). `--fast` gives a quick low-res PNG; the 4K
@@ -1739,8 +1763,11 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   themselves, AFTER recording the voiceover.** Leave every `run_time`/`wait` as an inlined,
   editable guess (per the run_time rules) and move on; do NOT end a handoff with "want me
   to do a timing pass?" or similar. Timing is entirely the user's, done later against the
-  VO — the agent's job is the objective build, not the pacing. (No need to enumerate the
-  timing knobs at handoff either; they're all inline literals the user will sweep anyway.)
+  VO — the agent's job is the objective build, not the pacing. **Most of that pacing is no
+  longer even in the code**: dwell is set by stretching the stills in DaVinci, so a beat
+  that "needs to breathe" is an EDIT change, not a longer `wait` — see the SPEED-vs-DWELL
+  rule under § Scene structure. (No need to enumerate the timing knobs at handoff either;
+  they're all inline literals the user will sweep anyway.)
 - **Every animation/wait exposes its `run_time`** in the subscene body so the user can
   retime — full rule in the run_time note under Scene structure.
 - **Use extended thinking for scene-building** (geometry + sequencing): the costly mistakes
