@@ -9,6 +9,7 @@ from manim import Scene
 from bpkfigures.style import *
 from bpkfigures.highlight import *
 from bpkfigures.resolve import index_to_label, label_to_index
+from bpkfigures.sfx import sfx_path, wav_info, spec_complaints
 
 # ── Render-hang workaround (manim + Python 3.14) ──────────────────────────────
 # manim's SceneFileWriter spawns a NON-daemon thread per partial movie
@@ -46,6 +47,14 @@ SNAPSHOT_VERSION = 6
 # not two. Subscene bodies therefore must NOT add their own start/end wait (the
 # framework owns those); internal mid-subscene waits are fine.
 SUBSCENE_HOLD = 1.0
+
+# Per-render AUDIO bookkeeping (see BpkScene.sfx). These are seeded BEFORE
+# _baseline_keys is captured, so they are baseline keys and never reach a snapshot;
+# this set is belt-and-braces so a future attribute added in the wrong place cannot
+# leak either. A restored _audio_t0 from whichever run happened to write the
+# snapshot would silently shift every cue in the clip.
+_NEVER_PICKLE = {"_audio_t0", "_sfx_live", "_sfx_still", "_sfx_cues",
+                 "_in_setup_scene"}
 
 _BPK_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -311,7 +320,7 @@ class BpkScene(Scene):
         return os.path.join(SNAPSHOT_DIR, f"{type(self).__name__}_{_letter(idx)}.pkl")
 
     def _save_snapshot(self, idx, names):
-        user_keys = set(self.__dict__) - self._baseline_keys
+        user_keys = set(self.__dict__) - self._baseline_keys - _NEVER_PICKLE
         sh, dg = self._prefix_key_parts(idx, names)   # stored too, so a later miss says which changed
         bundle = {
             "key": hashlib.md5(f"v{SNAPSHOT_VERSION}{sh}{dg}".encode()).hexdigest(),
@@ -387,12 +396,22 @@ class BpkScene(Scene):
             self.remove(m)
 
     def construct(self):
+        # Seed the audio bookkeeping BEFORE _baseline_keys is captured, so these are
+        # baseline keys and never land in a snapshot (see _NEVER_PICKLE). _sfx_live
+        # starts False so a cue in setup_scene() is refused rather than behaving
+        # differently between a full render and a subscene render.
+        self._audio_t0 = 0.0
+        self._sfx_live = False
+        self._sfx_still = False
+        self._in_setup_scene = False
+        self._sfx_cues = []
         self._baseline_keys = set(self.__dict__.keys())
         names = _ordered_subscenes(type(self))
         target = os.environ.get("SUBSCENE", "")
 
         if not target:
-            self.setup_scene()
+            self._run_setup_scene()
+            self._sfx_live = True                # t0 is 0 here: the clip IS the scene
             self.wait(SUBSCENE_HOLD)             # leading hold (once, at scene start)
             for i, name in enumerate(names):
                 if self._is_still(name):
@@ -411,9 +430,10 @@ class BpkScene(Scene):
         # with no prior-snapshot load / prefix replay (that carry-over is what would
         # ghost the previous frame behind this one).
         if self._is_still(names[idx]):
-            self.setup_scene()
+            self._run_setup_scene()
             self._clear_frame()
-            self.wait(SUBSCENE_HOLD)             # leading hold
+            self._sfx_still = True               # _sfx_live stays False: a `-s` render
+            self.wait(SUBSCENE_HOLD)             # writes no movie to carry audio
             getattr(self, names[idx])()
             self.wait(SUBSCENE_HOLD)             # trailing hold
             return
@@ -430,7 +450,7 @@ class BpkScene(Scene):
                 break
 
         if loaded_j == -1:
-            self.setup_scene()
+            self._run_setup_scene()
         if loaded_j < idx - 1:                  # replay the gap (or full prefix)
             self.renderer.skip_animations = True
             for i in range(loaded_j + 1, idx):
@@ -443,6 +463,8 @@ class BpkScene(Scene):
         # replayed play()'s (cached) partial-movie file to the concat list, so
         # without this the earlier subscenes get stitched into this one's video.
         self._discard_replay_frames()
+        self._reset_audio()                      # ...and its audio twin: drop any
+        self._sfx_live = True                    # replay audio, rebase the clock
 
         self.wait(SUBSCENE_HOLD)                 # leading hold on the incoming state
         getattr(self, names[idx])()
@@ -465,3 +487,134 @@ class BpkScene(Scene):
             if hasattr(section, "partial_movie_files"):
                 section.partial_movie_files[:] = (
                     [None] * len(section.partial_movie_files))
+
+    # ── sound effects ─────────────────────────────────────────────────────────
+    # The audio twin of _discard_replay_frames, and deliberately its neighbour: in
+    # manim's SceneFileWriter.__init__ the two things they reset (init_audio() and
+    # partial_movie_files) are set on adjacent lines, and they need discarding for
+    # the same reason at the same moment. Rendering ONE subscene replays the prefix
+    # to rebuild state; those frames are thrown away, and so must any audio.
+    #
+    # The other half is the CLOCK. renderer.time keeps advancing through the replay
+    # (it does `self.time += scene.duration` even when skipping), so self.time at
+    # the top of the target subscene is a FULL-SCENE timestamp -- for subscene h,
+    # perhaps 120s into an 8s clip. file_writer.add_sound files at an absolute
+    # position in the segment, so without rebasing, every cue in every staged clip
+    # would land past the end of its own video.
+    def _run_setup_scene(self):
+        """setup_scene(), flagged so sfx() can refuse a cue placed there."""
+        self._in_setup_scene = True
+        try:
+            self.setup_scene()
+        finally:
+            self._in_setup_scene = False
+
+    def _reset_audio(self):
+        """Discard replay audio and rebase the clock on the start of this clip."""
+        self._audio_t0 = self.time
+        self._sfx_cues = []
+        fw = getattr(self.renderer, "file_writer", None)
+        if fw is not None:
+            fw.init_audio()      # manim's own reset: includes_sound = False, and
+                                 # add_audio_segment recreates the segment lazily
+
+    def sfx(self, name, at=0.0, gain=None):
+        """Play sound effect `name` at this point in the subscene.
+
+        `at` offsets in seconds from here (negative clamps to the clip start); `gain`
+        is dB, for the exception -- the library is normalised at author time, so the
+        usual call is just `self.sfx("click")`.
+
+        Called for its side effect on the rendered clip's audio track, immediately
+        before the animation it belongs to:
+
+            self.sfx("click")
+            self.play(FadeIn(tile), run_time=0.4)
+
+        Cues belong on an ANIMATION BEAT. A cue in the TRAILING hold is dropped from
+        the stitched full scene (`_stitch_full` trims exactly that second off every
+        clip but the last) and is silent under the stretched still in the edit, so
+        _finalize_audio warns about it. The leading hold is fine -- it survives.
+        """
+        if self._sfx_still:
+            print(f"[bpk] sfx {name!r} ignored: a @still/@thumbnail renders a PNG, "
+                  f"which carries no audio")
+            return
+        if not self._sfx_live:
+            # Either replaying the prefix, or setup_scene(). The replay case is the
+            # ordinary one and returning here also keeps it cheap -- otherwise every
+            # prefix cue would decode its wav and overlay onto a growing segment.
+            #
+            # setup_scene() is a HARD ERROR instead, because it is the one place the
+            # two render paths genuinely disagree: in a full-scene render it runs
+            # with audio live, in a subscene render it runs inside the replay. A cue
+            # there would play in `render 01` and vanish in `render 01d` -- exactly
+            # the asymmetry this whole design exists to prevent.
+            if self._in_setup_scene:
+                raise RuntimeError(
+                    f"sfx({name!r}) called from setup_scene(). Sound effects belong "
+                    f"in a @subscene body: setup_scene runs inside the skipped prefix "
+                    f"replay when a single subscene is rendered, so the cue would be "
+                    f"heard in `render NN` and silently missing from `render NN<x>`.")
+            return
+        if os.environ.get("BPK_NO_SFX") == "1":
+            return
+
+        path = sfx_path(name)                    # raises, loudly, if unknown
+        t = self.time - self._audio_t0 + at
+        if t < 0:
+            print(f"[bpk] sfx {name!r}: at={at} lands {-t:.3f}s before the clip "
+                  f"start — clamped to 0")
+            t = 0.0
+        self.renderer.file_writer.add_sound(path, t, gain)
+
+        try:
+            dur = wav_info(path)[0]
+        except Exception:
+            dur = 0.0
+        self._sfx_cues.append((name, path, t, dur))
+
+    def _finalize_audio(self):
+        """Match the audio segment to the video length, then audit the cues.
+
+        THE TRIM IS LOAD-BEARING, not tidiness. manim asks PyAV to mux with
+        `{"shortest": "1"}`, but `shortest` is an ffmpeg CLI flag and NOT an mp4
+        muxer option, so it is ignored -- meaning the container duration would be
+        whichever of audio/video is LONGER. Audio longer than video therefore
+        produces an mp4 that REPORTS the wrong length, and everything downstream
+        measures clips: render.py's `_duration` drives the stitch seam trim, the
+        staged trailing still is grabbed with `-sseof`, and DaVinci shows the
+        container length. Trimming here keeps container == video, always.
+        """
+        fw = getattr(self.renderer, "file_writer", None)
+        if fw is None or not getattr(fw, "includes_sound", False):
+            return
+        clip_len = self.time - self._audio_t0
+
+        seg = fw.audio_segment
+        want_ms = int(round(clip_len * 1000))
+        if len(seg) > want_ms:
+            fw.audio_segment = seg[:want_ms]
+        elif len(seg) < want_ms:
+            from pydub import AudioSegment
+            fw.audio_segment = seg + AudioSegment.silent(want_ms - len(seg),
+                                                         frame_rate=seg.frame_rate)
+
+        for name, path, t, dur in self._sfx_cues:
+            if t + dur > clip_len + 1e-6:
+                print(f"[bpk] sfx {name!r} at {t:.2f}s runs {t + dur - clip_len:.2f}s "
+                      f"past the end of this clip ({clip_len:.2f}s) — it will be cut")
+            elif t >= clip_len - SUBSCENE_HOLD - 1e-6:
+                print(f"[bpk] sfx {name!r} at {t:.2f}s is inside the TRAILING hold — "
+                      f"it will NOT survive `render {{NN}} all` (the stitch trims that "
+                      f"second off every clip but the last), and the stretched still "
+                      f"over it is silent in the edit. Move it onto an animation beat.")
+            for complaint in spec_complaints(path):
+                print(f"[bpk] sfx {name!r}: {complaint}")
+
+    def tear_down(self):
+        # manim calls this after construct() and BEFORE scene_finished() ->
+        # file_writer.finish() -> combine_to_movie(), so it is exactly the window in
+        # which every cue is filed and the mux has not run yet.
+        self._finalize_audio()
+        super().tear_down()
