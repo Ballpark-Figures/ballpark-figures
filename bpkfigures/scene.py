@@ -414,9 +414,16 @@ class BpkScene(Scene):
             self._sfx_live = True                # t0 is 0 here: the clip IS the scene
             self.wait(SUBSCENE_HOLD)             # leading hold (once, at scene start)
             for i, name in enumerate(names):
+                # A @still's cue is refused HERE too, not just on the single-subscene
+                # path. Rendered alone a still is a PNG and carries no audio; in this
+                # combined pass it happens to be a video segment, so without this the
+                # same line would sound in `render NN` and be silent in `render NNf` --
+                # the asymmetry the setup_scene guard exists to prevent.
+                self._sfx_still = self._is_still(name)
                 if self._is_still(name):
                     self._clear_frame()          # independent frame: no carry-over
                 getattr(self, name)()
+                self._sfx_still = False
                 self.wait(SUBSCENE_HOLD)         # single shared pause between subscenes
                 if not self._is_still(name):     # still frames need no snapshot
                     self._save_snapshot(i, names)
@@ -606,7 +613,7 @@ class BpkScene(Scene):
                       f"past the end of this clip ({clip_len:.2f}s) — it will be cut")
             elif t >= clip_len - SUBSCENE_HOLD - 1e-6:
                 print(f"[bpk] sfx {name!r} at {t:.2f}s is inside the TRAILING hold — "
-                      f"it will NOT survive `render {{NN}} all` (the stitch trims that "
+                      f"it will NOT survive a full-scene stitch (which trims that "
                       f"second off every clip but the last), and the stretched still "
                       f"over it is silent in the edit. Move it onto an animation beat.")
             for complaint in spec_complaints(path):
