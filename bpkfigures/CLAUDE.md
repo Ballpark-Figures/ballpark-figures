@@ -470,6 +470,8 @@ the "where do I look" map.
   ValueTracker so it never jitters/resizes, with the number flashing green-up/crimson-down
   (`.count(scene, value, run_time, flash=…)`). Don't hand-roll it (scenes 05 & 18 each did,
   and re-broke the rolling-counter resize). See § Shared visual vocabulary.
+- **A sound effect** → `self.sfx("name")` (scene.py), never `self.add_sound`. The
+  library is `music-library/sfx/`. (§ Sound effects.)
 - **Every `run_time`** → an inlined literal at the call site (named local only for a
   lockstep loop). (§ Scene structure.)
 - **Any displayed number** → SOURCED from the pipeline (data module + committed cache),
@@ -967,6 +969,28 @@ calls for; no titles/labels/narration that weren't asked for.
   length — never lengthen it, or add a trailing `self.wait`, to "leave room" for
   narration. That room is made in DaVinci. What belongs in manim is how fast a thing
   MOVES (`run_time`); how long the frame SITS is not a manim knob at all.
+- **Sound effects: `self.sfx("name")`, beside the animation it belongs to — NEVER
+  `self.add_sound`.** The effect is baked into that subscene's mp4, so `--stills`
+  carries it into the edit untouched (a byte-copy) and a re-render swaps it in.
+  `PUBLISHING.md` § Sound effects has the DaVinci half.
+  - **The library is `music-library/sfx/`** — the private repo, as for music, and for
+    the same licensing reason. 48 kHz mono 16-bit `.wav`, head silence trimmed,
+    **normalized once at author time**, logged in that repo's `catalog.md`. So the
+    usual call is a bare `self.sfx("click")`; `gain` (dB) is the exception, not the
+    habit. `BPK_SFX_DIR` points at a scratch directory for trying one out. A name
+    that does not resolve RAISES — and `render NN --check` resolves every literal,
+    so a typo costs a second rather than a render.
+  - **A cue belongs on an ANIMATION BEAT, not in the 1s hold at either end.** The
+    leading hold is fine (it survives the stitch); a cue in the TRAILING hold is
+    dropped from `render NN all` and sits under a silent stretched still in the edit.
+    The render warns when one lands there.
+  - **A sound over a DWELL is out of scope for manim** — dwell is a stretched still
+    whose length does not exist until the edit (§ SPEED-vs-DWELL above), so anything
+    playing across a hold is a DaVinci-track effect. manim owns sound INSIDE a clip.
+  - **`sfx()` in `setup_scene()` is a hard error**, because setup runs live in a full
+    render and inside the skipped replay in a subscene render — the cue would play in
+    `render 01` and vanish from `render 01d`.
+  - `render … --no-sfx` renders without them. Not `--no-sound`, which is the chime.
 - **Every `run_time` is an explicit NUMBER inlined at the call — not a one-use local.**
   Write `self.play(…, run_time=1.2)`, not `rt = 1.2` … `run_time=rt` (the point is the
   user tweaks the literal in place). Pass an explicit `run_time=` to every `self.play`

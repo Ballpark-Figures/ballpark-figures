@@ -93,7 +93,9 @@ Everything here is a large binary, so it's **gitignored — local, not synced**
 (only the folders + their READMEs are tracked):
 
 - **manim renders** — `animations/**/media/videos/**/*.mp4`, produced by `render`.
-  These are **silent** (no audio).
+  These are silent **unless the scene calls `self.sfx(...)`**, in which case the clip
+  carries its sound effects baked in as an AAC track (see "Sound effects" below).
+  Voiceover and music are still added in DaVinci either way.
 - **voiceover** — **recorded directly in DaVinci** onto an audio track (see
   "Recording the voiceover" below); no external DAW export step. (Battleship's
   older per-scene `*.wav` + Audacity `audio.aup3` workflow is superseded.)
@@ -203,6 +205,30 @@ stretchable stills remove the need to trim.
 - Runs the swap only where Resolve is reachable (the Mac); with Resolve closed / on the
   desktop it just writes the files. Powered by `bpkfigures/davinci.py`.
 
+### Sound effects — baked into the clip, not a separate file
+
+A scene calls `self.sfx("name")` beside the animation it belongs to, and the effect is
+muxed into that subscene's mp4. Nothing extra is staged: `--stills` byte-copies the
+clip, so the audio arrives in `edit_clips/` and then the Media Pool already in sync,
+and a re-render swaps the new audio in with the video.
+
+- **The library is `music-library/sfx/`** — the same private repo as the music, and for
+  the same licensing reason. Files are **48 kHz mono 16-bit PCM `.wav`**, head silence
+  trimmed, **normalized once at author time** so a baked effect arrives at a consistent
+  level. Log each one in that repo's `catalog.md`, as with a music track.
+- **Give sfx their own audio track, and set the track targeting before the first
+  sounded clip lands.** A clip with audio drags it onto an audio track, and the
+  timeline spec above is three MONO tracks already spoken for by VO, music and footage.
+- **A sound over a DWELL cannot come from manim.** Dwell is a stretched still whose
+  length does not exist until you set it in the edit, so anything playing across a hold
+  is a DaVinci-track effect. manim owns sound INSIDE an animation clip only.
+- **Cues belong on an animation beat, not in the 1s hold at either end.** A cue in the
+  TRAILING hold is dropped from `render NN all` (the stitch trims exactly that second
+  off every clip but the last) and sits under a silent stretched still in the edit;
+  the render warns when one lands there.
+- `render … --no-sfx` renders the same scene without them. (Not `--no-sound`, which is
+  the render-finished chime on this machine and never touches the media.)
+
 ### Audio loudness — make it consistent AND match YouTube
 
 Mix to **LUFS** (perceived loudness), not peak volume. **YouTube plays back at
@@ -211,8 +237,12 @@ one UP.** So a mix under −14 just stays quiet (the "why is my video quieter th
 everyone else's" symptom). Target **≈ −14 LUFS integrated** for the final mix.
 
 1. **Match every dialogue clip to each other** (fixes talking-heads-quieter-than-VO):
-   select the clips (**Cmd+A** grabs all; silent manim renders are skipped
-   automatically), **right-click → Normalize Audio Levels…**, and set:
+   select **the dialogue clips explicitly** — **do NOT Cmd+A** once any manim render
+   carries sound effects. Cmd+A was safe only while every render was silent (a silent
+   clip is skipped automatically); a clip with an sfx track is NOT skipped, and
+   normalizing a 150 ms click to −16 LUFS **integrated** makes it enormously loud.
+   The symptom shows up nowhere near the cause, so select deliberately. Then
+   **right-click → Normalize Audio Levels…**, and set:
    - **Normalization Mode: ITU-R BS.1770-4**
    - **Target Loudness: −16 LKFS** (LKFS = LUFS; −16 is the per-clip working level,
      leaving headroom under the −14 master target)
@@ -312,6 +342,7 @@ post-publish):
   (1920×1080, Yahtzee 60 / Battleship 30) — it's locked once media is in.
 - Deliverable = **`<Video>.mov`** at the repo root (H.264, 1080p, timeline fps).
 - `.drp` = project **backup**, never uploaded.
-- Renders are silent; audio (voiceover + music) is added in DaVinci.
+- Renders carry only their own baked sound effects, if any; voiceover and music are
+  added in DaVinci.
 - Everything here is local/gitignored — nothing about the finished video is synced
   via git except this doc and the folder READMEs.
