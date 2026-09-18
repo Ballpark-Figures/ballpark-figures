@@ -1296,6 +1296,13 @@ calls for; no titles/labels/narration that weren't asked for.
   asset; **change-detection on `render 99 all`** — only thumbnails whose code/reachable
   helpers changed re-render (keyed in a gitignored `.render_keys.json`; `--recompute` forces
   a rebuild).
+- **manim's audio leftovers are deleted after each render.** `combine_to_movie` writes
+  `<clip>.wav` and `<clip>.aac` beside the mp4, muxes them in, and leaves them there —
+  254 KB each, often bigger than the clip. Since `media/videos/<scene>/<res>/` is the
+  folder you click through to WATCH renders, a stray file per sounded clip doubles what
+  is in it. `_drop_audio_intermediates` removes only extensions manim writes, only a
+  stem matching that clip, only in its own directory. Older folders keep their strays
+  until re-rendered.
 - **A sounded render's audio is re-encoded to MP3, and that is deliberate** —
   **VSCode's video preview is a Chromium webview whose Electron build has NO AAC
   DECODER**, so an ordinary H.264+AAC clip shows picture and plays SILENCE there.

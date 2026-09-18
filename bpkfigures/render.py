@@ -225,6 +225,34 @@ def _previewable_audio(mp4):
     os.replace(tmp, mp4)
 
 
+def _drop_audio_intermediates(mp4):
+    """Delete manim's leftover audio files beside a rendered clip.
+
+    `combine_to_movie` exports the scene's audio to `<clip>.wav`, converts that to
+    `<clip>.aac` (or `.ogg` for webm), muxes the result into the mp4 — and then
+    leaves them all on disk. They are dead once the mux is done: the mp4 carries the
+    audio, and these are bit-for-bit recoverable from it anyway.
+
+    It matters because `media/videos/<scene>/<res>/` is the folder you click through
+    to WATCH renders, and a stray file per sounded clip doubles what is in it — the
+    wavs here were 254 KB each, bigger than several of the mp4s they belonged to.
+
+    Deliberately narrow: only extensions manim itself writes, only a stem that
+    exactly matches this clip's, only in the clip's own directory. It never removes
+    an unrelated file that happens to sit nearby.
+    """
+    if not mp4 or not os.path.exists(mp4):
+        return
+    stem = os.path.splitext(mp4)[0]
+    for ext in (".wav", ".aac", ".ogg"):
+        leftover = stem + ext
+        if os.path.exists(leftover):
+            try:
+                os.remove(leftover)
+            except OSError:
+                pass                     # cosmetic cleanup; never fail a render for it
+
+
 def _play(path):
     """Open `path` in the system video player — `--play`.
 
@@ -1108,8 +1136,10 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         return rc
 
     # Make the clip's audio previewable BEFORE anything copies or derives from it,
-    # so --stills stages a file that plays in VSCode rather than one that doesn't.
+    # so --stills stages a file that plays in VSCode rather than one that doesn't;
+    # then clear manim's mux leftovers out of the folder you browse to watch renders.
     _previewable_audio(_output_mp4(output))
+    _drop_audio_intermediates(_output_mp4(output))
 
     if frames_spec is not None or padded is not None or stills:
         mp4 = _output_mp4(output)
