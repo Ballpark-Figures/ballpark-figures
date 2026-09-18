@@ -1,6 +1,11 @@
 """Convert a source sound file into a library-spec effect in `music-library/sfx/`.
 
-    python -m bpkfigures.sfx_import <file> [<file> ...] [--name NAME] [--dry-run]
+    python -m bpkfigures.sfx_import <file> [...] [--name N] [--start S --duration D]
+
+`--start`/`--duration` take a SLICE, which is how a library of one-shots comes out of
+one recording: a stock "individual keys" file is a dozen separate presses in a single
+take, and a "typing" file is a minute of continuous typing you want two seconds of.
+Start the slice slightly EARLY — the head-silence trim below lands it tight.
 
 A stock download is never to spec — typically 44.1 kHz stereo 24-bit with leading
 silence at whatever level the publisher chose. This does the mechanical part, once,
@@ -65,17 +70,30 @@ def _slug(path):
     return stem or "effect"
 
 
-def convert(src, dest, dry_run=False):
-    """Convert `src` to spec at `dest`. Returns a dict describing what was done."""
+def convert(src, dest, start=None, duration=None, fade_ms=0, dry_run=False):
+    """Convert `src` to spec at `dest`. Returns a dict describing what was done.
+
+    `start`/`duration` take a SLICE of the source first, which is how a library of
+    one-shots comes out of a single recording: a stock "individual keys" file is a
+    dozen separate presses in one take, and a "typing" file is a minute of it.
+    """
     peak_before = _measure_peak(src)
     if dry_run:
         return {"dest": dest, "peak_before": peak_before, "dry_run": True}
 
+    # -ss / -t go BEFORE -i so ffmpeg seeks rather than decoding and discarding.
+    seek = []
+    if start is not None:
+        seek += ["-ss", str(start)]
+    if duration is not None:
+        seek += ["-t", str(duration)]
+
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
     try:
-        # Pass 1 — format + trim. The trim runs BEFORE the peak is measured, since
-        # cutting the head can only change where the maximum sits.
-        r = _run(["-i", src,
+        # Pass 1 — slice + format + trim. The trim runs BEFORE the peak is measured,
+        # since cutting the head can only change where the maximum sits; it is also
+        # what lets a slice start slightly EARLY and still land tight on the sound.
+        r = _run([*seek, "-i", src,
                   "-af", f"silenceremove=start_periods=1:start_duration=0:"
                          f"start_threshold={TRIM_THRESHOLD_DB}dB",
                   "-ar", str(WANT_RATE), "-ac", str(WANT_CHANNELS),
@@ -88,7 +106,16 @@ def convert(src, dest, dry_run=False):
         if peak is None:
             raise RuntimeError("could not measure peak level")
         gain = PEAK_DBFS - peak
-        r = _run(["-i", tmp, "-af", f"volume={gain:.3f}dB",
+        af = f"volume={gain:.3f}dB"
+        if fade_ms:
+            # A slice out of CONTINUOUS material starts and ends mid-waveform, and
+            # that discontinuity clicks. Deliberately not automatic: a one-shot
+            # sliced out of silence needs no fade-IN, and putting one on would dull
+            # exactly the transient attack that makes a keystroke read as a keystroke.
+            sec = fade_ms / 1000.0
+            end = wav_info(tmp)[0] - sec
+            af += f",afade=t=in:st=0:d={sec:g},afade=t=out:st={max(0.0, end):g}:d={sec:g}"
+        r = _run(["-i", tmp, "-af", af,
                   "-c:a", f"pcm_s{WANT_SAMPWIDTH * 8}le", dest])
         if r.returncode != 0:
             raise RuntimeError(f"ffmpeg normalise failed: {r.stderr.strip()[-300:]}")
@@ -111,6 +138,13 @@ def main(argv=None):
     ap.add_argument("--name", help="output name (one source only); default is a slug of "
                                    "the source filename")
     ap.add_argument("--out", default=LIBRARY, help=f"output directory (default {LIBRARY})")
+    ap.add_argument("--start", type=float,
+                    help="take a SLICE: seconds into the source to start")
+    ap.add_argument("--duration", type=float,
+                    help="take a SLICE: seconds of source to take")
+    ap.add_argument("--fade", type=float, default=0, metavar="MS",
+                    help="fade in and out by MS milliseconds — for a slice of "
+                         "CONTINUOUS material, whose ends would otherwise click")
     ap.add_argument("--force", action="store_true",
                     help="replace an effect that already exists")
     ap.add_argument("--dry-run", action="store_true",
@@ -136,7 +170,8 @@ def main(argv=None):
             rc = 1
             continue
         try:
-            res = convert(src, dest, dry_run=a.dry_run)
+            res = convert(src, dest, start=a.start, duration=a.duration,
+                          fade_ms=a.fade, dry_run=a.dry_run)
         except Exception as e:
             print(f"[sfx] {name}: {e}", file=sys.stderr)
             rc = 1
@@ -155,7 +190,11 @@ def main(argv=None):
         for c in spec_complaints(dest):          # must be empty; a belt-and-braces gate
             print(f"[sfx] {name}: STILL OFF SPEC — {c}", file=sys.stderr)
             rc = 1
-        rows.append(f"| {name} | — | — | — | — | `{os.path.basename(src)}` | "
+        slice_note = ""
+        if a.start is not None or a.duration is not None:
+            slice_note = (f" @{a.start or 0:g}s"
+                          + (f"+{a.duration:g}s" if a.duration else ""))
+        rows.append(f"| {name} | — | — | — | — | `{os.path.basename(src)}{slice_note}` | "
                     f"`{res['md5']}` |")
 
     if rows:
