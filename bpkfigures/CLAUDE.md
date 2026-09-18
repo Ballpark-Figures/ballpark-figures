@@ -1296,6 +1296,17 @@ calls for; no titles/labels/narration that weren't asked for.
   asset; **change-detection on `render 99 all`** — only thumbnails whose code/reachable
   helpers changed re-render (keyed in a gitignored `.render_keys.json`; `--recompute` forces
   a rebuild).
+- **A sounded render's audio is re-encoded to MP3, and that is deliberate** —
+  **VSCode's video preview is a Chromium webview whose Electron build has NO AAC
+  DECODER**, so an ordinary H.264+AAC clip shows picture and plays SILENCE there.
+  Clicking a clip in the explorer is how these get watched, so an AAC render makes
+  iterating on sound impossible. MEASURED 2026-09-18 by A/B on one clip: MP3 plays,
+  AAC does not, and nothing else about the file was wrong (faststart, dispositions,
+  start times and codec profile were all checked and normal). `_previewable_audio`
+  stream-COPIES the video and only re-encodes the audio, DaVinci reads MP3-in-mp4,
+  and these mp4s are intermediates for the edit rather than deliverables. **A SILENT
+  clip is left completely alone**, so a video using no sound effects still produces
+  byte-identical output.
 - **`--play` opens the finished video when the run ends** — the way to WATCH a render,
   and the only practical way to check sound (otherwise you dig out
   `media/videos/<scene>/<res>/<name>.mp4` by hand every time). It opens the LAST

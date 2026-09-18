@@ -188,6 +188,43 @@ def _has_audio(mp4):
     return bool(_probe(mp4, ["-select_streams", "a"], "stream=codec_type"))
 
 
+def _previewable_audio(mp4):
+    """Re-encode an mp4's audio to MP3 in place. No-op on a clip with no audio.
+
+    WHY, and it is not cosmetic: VSCode's video preview is a Chromium webview whose
+    Electron build ships NO AAC DECODER, so an ordinary H.264+AAC render shows
+    picture and plays SILENCE there — which makes iterating on sound impossible,
+    since clicking the file in the explorer is how these get watched. MEASURED
+    2026-09-18 by A/B: the identical clip with MP3 audio plays, with AAC does not.
+    Nothing else about the file was wrong — faststart, stream dispositions, start
+    times and codec profile were all checked and normal.
+
+    MP3-in-mp4 costs nothing that matters: DaVinci reads it, the video stream is
+    STREAM-COPIED so the picture is untouched, and these mp4s are intermediates for
+    the edit, never deliverables (the deliverable is a .mov out of Resolve). An
+    audio-only re-encode of a short clip is a fraction of a second.
+
+    A SILENT CLIP IS LEFT ALONE ENTIRELY — not remuxed, not rewritten — so a video
+    that uses no sound effects keeps producing byte-identical output.
+    """
+    if not mp4 or not os.path.exists(mp4) or not _has_audio(mp4):
+        return
+    if _probe(mp4, ["-select_streams", "a:0"], "stream=codec_name") == "mp3":
+        return                                   # already previewable
+    tmp = mp4 + ".mp3audio.mp4"
+    r = subprocess.run([_ffmpeg(), "-y", "-v", "error", "-i", mp4,
+                        "-c:v", "copy", "-c:a", "libmp3lame", "-b:a", "192k", tmp],
+                       capture_output=True)
+    if r.returncode != 0:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        print(f"[render] could not convert audio to MP3 for preview "
+              f"({r.stderr.decode(errors='replace')[-200:]}) — the clip keeps its "
+              f"AAC track and will be silent in VSCode", file=sys.stderr)
+        return
+    os.replace(tmp, mp4)
+
+
 def _play(path):
     """Open `path` in the system video player — `--play`.
 
@@ -413,7 +450,10 @@ def _stitch_full(prefix, full_output):
     if with_audio:
         concat = "".join(f"[v{i}][a{i}]" for i in range(len(clips)))
         concat += f"concat=n={len(clips)}:v=1:a=1[out][aout]"
-        maps = ["-map", "[out]", "-map", "[aout]", "-c:a", "aac", "-b:a", "192k"]
+        # MP3, not AAC — see _previewable_audio: VSCode's preview cannot decode AAC,
+        # and the stitched full scene is the clip most worth watching.
+        maps = ["-map", "[out]", "-map", "[aout]",
+                "-c:a", "libmp3lame", "-b:a", "192k"]
     else:
         concat = "".join(f"[v{i}]" for i in range(len(clips)))
         concat += f"concat=n={len(clips)}:v=1:a=0[out]"
@@ -1066,6 +1106,10 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
             print(f"[render] rendered but couldn't find output PNG for {output} "
                   f"under media/images/", file=sys.stderr)
         return rc
+
+    # Make the clip's audio previewable BEFORE anything copies or derives from it,
+    # so --stills stages a file that plays in VSCode rather than one that doesn't.
+    _previewable_audio(_output_mp4(output))
 
     if frames_spec is not None or padded is not None or stills:
         mp4 = _output_mp4(output)
