@@ -57,6 +57,16 @@ WANT_RATE = 48000
 WANT_CHANNELS = 1
 WANT_SAMPWIDTH = 2          # 16-bit PCM
 
+# Effects are PEAK-normalised, not loudness-normalised, and that is a real choice.
+# The loudness standard measures in 400 ms blocks, so a 120 ms click is SHORTER THAN
+# ONE BLOCK: the meter averages it against the silence around it, and hitting an
+# integrated LUFS target means cranking the click enormously. (Same mechanism as the
+# Cmd+A normalize hazard in PUBLISHING.md -- LUFS is for SUSTAINED material, and
+# effects are transients.) Peak is predictable, never clips, and leaves the handful
+# of effects that still sit wrong to a per-call `gain` in dB, which no single
+# automatic measure would have got right across material this varied.
+PEAK_DBFS = -3.0
+
 
 def sfx_roots():
     """The directories searched, in order. Override first, then the library."""

@@ -214,8 +214,14 @@ and a re-render swaps the new audio in with the video.
 
 - **The library is `music-library/sfx/`** — the same private repo as the music, and for
   the same licensing reason. Files are **48 kHz mono 16-bit PCM `.wav`**, head silence
-  trimmed, **normalized once at author time** so a baked effect arrives at a consistent
-  level. Log each one in that repo's `catalog.md`, as with a music track.
+  trimmed, **peak-normalized once at author time** so a baked effect arrives at a
+  consistent level. **Add one with `python -m bpkfigures.sfx_import <file>`**, which
+  converts to spec and prints the `catalog.md` row; a stock download is never to spec.
+- **Effects are PEAK-normalized, not LUFS** — deliberately. The loudness standard
+  measures in 400 ms blocks, so a short effect is shorter than one block and hitting an
+  integrated target means cranking it enormously (the same mechanism as the Cmd+A
+  hazard below). The few effects that still sit wrong take a `gain=` in dB at the call
+  site, which is a better division than making one algorithm handle every effect.
 - **Give sfx their own audio track, and set the track targeting before the first
   sounded clip lands.** A clip with audio drags it onto an audio track, and the
   timeline spec above is three MONO tracks already spoken for by VO, music and footage.
