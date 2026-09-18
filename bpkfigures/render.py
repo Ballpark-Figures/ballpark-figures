@@ -131,14 +131,61 @@ def _ffprobe():
 
 
 # ── frame extraction ──────────────────────────────────────────────────────────
-def _duration(mp4):
-    out = subprocess.run([_ffprobe(), "-v", "error", "-show_entries",
-                          "format=duration", "-of", "csv=p=0", mp4],
+def _probe(mp4, streams, entries):
+    out = subprocess.run([_ffprobe(), "-v", "error", *streams,
+                          "-show_entries", entries, "-of", "csv=p=0", mp4],
                          capture_output=True, text=True)
+    return out.stdout.strip()
+
+
+def _probe_fields(mp4, streams, entries):
+    """`{key: value}` for one probe. Keyed, NOT positional: ffprobe emits the fields
+    in ITS order, not the order they were asked for (`nb_frames,r_frame_rate` comes
+    back rate-first), so indexing a csv row reads the wrong field."""
+    out = subprocess.run([_ffprobe(), "-v", "error", *streams,
+                          "-show_entries", entries,
+                          "-of", "default=noprint_wrappers=1", mp4],
+                         capture_output=True, text=True)
+    fields = {}
+    for line in out.stdout.splitlines():
+        key, _, val = line.partition("=")
+        if key and key not in fields:          # first stream wins
+            fields[key] = val.strip()
+    return fields
+
+
+def _duration(mp4):
+    """Seconds of VIDEO in `mp4` — deliberately not the container duration.
+
+    Every caller measures the PICTURE: _stitch_full trims a hold off each clip,
+    _parse_frames spreads sample times, _extract_one_frame seeks from the end. A
+    clip carrying audio can have a container longer than its video (manim's mux
+    passes `shortest`, which is an ffmpeg CLI flag and NOT an mp4 muxer option, so
+    it is ignored), and reading `format=duration` would then quietly stretch all
+    of that. Prefer the frame count over the frame rate — exact, and immune to the
+    same skew — then the video stream's own duration, then the container.
+    """
+    f = _probe_fields(mp4, ["-select_streams", "v:0"], "stream=nb_frames,r_frame_rate")
     try:
-        return float(out.stdout.strip())
-    except ValueError:
-        return None
+        frames = int(f.get("nb_frames", ""))
+        num, _, den = f.get("r_frame_rate", "").partition("/")
+        rate = float(num) / float(den or 1)
+        if frames > 0 and rate > 0:
+            return frames / rate
+    except (ValueError, ZeroDivisionError):
+        pass
+    for streams, entries in ((["-select_streams", "v:0"], "stream=duration"),
+                             ([], "format=duration")):
+        try:
+            return float(_probe(mp4, streams, entries))
+        except ValueError:
+            continue
+    return None
+
+
+def _has_audio(mp4):
+    """True if `mp4` carries an audio stream at all (empty probe output = silent)."""
+    return bool(_probe(mp4, ["-select_streams", "a"], "stream=codec_type"))
 
 
 def _parse_frames(spec, dur):
@@ -182,9 +229,15 @@ def _extract_frames(mp4, times):
 def _pad_video(mp4, seconds):
     """Write a copy of `mp4` with `seconds` of its FIRST frame frozen at the head
     and its LAST frame frozen at the tail, into a `padded_videos/` tree mirroring
-    `videos/` (same substructure). ffmpeg's tpad clones the end frames; renders are
-    SILENT so only the video stream needs padding. Returns the output path (or None
-    on failure). Re-encodes (tpad can't stream-copy) at near-lossless crf 18."""
+    `videos/` (same substructure). ffmpeg's tpad clones the end frames. Returns the
+    output path (or None on failure). Re-encodes (tpad can't stream-copy) at
+    near-lossless crf 18.
+
+    The copy is SILENT (`-an`) even when the source carries sound effects: tpad pads
+    the VIDEO only, so ffmpeg's default stream selection would carry the audio across
+    unshifted and leave it `seconds` out of sync with the picture. This is a legacy
+    editing aid superseded by `--stills` (which byte-copies and keeps its audio), so
+    dropping the track beats shipping a desynced one."""
     parts = os.path.normpath(mp4).split(os.sep)
     try:                                    # media/videos/<scene>/<q>/x.mp4 -> padded_videos
         vi = len(parts) - 1 - parts[::-1].index("videos")
@@ -196,7 +249,7 @@ def _pad_video(mp4, seconds):
     os.makedirs(os.path.dirname(out), exist_ok=True)
     vf = (f"tpad=start_duration={seconds}:start_mode=clone:"
           f"stop_duration={seconds}:stop_mode=clone")
-    r = subprocess.run([_ffmpeg(), "-y", "-i", mp4, "-vf", vf,
+    r = subprocess.run([_ffmpeg(), "-y", "-i", mp4, "-vf", vf, "-an",
                         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", out],
                        capture_output=True)
     if r.returncode != 0:
@@ -289,7 +342,8 @@ def _stitch_full(prefix, full_output):
 
     Returns the stitched mp4 path, or None if a clip / its duration is missing (the
     caller then falls back to a normal full manim render). Re-encodes once (crf 18,
-    near-lossless) so the tail-trim is frame-exact; renders are silent (video only)."""
+    near-lossless) so the tail-trim is frame-exact. Audio rides along only when some
+    clip actually has a track — see the branch below."""
     from bpkfigures.scene import SUBSCENE_HOLD    # single source of truth for the hold
     letters = resolve.subscene_letters(prefix)
     if not letters:
@@ -304,25 +358,49 @@ def _stitch_full(prefix, full_output):
             return None
         clips.append(mp4)
 
+    # Carry audio only if some clip HAS any. A scene whose subscenes are all silent
+    # must stitch exactly as it always did — giving it a silent audio track would be
+    # a regression for every video that uses no sound effects.
+    with_audio = any(_has_audio(m) for m in clips)
+    AFMT = "aformat=sample_rates=48000:channel_layouts=mono"
+
     inputs, filt = [], []
     for i, mp4 in enumerate(clips):
         inputs += ["-i", mp4]
+        dur = _duration(mp4)
+        if dur is None and (i < len(clips) - 1 or with_audio):
+            print(f"[render] stitch: can't read duration of {mp4} — falling back",
+                  file=sys.stderr)
+            return None
         if i < len(clips) - 1:                   # trim one trailing hold off all but last
-            dur = _duration(mp4)
-            if dur is None:
-                print(f"[render] stitch: can't read duration of {mp4} — falling back",
-                      file=sys.stderr)
-                return None
             end = max(0.0, dur - SUBSCENE_HOLD)
             filt.append(f"[{i}:v]trim=0:{end:.6f},setpts=PTS-STARTPTS[v{i}]")
         else:                                    # last clip: keep its trailing hold
+            end = dur
             filt.append(f"[{i}:v]setpts=PTS-STARTPTS[v{i}]")
-    concat = "".join(f"[v{i}]" for i in range(len(clips)))
-    concat += f"concat=n={len(clips)}:v=1:a=0[out]"
+        if with_audio:
+            # concat with a=1 needs every segment at one rate and layout, and needs a
+            # segment even for a silent clip — anullsrc is a filter SOURCE, so it slots
+            # straight in rather than costing an extra -i whose index would collide
+            # with the [{i}:v] numbering above.
+            if _has_audio(mp4):
+                filt.append(f"[{i}:a]atrim=0:{end:.6f},asetpts=PTS-STARTPTS,{AFMT}[a{i}]")
+            else:
+                filt.append(f"anullsrc=r=48000:cl=mono,atrim=0:{end:.6f},"
+                            f"asetpts=N/SR/TB,{AFMT}[a{i}]")
+
+    if with_audio:
+        concat = "".join(f"[v{i}][a{i}]" for i in range(len(clips)))
+        concat += f"concat=n={len(clips)}:v=1:a=1[out][aout]"
+        maps = ["-map", "[out]", "-map", "[aout]", "-c:a", "aac", "-b:a", "192k"]
+    else:
+        concat = "".join(f"[v{i}]" for i in range(len(clips)))
+        concat += f"concat=n={len(clips)}:v=1:a=0[out]"
+        maps = ["-map", "[out]"]
     dest = os.path.join(os.path.dirname(clips[0]), f"{full_output}.mp4")
 
     cmd = [_ffmpeg(), "-y", *inputs, "-filter_complex", ";".join(filt) + ";" + concat,
-           "-map", "[out]", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", dest]
+           *maps, "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", dest]
     r = subprocess.run(cmd, capture_output=True)
     if r.returncode != 0:
         print(f"[render] stitch ffmpeg failed:\n"
@@ -702,6 +780,11 @@ def main(argv=None):
     # renders, so the agent always passes --no-sound (see bpkfigures/CLAUDE.md).
     global _PLAY_DING
     _PLAY_DING = "--no-sound" not in argv
+    # --no-sfx: render WITHOUT the scene's sound effects. Distinct from --no-sound,
+    # which is about the chime on THIS machine and never touches the media; this one
+    # changes what lands in the mp4. It rides to the scene process as an env var, the
+    # way SUBSCENE and RECOMPUTE do, so no manim argument is involved.
+    no_sfx = "--no-sfx" in argv
     frames_spec = None
     padded = None                # --padded [N]: also write a first/last-frame-padded copy
     stills = "--stills" in argv  # --stills: stage anim+stills into edit_clips/ + swap-if-live
@@ -712,7 +795,7 @@ def main(argv=None):
         a = argv[i]
         if a in ("--recompute", "--hq", "--state", "--fast", "--very-fast", "-ql",
                  "--quiet", "--check", "--extract", "--thumb", "--thumbnail", "--no-sound",
-                 "--stills"):
+                 "--no-sfx", "--stills"):
             pass
         elif a == "--frames":
             i += 1
@@ -751,7 +834,7 @@ def main(argv=None):
     if not targets:
         print("usage: render NN[label] [NN[label] ...] [NN all|sub] [NNa-c|NNb-|NN-f] "
               "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
-              "[--stills] [--thumb] [--state] [--check] [--no-sound]")
+              "[--stills] [--thumb] [--state] [--check] [--no-sound] [--no-sfx]")
         return 2
 
     if check:
@@ -794,7 +877,7 @@ def main(argv=None):
             rc = _render_one(target, passthrough, recompute, fast, state,
                              frames_spec, quiet=quiet, tail=tail_n,
                              extract=extract, very_fast=very_fast, padded=padded,
-                             thumb=thumb, stills=stills)
+                             thumb=thumb, stills=stills, no_sfx=no_sfx)
             worst_rc = worst_rc or rc
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
@@ -840,7 +923,7 @@ def _stitch_one(target, frames_spec, padded):
 
 def _render_one(target, passthrough, recompute, fast, state, frames_spec,
                 quiet=False, tail=None, extract=False, very_fast=False, padded=None,
-                thumb=False, stills=False):
+                thumb=False, stills=False, no_sfx=False):
     """Resolve, (clean+render) or --state, and extract frames for one target.
 
     quiet -> pass `-v WARNING` to manim (suppresses its per-animation INFO log).
@@ -897,10 +980,13 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     env = dict(os.environ)
     env.pop("SUBSCENE", None)
     env.pop("RECOMPUTE", None)
+    env.pop("BPK_NO_SFX", None)
     if letter:
         env["SUBSCENE"] = letter
     if recompute:
         env["RECOMPUTE"] = "1"
+    if no_sfx:
+        env["BPK_NO_SFX"] = "1"
 
     manim = _find_venv_manim()
     # A 4K still (-qk) is the upload-grade thumbnail/`--thumb` default — it gives
