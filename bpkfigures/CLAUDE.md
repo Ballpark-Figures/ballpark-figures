@@ -1296,6 +1296,12 @@ calls for; no titles/labels/narration that weren't asked for.
   asset; **change-detection on `render 99 all`** — only thumbnails whose code/reachable
   helpers changed re-render (keyed in a gitignored `.render_keys.json`; `--recompute` forces
   a rebuild).
+- **`--play` opens the finished video when the run ends** — the way to WATCH a render,
+  and the only practical way to check sound (otherwise you dig out
+  `media/videos/<scene>/<res>/<name>.mp4` by hand every time). It opens the LAST
+  target, so `render NN all --play` shows the whole stitched scene rather than nine
+  windows, and `render NNc --play` shows that clip. It prints whether the file carries
+  audio, which is what separates "the render is silent" from "my player is muted".
 - `render 01h --state` (no render) prints the mobjects on screen at subscene h's START —
   reason about starting state cheaply.
 - **`render` takes a per-scene lockfile**, so a SECOND render of the same scene while one

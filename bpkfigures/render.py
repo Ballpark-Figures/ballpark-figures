@@ -188,6 +188,27 @@ def _has_audio(mp4):
     return bool(_probe(mp4, ["-select_streams", "a"], "stream=codec_type"))
 
 
+def _play(path):
+    """Open `path` in the system video player — `--play`.
+
+    Detached, like the finished chime: the point is to WATCH the clip, not to hold
+    the terminal until the window closes. Says whether the file carries audio,
+    because "I heard nothing" has two very different causes — a silent render and a
+    muted player — and the probe distinguishes them before you go looking.
+    """
+    if not path or not os.path.exists(path):
+        print(f"[render] --play: nothing to open", file=sys.stderr)
+        return
+    sound = "with audio" if _has_audio(path) else "SILENT (no audio stream)"
+    print(f"[render] playing {os.path.basename(path)} — {sound}", file=sys.stderr)
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    try:
+        subprocess.Popen([opener, path], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError as e:
+        print(f"[render] --play failed ({e}); the file is at {path}", file=sys.stderr)
+
+
 def _parse_frames(spec, dur):
     """spec is "t1,t2,..." (negative = from end) or an int N for N even frames."""
     if spec is None:
@@ -785,6 +806,11 @@ def main(argv=None):
     # changes what lands in the mp4. It rides to the scene process as an env var, the
     # way SUBSCENE and RECOMPUTE do, so no manim argument is involved.
     no_sfx = "--no-sfx" in argv
+    # --play: open the finished video when the run ends, so a clip with sound can
+    # actually be HEARD. Without it, watching a render means digging out
+    # media/videos/<scene>/<res>/<name>.mp4 by hand every time — which is most of
+    # the friction in iterating on sound.
+    play = "--play" in argv
     frames_spec = None
     padded = None                # --padded [N]: also write a first/last-frame-padded copy
     stills = "--stills" in argv  # --stills: stage anim+stills into edit_clips/ + swap-if-live
@@ -795,7 +821,7 @@ def main(argv=None):
         a = argv[i]
         if a in ("--recompute", "--hq", "--state", "--fast", "--very-fast", "-ql",
                  "--quiet", "--check", "--extract", "--thumb", "--thumbnail", "--no-sound",
-                 "--no-sfx", "--stills"):
+                 "--no-sfx", "--play", "--stills"):
             pass
         elif a == "--frames":
             i += 1
@@ -834,7 +860,8 @@ def main(argv=None):
     if not targets:
         print("usage: render NN[label] [NN[label] ...] [NN all|sub] [NNa-c|NNb-|NN-f] "
               "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
-              "[--stills] [--thumb] [--state] [--check] [--no-sound] [--no-sfx]")
+              "[--stills] [--thumb] [--state] [--check] [--play] [--no-sound] "
+              "[--no-sfx]")
         return 2
 
     if check:
@@ -884,6 +911,12 @@ def main(argv=None):
                 if target in thumb_keys and manifest_path:   # record the new key
                     manifest[thumb_mkey[target]] = thumb_keys[target]
                     _save_manifest(manifest_path, manifest)
+        if play and not state and not check:
+            # The LAST target, which is the one you meant: `NN all` appends the
+            # combined scene last, so this opens the whole thing rather than nine
+            # windows, and a single `NNc --play` opens that clip.
+            _p, _c, out, _l = resolve.resolve(targets[-1])
+            _play(_output_mp4(out))
         return worst_rc
     finally:
         _release_locks(locks)
