@@ -72,10 +72,25 @@ def _video_items(timeline):
     return items
 
 
+def _audio_items(timeline):
+    items = []
+    for i in range(1, timeline.GetTrackCount("audio") + 1):
+        items.extend(timeline.GetItemListInTrack("audio", i) or [])
+    return items
+
+
 def _timeline_sources(timeline):
-    """Set of absolute media paths every video item on the timeline references."""
+    """Absolute media paths every timeline item references — VIDEO **and AUDIO**.
+
+    The audio half matters once subscene clips carry sound effects: a clip dragged in
+    puts its linked audio on an audio track, and `_prune_swaps` deletes any `.swap`
+    copy this set does not name. Walking video alone would therefore delete a swap
+    that only the audio side still points at, taking the timeline media OFFLINE.
+    Cheap and harmless while every render is silent — the audio tracks are then empty
+    or hold only VO and music, whose paths are not swap copies.
+    """
     out = set()
-    for ti in _video_items(timeline):
+    for ti in _video_items(timeline) + _audio_items(timeline):
         mpi = ti.GetMediaPoolItem()
         p = _clip_path(mpi) if mpi else None
         if p:

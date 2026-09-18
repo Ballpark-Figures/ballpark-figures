@@ -18,6 +18,11 @@ remembering (and that got missed while EDITING this-or-that scene):
   - a HAND-ROLLED BAR CHART (fill-only `Rectangle` bars with a data-driven
       height/width, built in a loop) -> use bpkfigures.histogram.get_histogram
       (ink_color=CHALK for dark/chalkboard scenes) / bar_graph.get_bar_graph
+  - `self.add_sound(...)`                                -> use self.sfx('name'); manim's
+      own call files at the SCENE-absolute time and is dropped on a cache hit
+  - `self.sfx('name')` naming a sound effect that does NOT exist -> the one check here
+      that touches the filesystem, because it converts a failure costing a whole
+      render into one costing a --check
 
 It is WARN-ONLY: it never changes the exit code and never blocks a render. The
 judgment-based conventions still live in CLAUDE.md; this only mechanises the few
@@ -83,6 +88,28 @@ class _Linter(ast.NodeVisitor):
             self._warn(node.lineno,
                        f"raw {name}(...) — use crisp_text/crisp_paragraph "
                        f"(bpkfigures.style), never a bare manim text mobject")
+        # a self.sfx("name") whose sound effect does not exist. Resolving it HERE turns
+        # a failure that costs a whole render into one that costs a --check, which is
+        # the only reason this check reaches outside the AST.
+        if (name == "sfx" and isinstance(f, ast.Attribute)
+                and isinstance(f.value, ast.Name) and f.value.id == "self"
+                and node.args and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)):
+            from bpkfigures.sfx import sfx_path, sfx_roots
+            try:
+                sfx_path(node.args[0].value)
+            except FileNotFoundError:
+                self._warn(node.lineno,
+                           f"sfx({node.args[0].value!r}) — no such sound effect in "
+                           f"{', '.join(sfx_roots())}")
+        # manim's own add_sound, rather than BpkScene.sfx
+        if (name == "add_sound" and isinstance(f, ast.Attribute)
+                and isinstance(f.value, ast.Name) and f.value.id == "self"):
+            self._warn(node.lineno,
+                       "self.add_sound(...) — use self.sfx('name'). Scene.add_sound "
+                       "files at the SCENE-absolute time (wrong in every single-subscene "
+                       "render) and is silently dropped when the previous animation was "
+                       "a cache hit")
         # a fill-only Rectangle with a DATA-DRIVEN height/width, built in a loop =
         # a hand-rolled bar chart -> the shared histogram/bar-graph asset
         if name == "Rectangle" and self._loop_depth > 0:
