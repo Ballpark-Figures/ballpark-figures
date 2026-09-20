@@ -69,6 +69,29 @@ load wherever you're working. Video-specific rules live in that video's own
       resume-skip real data; it needs a code change first; it will take days; it
       does not answer the question asked — means NO COMMAND. State the blocker in a
       sentence or two and end on a question or an offer.
+    - **AN APPROXIMATION IN PLACE OF AN EXACT ANSWER IS A DIFFERENT DELIVERABLE,
+      NOT A CAVEAT — and "it needs no code change" is not a reason for it, it is
+      the tell.** A screen, a beam, a bound, a sample or a lower bound, where the
+      user asked for the VALUE, is not the thing they asked for, however plainly
+      the prose says so. **Before writing any command block, write one sentence
+      naming WHAT ITS OUTPUT WILL BE, and hold it against the user's own words.**
+      "The number of words that solve in 5" and "at least N, with M unknown" are
+      different KINDS of answer; when the kinds differ there is no command that
+      turn — price the exact route and let the user choose it.
+      - The sorting failure this exists to catch: the two-kinds-of-caveat test
+        above asks you to file a caveat under READ THE RESULT or under WHETHER TO
+        RUN, and "this returns a bound rather than the number" FEELS like the
+        first — it reads as an instruction about the output. It is the second. It
+        is the listed case "it does not answer the question asked".
+      - The inversion to watch: "it needs a code change first" is already in the
+        WITHHOLD list above. It means no command YET. It does NOT mean ship
+        something weaker that runs today.
+      - (Bit us 2026-09-19: asked for the number of openers solvable in 5, with
+        speed the goal, the agent shipped a `--topk` screen. Sound one-sidedly,
+        and the prose did say so — but it answered "at least 12616, 356 unknown"
+        to a question wanting a number. The exact `--feasible` mode that answers
+        it outright was a one-line stopping-rule change and ~54x faster than the
+        exact minimisation, so the approximation bought nothing.)
     - Once the blocker is gone (the user said go, or the fix is in), give the
       command — one block, no alternative, as above.
     - The tell: you are writing a command block AND a sentence beginning "note
