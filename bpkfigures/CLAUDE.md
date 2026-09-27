@@ -10,7 +10,7 @@ Cross-video rules for all videos in this repo (`battleship/`, `yahtzee/`, …).
 load wherever you're working. Video-specific rules live in that video's own
 `CLAUDE.md` (e.g. `yahtzee/CLAUDE.md`).
 
-## Following instructions (read this first)
+## Following instructions
 - **Do what the user explicitly asked, in the form they asked for.** When they
   name a file, format, or method ("put it in a CLAUDE.md", "use a tail flag"),
   that exact choice IS the spec — not a suggestion to improve on with your own
@@ -96,11 +96,7 @@ load wherever you're working. Video-specific rules live in that video's own
       command — one block, no alternative, as above.
     - The tell: you are writing a command block AND a sentence beginning "note
       that", "be aware", "this would" or "first you'll need to".
-    (Bit us 2026-09-17: asked for a hard-mode depth-5 command, the agent explained
-    in prose that the wrapper's fixed output path would make the run resume-skip
-    every opener and measure nothing, needing a one-line fix first — and then gave
-    the command anyway. The prose was correct; the command was still the wrong
-    deliverable.)
+    (Because a correct warning in prose next to a command still gets the command run.)
   - The tell: you already answered, and you are still typing.
   - (Bit us 2026-08-31, three times in one session. Asked for 26-letter sextets
     from 24-letter quints: answered correctly, then called it "a screen, not
@@ -238,7 +234,7 @@ load wherever you're working. Video-specific rules live in that video's own
   this to a CLAUDE.md?" If yes, make the edit that turn; if no, drop it — just
   don't leave it as a hollow promise that quietly evaporates.
 
-## The numbers are the product — NEVER invent a calculation (read this first)
+## The numbers are the product — never invent a calculation
 This channel's job is: do rigorous math, then present it. So every quantity on
 screen (EV, probability, count, aggregate) is the PRODUCT — it must be correct and
 traceable to the user's OWN computations, never re-derived by the agent.
@@ -522,7 +518,7 @@ the "where do I look" map.
 PROMOTE the pattern into the shared asset, add a row here. Each video keeps its own
 prop-specific index too.
 
-## Shared visual vocabulary — USE THESE, don't hand-pick (read before styling)
+## Shared visual vocabulary — use these rather than hand-picking
 Pull colours and surfaces from the shared package instead of inventing ad-hoc values:
 - **The frame is 16 wide × 9 tall, NOT manim's default 14.22 × 8.** Every video's
   `manim.cfg` sets `frame_width=16`/`frame_height=9` (and `/new-video` scaffolds the
@@ -1255,7 +1251,7 @@ calls for; no titles/labels/narration that weren't asked for.
 - Measure real mobject geometry (edges/centers) when placement matters; don't
   approximate positions. For NUMBERS, the bar is even higher: don't guess AND don't
   compute them yourself — SOURCE every displayed value from the user's pipeline, or
-  stub-and-flag it. See "The numbers are the product — NEVER invent a calculation".
+  stub-and-flag it. See "The numbers are the product — never invent a calculation".
 
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
 - **Render with `bpkfigures/render`, NOT hand-rolled `manim`.** Single render path for
