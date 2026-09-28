@@ -4,7 +4,8 @@ on top so they read as chalked on. (Shared across videos; first used by the
 hangman gameplay scenes, e.g. scenes/94chalkgame.)
 
 The colours here are asset-local (chalkboard-specific), not general style
-values: navy slate, wood frame, and an off-white CHALK the scene draws with.
+values — wood frame and an off-white CHALK the scene draws with — EXCEPT the navy
+slate, BOARD_NAVY, which lives in style.py and is re-exported from here.
 
 ``chalk_letter`` builds a capital as a set of hand-drawn STROKES (an E is four
 lines: top, middle, bottom, left), so ``Create`` writes it stroke-by-stroke like
@@ -14,7 +15,7 @@ The full A–Z alphabet AND the digits 0–9 are defined.
 import numpy as np
 from manim import *
 
-BOARD_NAVY   = ManimColor("#16283F")   # dark navy slate
+from bpkfigures.style import BOARD_NAVY   # dark navy slate (shared style colour)
 FRAME_WOOD   = ManimColor("#6E4A2A")   # wooden frame
 FRAME_WOOD_D = ManimColor("#3E2A14")   # darker frame edge / inner shadow
 CHALK        = ManimColor("#EDE9DC")   # off-white chalk

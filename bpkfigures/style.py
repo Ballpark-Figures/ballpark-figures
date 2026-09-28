@@ -3,6 +3,10 @@ import contextlib
 from manim import *
 
 BG_COLOR = ManimColor.from_rgb((2, 164, 211))
+# Dark navy — the second background. First used as hangman's chalkboard slate
+# (chalkboard.py imports it from here, same value), promoted to shared style for
+# scenes that sit directly on navy (wordle 01's opener histogram).
+BOARD_NAVY = ManimColor("#16283F")
 # ── ACCENT COLOUR HIERARCHY (pick in this order; don't hand-pick hex) ──────────
 # 1. PRIMARY   — ACCENT_FILL (deep blue): the default single accent, for data /
 #    bars / fills. A scene that needs only one colour uses this.
