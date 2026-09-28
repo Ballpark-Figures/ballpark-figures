@@ -5,6 +5,7 @@ the "reached for a raw value" class that prose CLAUDE.md rules rely on the agent
 remembering (and that got missed while EDITING this-or-that scene):
 
   - a raw `Text(...)` / `Paragraph(...)` mobject         -> use crisp_text/crisp_paragraph
+  - manim's `Write(...)` / `AddTextLetterByLetter(...)`   -> text ENTERS with FadeIn
   - a hex colour literal ("#B01E43") inlined in a scene  -> name it in style.py / config.py
   - a raw manim palette colour (GREY, RED, …)            -> use a semantic style.py/config.py colour
   - a one-use `run_time` local (`rt = 1.2` … run_time=rt) -> inline the literal at the call site
@@ -88,6 +89,10 @@ class _Linter(ast.NodeVisitor):
             self._warn(node.lineno,
                        f"raw {name}(...) — use crisp_text/crisp_paragraph "
                        f"(bpkfigures.style), never a bare manim text mobject")
+        if name in ("Write", "AddTextLetterByLetter"):
+            self._warn(node.lineno,
+                       f"{name}(...) — text enters with FadeIn (optionally a small "
+                       f"shift, e.g. shift=UP * 0.2), never manim's writing animation")
         # a self.sfx("name") whose sound effect does not exist. Resolving it HERE turns
         # a failure that costs a whole render into one that costs a --check, which is
         # the only reason this check reaches outside the AST.

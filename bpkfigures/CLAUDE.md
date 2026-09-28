@@ -588,6 +588,11 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
     `ACCENT_GREEN`/`ACCENT_RED` for good/bad.
   - Don't introduce one-off hex unless asked; a genuinely new shade goes in `style.py`,
     not buried in a scene.
+- **Text ENTERS with `FadeIn` — NEVER manim's `Write` (or `AddTextLetterByLetter`).**
+  The house entrance is a plain `FadeIn(label)` or one with a small shift
+  (`FadeIn(title, shift=DOWN * 0.2)`); yahtzee and hangman use `Write` nowhere in their
+  scenes. `render --check` lints for it. (Bit us on wordle 01: three "N guesses" labels
+  shipped with `Write`, which draws the glyph outlines stroke-by-stroke — not our look.)
 - **ALL text goes through `crisp_text`/`crisp_paragraph`** — never raw `Text(...)`. They
   render at brand `FONT` (defaulted now) and supersample. Match a neighbouring element's
   `font_size`/`color`; a number in an asset (e.g. a scorecard cell) uses that asset's
