@@ -390,6 +390,24 @@ traceable to the user's OWN computations, never re-derived by the agent.
   scene 17: defaulted the "word frequency" bars to log zipf when the weighting is the
   linear rate — the user caught it. NB flagging a resulting ugly VISUAL for the user to
   decide on is RIGHT; quietly switching the metric to dodge the ugliness is the error.)
+- **NEVER DEPICT A PART AS THE WHOLE — not as a choice, not flagged, not offered.**
+  Showing a subset of something as if it were all of it (a group with only some of its
+  members, a list cut short with no marker, a category quietly merged or dropped) is an
+  inaccurate portrayal, and portraying something inaccurately on purpose is never
+  within the agent's authority. Don't do it, don't propose it, don't ask about it; it
+  happens ONLY if the user explicitly asks for it (unlikely). When the real thing does
+  not fit the frame, change WHAT is shown so that everything shown is complete — pick
+  smaller groups, fewer items, a different example — never trim the thing itself.
+  - A docstring or comment saying "display choice, flagged" is not permission; it is
+    the violation written down.
+  - Inherited data carries its decisions with it: before reusing another scene's
+    cache or layout, check that nothing it shows is a partial version of what it
+    claims to show.
+  - The tell: you are picking HOW MANY of something's members to show, rather than
+    WHICH complete things to show.
+  (Bit us 2026-09-28: wordle 04d/04e/04i showed capped groups — CODES's 302-answer
+  all-grey group as 16 words, PIGGY's 981 as 9 — under a "display choice, flagged"
+  docstring, and 06a inherited it unquestioned.)
 - **A blank is fine; a silent number is not.** Leaving a value stubbed and FLAGGED
   is always acceptable. Filling it with a number you computed yourself is not.
 - **If it genuinely isn't available**, stop and flag. Then the user points you to
