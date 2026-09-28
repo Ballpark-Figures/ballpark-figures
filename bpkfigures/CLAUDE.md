@@ -288,6 +288,56 @@ traceable to the user's OWN computations, never re-derived by the agent.
   hard-mode solver where it binds hard, returning NO number for 3 of the first 15 openers.
   Then, asked whether 12,972 committed results were affected, offered a 3-opener spot check
   as if it settled the question.)
+- **EVERY RATE YOU REPORT CARRIES ITS DENOMINATOR, AND THE RULE BINDS HARDEST WHEN THE
+  NUMBER IS GOOD.** A pass rate, a recall, an accuracy, a coverage figure: state what it is
+  a rate OVER, in the same breath, every time. "99% pass" over the 8% of cases the check
+  can examine is a claim about 8%, and it reads as a claim about everything.
+  - **The failure is not forgetting the rule; it is applying it only to BAD news.** Scrutiny
+    aimed at a problem is diagnosis, not discipline. The tell is that you are summarising a
+    SUCCESS — that is precisely when the denominator gets dropped, because the bare number
+    flatters and nothing in the moment is prompting you to look harder.
+  - **Building the honest tool is not the same as using it.** Fixing the report format fixes
+    the report; what you type in a chat message is a separate surface and obeys no tooling.
+    If two output formats exist and one omits the denominator, you will quote that one.
+  - **So make the honest format the ONLY format.** A printout that CAN emit a bare `100%`
+    eventually will. Put the coverage inside the same parentheses as the rate so the two
+    cannot be separated by copying.
+  - **Different gates count different UNITS** — rounds, calls, episodes, records. Never
+    stack their rates in one table without saying which unit each is over; a table implies
+    a shared denominator whether or not you meant it to.
+  - The tell: you are writing a list of percentages, or a sentence of the form "X, Y and Z
+    all 100%".
+  (Bit us 2026-09-27: after spending a whole session establishing that per-gate pass rates
+  were masking coverage — and writing an audit tool that prints coverage beside every rate —
+  the summary of a GOOD regression run reported "G1/G2/G3/G4/G5/G6/G8/G10/G12 all 100%".
+  G8's was 7 rounds of 86; G10's was 4. The validator's own line contained the `n/a` count
+  and it was dropped in the retelling. The user asked whether those were real 100%s or
+  abandoned cases again.)
+- **AN UNSETTLED FACT ABOUT THE WORLD IS A LOOKUP, THEN A QUESTION — NEVER A STANDING
+  "UNSETTLED" ROW YOU INFER AROUND.** When a rule about how the real thing works (a game's
+  payout, a format change, a governing body's threshold, a published spec) cannot be
+  settled from the data: (1) LOOK IT UP — it is usually a published fact and one search
+  away; (2) if lookup neither confirms nor refutes it, ASK THE USER. Do NOT leave it
+  marked unsettled and keep working around it, and above all do NOT infer a value from
+  the corpus and then report the inference as the answer.
+  - **The corpus is the weaker witness for a RULE, and the stronger one for BEHAVIOUR.**
+    What the data can tell you is what happened; what a rule IS comes from the source that
+    publishes it. Reversing those is how a measurement of the mode of a noisy phrase sweep
+    gets reported as a rule.
+  - **The user often has access you do not** — they can watch the thing, own the manual,
+    know the domain. That makes "ask" a genuinely strong move here, not a fallback, and
+    the reason an unsettled row must terminate in a question rather than sit in a file.
+  - **Every UNSETTLED marker is a QUEUE ITEM with an owner, not a disclaimer.** Writing
+    the caveat is not discharging it. A doc full of honestly-labelled unsettled rows still
+    means the pipeline runs on guesses, and each one is a place a later result is quietly
+    conditional.
+  - The tell: you are writing "UNSETTLED", "unconfirmed", "probably", or "the dominant
+    figure is" about a fact someone has published, and you have not run a search.
+  (Bit us 2026-09-27: the Wheel of Fortune per-round house minimum sat as an UNSETTLED row
+  while the agent derived $2,000 from the mode of 1,044 prose mentions. The published rule
+  is $1,000 from S23 — one search — and the corpus's own $500-to-$1,000 transition landed
+  at exactly S23, so the evidence for the right answer was already in hand. An extraction
+  agent had ALSO reported $1,000 and been filed as a pending item rather than acted on.)
 - **NEVER HARDCODE A VALUE THE PROGRAM EXISTS TO COMPUTE — not as a default, not as a
   fallback, not "just so it runs".** A solver that searches for the best opener must never
   contain an opener literal; a ranker must not name a winner; a threshold that decides an
