@@ -19,7 +19,9 @@ dropped into the thumbnail rectangle in post, not manim.
 """
 import textwrap
 
+import numpy as np
 from manim import *
+from PIL import Image
 
 from bpkfigures.style import crisp_text
 
@@ -32,6 +34,20 @@ _DARK = dict(surface="#0F0F0F", thumb="#272727", title="#F1F1F1",
 _YT_RED = "#FF0000"
 
 
+def _image(path, width):
+    """An ImageMobject `width` units wide, PRE-SHRUNK with Lanczos to the exact pixel
+    width it will occupy at this render's resolution. manim maps image pixels to the
+    screen without averaging, so handing it a large image to show small (an 800- or
+    1930-px avatar at ~96 px) breaks thin lines into dots and leaves jagged edges;
+    resampling here first makes it come out smooth at any render quality."""
+    img = Image.open(path).convert("RGBA")
+    px = max(1, round(width / config.frame_width * config.pixel_width))
+    if px < img.width:
+        img = img.resize((px, max(1, round(img.height * px / img.width))),
+                         Image.Resampling.LANCZOS)
+    return ImageMobject(np.array(img)).set_width(width)
+
+
 def _pal(dark):
     return _DARK if dark else _LIGHT
 
@@ -40,7 +56,7 @@ def _thumbnail(w, h, C, thumbnail, duration):
     """16:9 thumbnail (grey play-button placeholder or a real image) with an
     optional duration badge at the bottom-right."""
     if thumbnail is not None:
-        base = ImageMobject(thumbnail).set_width(w)             # square corners
+        base = _image(thumbnail, w)                             # square corners
     else:
         box = RoundedRectangle(width=w, height=h, corner_radius=0.14,
                                fill_color=ManimColor(C["thumb"]), fill_opacity=1.0,
@@ -96,7 +112,7 @@ def youtube_card(title, channel, meta, *, duration="12:34", thumbnail=None,
 
     thumb = _thumbnail(width, thumb_h, C, thumbnail, duration).move_to(ORIGIN)
 
-    av = (ImageMobject(avatar).set_width(2 * avatar_r) if avatar is not None
+    av = (_image(avatar, 2 * avatar_r) if avatar is not None
           else _avatar(channel, C, avatar_r))
     text_col = VGroup(
         _title_lines(title, title_size, ManimColor(C["title"]), wrap),
@@ -176,7 +192,7 @@ def youtube_watch(title, channel, meta, *, subscribe=True, duration=None,
     title_mob = _title_lines(title, 34, ManimColor(C["title"]), int(width * 4.2))
 
     avatar_r = 0.4
-    av = (ImageMobject(avatar).set_width(2 * avatar_r) if avatar is not None
+    av = (_image(avatar, 2 * avatar_r) if avatar is not None
           else _avatar(channel, C, avatar_r))
     cname = crisp_text(channel, font_size=25, weight=BOLD, color=ManimColor(C["title"]))
     av.next_to(cname, LEFT, buff=0.22)
@@ -227,7 +243,7 @@ def youtube_poll(channel, age, question, votes, options, *, avatar=None, likes=N
 
     # header: avatar at the far left, channel name (bold) + age on one line
     avatar_r = 23 * u
-    av = (ImageMobject(avatar).set_width(2 * avatar_r) if avatar is not None
+    av = (_image(avatar, 2 * avatar_r) if avatar is not None
           else _avatar(channel, C, avatar_r))
     name = text(channel, 14, "title", weight=BOLD)
     when = text(age, 14, "meta")
