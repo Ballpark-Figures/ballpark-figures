@@ -869,6 +869,36 @@ The shared failure is that all three were REAL measurements of something, just n
 the thing being claimed. So: state the claim, state what varied and what was held
 fixed, and check the two match before the number reaches the user.
 
+- **A ZERO OR EMPTY RESULT IS THE ONE OUTPUT A BROKEN QUERY AND A REAL FINDING SHARE — so
+  validate the probe against a KNOWN-POSITIVE case before reporting it.** A query with a
+  guessed field name, a misspelled key, a function that does not exist, or a filter that
+  can never match returns *nothing*, and nothing reads exactly like good news: "no defects
+  found", "the flag never fires", "every row is empty". The number does not look suspicious,
+  which is why this survives review.
+  - **The check is cheap and it is the whole rule: run the probe against ONE case you
+    already know is positive.** If it does not light up, the probe is broken, not the data.
+    A single known-positive costs seconds and is the only thing that distinguishes the two.
+  - **This binds hardest on ad-hoc probes**, written to answer one question and never
+    tested, against a schema you are reading for the first time. Field names are the usual
+    culprit: the same concept is often spelled differently in the source data, the
+    intermediate file and the working record, and only one of them is right where you
+    looked. Print a sample row's KEYS before filtering on them.
+  - **And never assert what a field contains without looking at instances of it.** Reasoning
+    about what a value *should* be is not evidence about what it *is*; a claim like "values
+    above X are parse errors" needs X's actual rows read, not a plausible story about how
+    they got there.
+  - The tell: you are about to report an absence — "none", "zero", "no cases" — from a query
+    you wrote minutes ago and have not seen succeed at anything.
+  (Bit us 2026-09-28, three times in one session, plus a fourth of the related kind. A
+  merged-round detector tested `known_answers` on records that never carry it and reported
+  0 merges — on a corpus including an episode an agent had already proven had one. A probe
+  called a non-existent function and reported that a gate flag never fires; it fires on 7
+  rounds. A third read `body` where the file spells it `prose` and reported all 32 rounds
+  empty; all 32 were populated and STATED the value in question. And separately, "anything
+  above $1,900 in this field is a parse error" was committed to a rules doc without reading
+  one of the 32 instances — every one of which was correct, so a validator built on the
+  claim would have rejected 32 good rounds.)
+
 ## Long-running jobs (agent)
 - **THE USER RUNS THE COMPUTATIONS — build the machinery, hand over the command, whatever
   you estimate it will cost.** The agent writes the primitives, the gate and the search,
