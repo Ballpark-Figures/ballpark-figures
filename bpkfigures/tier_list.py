@@ -204,7 +204,8 @@ def name_label(i, *, height=0.34, color=LABEL_COLOR):
 # ── the tier list ─────────────────────────────────────────────────────────────
 def get_tier_list(labels="letter", *, center=ORIGIN, panel_width=_DEFAULT_PANEL_W,
                   cell_width=1.75, row_height=0.82, row_gap=0.10,
-                  cell_gap=0.08, colors=None, dimmed=False, names=None):
+                  cell_gap=0.08, colors=None, dimmed=False, names=None,
+                  panel_fill=None):
     """A tier list: a coloured grade CELL on the left + a dark content PANEL on the
     right, per tier, top (best) → bottom (worst). Default is 7 rows.
 
@@ -251,7 +252,8 @@ def get_tier_list(labels="letter", *, center=ORIGIN, panel_width=_DEFAULT_PANEL_
 
         panel = RoundedRectangle(width=panel_width, height=row_height,
                                  corner_radius=0.06)
-        panel.set_fill(PANEL_FILL, opacity=1.0).set_stroke(PANEL_STROKE, width=2)
+        panel.set_fill(PANEL_FILL if panel_fill is None else panel_fill,
+                       opacity=1.0).set_stroke(PANEL_STROKE, width=2)
         panel.move_to([panel_cx, cy, 0])
 
         lab = build_label(i)
@@ -324,13 +326,15 @@ def fill_tier(tl, i, letters, *, height=0.5, buff=LETTER_BUFF,
 
 
 # ── comparison (a filled list, and a piece-by-piece morph between two) ─────────
-def filled_list(letters, *, names=None, scale=1.0, panel_width=_DEFAULT_PANEL_W):
+def filled_list(letters, *, names=None, scale=1.0, panel_width=_DEFAULT_PANEL_W,
+                panel_fill=None):
     """A tier list with each tier's `letters` filled in — default the 7-tier NAMED
     structure, or a custom `names` (list of (word, arrow)) — scaled and ready to
     `.move_to(...)`. `letters` is one string (or list of TOKENS) per tier, top→bottom. The shared builder
     behind the scene-17 / scene-22 tier COMPARISONS."""
-    tl = (get_tier_list("name", panel_width=panel_width) if names is None
-          else get_tier_list(names=names, panel_width=panel_width))
+    kw = dict(panel_width=panel_width, panel_fill=panel_fill)
+    tl = (get_tier_list("name", **kw) if names is None
+          else get_tier_list(names=names, **kw))
     for i, lets in enumerate(letters):
         fill_tier(tl, i, lets)
     return tl.scale(scale)
@@ -351,7 +355,7 @@ def morph_into(scene, src, dst, src_letters, dst_letters, row_map, run_time, *,
     is left on screen at the end. `extra` plays ALONGSIDE (e.g. a title fading in).
     Piece-by-piece via role handles, never a blob morph — see bpkfigures CLAUDE.md.
     (Promoted from hangman scene 17's `_morph_into`.) A dst TOKEN that src lacks (a
-    double added to the list) fades in at its place.
+    double added to the list) rides in with its row, fading in as it moves.
 
     SPLITTING — the reverse of a merge: pass `split_from`, one src row index PER DST
     row (and `row_map=None`), and every dst row's cell/panel/label grows out of a copy
@@ -375,17 +379,38 @@ def morph_into(scene, src, dst, src_letters, dst_letters, row_map, run_time, *,
     covered = {j for _, j in row_pairs}
     fresh = [VGroup(dst.cells[j], dst.panels[j], dst.labels[j]).copy()
              for j in range(dst.n) if j not in covered]
+    # new tokens (dst has, src lacks) RIDE IN WITH THEIR ROW: each starts where it
+    # would sit in the src row its dst row grows out of, invisible, and moves to its
+    # place as it fades in; a token in an uncovered row fades in where it stands
     src_tokens = {ch for lets in src_letters for ch in lets}
-    fresh_tiles = [dst_tile[ch].copy() for lets in dst_letters for ch in lets
-                   if ch not in src_tokens]
+    src_of = {}
+    for i, j in row_pairs:
+        src_of.setdefault(j, i)
+    riders, fades = [], []
+    for j, lets in enumerate(dst_letters):
+        for ch in lets:
+            if ch in src_tokens:
+                continue
+            tile = dst_tile[ch]
+            if j in src_of:
+                sp, dp = src.panels[src_of[j]], dst.panels[j]
+                # the same place along the SRC panel (its width can differ)
+                rel = (tile.get_center() - dp.get_left()) * \
+                    np.array([sp.width / dp.width, sp.height / dp.height, 1.0])
+                start = tile.copy().scale(sp.height / dp.height)
+                start.move_to(sp.get_left() + rel).set_opacity(0)
+                riders.append((start, tile))
+            else:
+                fades.append(tile.copy())
     scene.add(*fresh)                  # under the letters, which are added last
     movers = [a.copy() for a, _ in pairs]
     for m in movers:
         scene.add(m)
-    scene.add(*fresh_tiles)            # new tokens (dst has, src lacks) fade in on top
+    scene.add(*[r for r, _ in riders], *fades)
     scene.play(*[Transform(m, b.copy()) for m, (_, b) in zip(movers, pairs)],
-               *[FadeIn(f) for f in fresh + fresh_tiles], *extra, run_time=run_time)
-    scene.remove(*movers, *fresh, *fresh_tiles)
+               *[Transform(r, t.copy()) for r, t in riders],
+               *[FadeIn(f) for f in fresh + fades], *extra, run_time=run_time)
+    scene.remove(*movers, *fresh, *[r for r, _ in riders], *fades)
     scene.add(dst)
 
 
