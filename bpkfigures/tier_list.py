@@ -19,8 +19,9 @@ tier's `.contents`. Resting state is FULL opacity; `emphasize(tiers)` spotlights
 DIMMING every other tier, `reset` clears it.
 
 Additions over the hangman copy (all backwards compatible):
-  * a TOP group with ▲/▼ halves colours correctly (a deeper red notionally above
-    TOP; TOP▼ leans toward HIGH, not MID — no hangman list ever split TOP).
+  * a TOP group with ▲/▼ halves colours correctly: TOP▲ leans toward a deeper red
+    notionally above TOP (`_A_ABOVE_TOP`, mirroring `_A_BELOW_LOW`) and TOP▼ toward
+    HIGH, not MID. No hangman list ever split TOP, so nothing it drew changes.
   * `morph_into` accepts a `dst` with MORE rows than `src`: a dst row no src row
     maps onto has its cell/panel/label fade in during the morph.
   * `fill_tier` requires its letters (there is no default ordering here).
@@ -80,6 +81,9 @@ _A_HIGH      = _rainbow(1 / 3)                      # evenly between red and blu
 _A_MID       = _rainbow(2 / 3)
 _A_LOW       = _rainbow(1.0)                        # blue
 _A_BELOW_LOW = ManimColor("#2B6CB0")               # deeper blue, notional below LOW
+_A_ABOVE_TOP = ManimColor("#C53030")               # deeper red, notional above TOP —
+                                                   # the mirror of _A_BELOW_LOW (both
+                                                   # are the Tailwind -700 of their hue)
 _LEAN = 0.15                                         # small: keep same-word tiers grouped
 
 NAME_TIER_COLORS = [
@@ -96,7 +100,7 @@ NAME_TIER_COLORS = [
 # fixed NAME_TIER_COLORS above and name_colors() for a CUSTOM tier structure (e.g. the
 # 6-tier frequency list, whose single HIGH takes the base colour with no lean).
 _GROUP_BASE  = {"TOP": _A_TOP,  "HIGH": _A_HIGH, "MID": _A_MID,  "LOW": _A_LOW}
-_GROUP_ABOVE = {"TOP": _A_TOP,  "HIGH": _A_TOP,  "MID": _A_HIGH, "LOW": _A_MID}
+_GROUP_ABOVE = {"TOP": _A_ABOVE_TOP, "HIGH": _A_TOP,  "MID": _A_HIGH, "LOW": _A_MID}
 _GROUP_BELOW = {"TOP": _A_HIGH, "HIGH": _A_MID,  "MID": _A_LOW,  "LOW": _A_BELOW_LOW}
 
 
