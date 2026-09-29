@@ -8,6 +8,9 @@ text is passed in (nothing is computed). Building blocks:
   youtube_home(cells) full-screen homepage: an N-column grid of cards, where each
                       cell is either a real card (a dict of kwargs) or None → a
                       greyed-out placeholder (skeleton)
+  youtube_poll(...)   a community-tab poll post: avatar + channel + age, the
+                      question, the vote count, and one bar per option filled to its
+                      percentage (`page=True` sits it on a full-frame page)
 
 The thumbnail is a grey play-button placeholder by default; pass `thumbnail=<path>`
 for a real still (NOTE: a real ImageMobject keeps SQUARE corners — YouTube's ~12px
@@ -21,9 +24,11 @@ from manim import *
 from bpkfigures.style import crisp_text
 
 _LIGHT = dict(surface="#FFFFFF", thumb="#E4E4E4", title="#0F0F0F",
-              meta="#606060", avatar="#909090", skeleton="#E3E3E3")
+              meta="#606060", avatar="#909090", skeleton="#E3E3E3",
+              border="#E5E5E5", bar="#E5E5E5")
 _DARK = dict(surface="#0F0F0F", thumb="#272727", title="#F1F1F1",
-             meta="#AAAAAA", avatar="#717171", skeleton="#333333")
+             meta="#AAAAAA", avatar="#717171", skeleton="#333333",
+             border="#3F3F3F", bar="#3F3F3F")
 _YT_RED = "#FF0000"
 
 
@@ -194,3 +199,102 @@ def youtube_watch(title, channel, meta, *, subscribe=True, duration=None,
     if stack.height > frame_h - 0.6:
         stack.scale((frame_h - 0.6) / stack.height)
     return Group(page, stack)
+
+
+def youtube_poll(channel, age, question, votes, options, *, avatar=None, likes=None,
+                 width=9.0, dark=True, page=False, frame_w=16.0, frame_h=9.0):
+    """A community-tab poll post, sized by `width` (the card width). `options` is a
+    list of (label, percent) pairs; each option is a bordered bar whose left part is
+    filled to `percent`, label at the left and "N%" at the right. All text is passed
+    in (nothing is computed). `likes` is accepted for completeness but NOT drawn —
+    the reaction row needs icons this module does not have yet.
+
+    Proportions are taken from YouTube's desktop layout, in "px" of a 742-px-wide
+    card, so every size scales with `width`. `page=True` returns the card centred
+    on a full-frame page background (scaled down if it would not fit). Returns a
+    Group with role handles `.surface`, `.header`, `.question`, `.votes`, `.options`
+    (one Group per option: `.box`, `.fill`, `.label`, `.pct`)."""
+    C = _pal(dark)
+    u = width / 742.0                  # one layout px in manim units
+    fs = 71.2 * u                      # font_size for a 1-px em (crisp_text metrics)
+    inset = 83 * u                     # text column's left edge from the card's
+    bar_w = 593 * u
+    bar_h, bar_gap = 46 * u, 14 * u
+    col_x = -width / 2 + inset         # left edge of the text column (card at origin)
+
+    def text(s, px, color, **kw):
+        return crisp_text(s, font_size=px * fs, color=ManimColor(C[color]), **kw)
+
+    # header: avatar at the far left, channel name (bold) + age on one line
+    avatar_r = 23 * u
+    av = (ImageMobject(avatar).set_width(2 * avatar_r) if avatar is not None
+          else _avatar(channel, C, avatar_r))
+    name = text(channel, 14, "title", weight=BOLD)
+    when = text(age, 14, "meta")
+    head_line = VGroup(name, when).arrange(RIGHT, buff=10 * u, aligned_edge=DOWN)
+    head_line.align_to(np.array([col_x, 0, 0]), LEFT)
+
+    # question: wrapped by MEASURED width to the bar width, 18-px text on a 25-px
+    # line pitch (a character-count wrap breaks early, since glyph widths vary)
+    lines, cur = [], ""
+    for word in question.split(" "):
+        trial = f"{cur} {word}" if cur else word
+        if cur and text(trial, 18, "title").width > bar_w:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = trial
+    lines.append(cur)
+    q_lines = VGroup(*[text(ln, 18, "title") for ln in lines])
+    q_lines.arrange(DOWN, aligned_edge=LEFT, buff=25 * u - q_lines[0].height)
+    q_lines.align_to(head_line, LEFT)
+
+    votes_mob = text(votes, 13, "meta").align_to(head_line, LEFT)
+
+    rows = []
+    for label, pct in options:
+        box = RoundedRectangle(width=bar_w, height=bar_h, corner_radius=4 * u,
+                               fill_color=ManimColor(C["surface"]), fill_opacity=1.0,
+                               stroke_color=ManimColor(C["border"]), stroke_width=1.5)
+        fill = RoundedRectangle(width=max(bar_w * pct / 100.0, 8 * u), height=bar_h,
+                                corner_radius=4 * u, fill_color=ManimColor(C["bar"]),
+                                fill_opacity=1.0 if pct > 0 else 0.0, stroke_width=0)
+        fill.align_to(box, LEFT)
+        lab = text(label, 18, "title")
+        lab.move_to(box).align_to(box, LEFT).shift(RIGHT * 11 * u)
+        pc = text(f"{pct}%", 18, "title")
+        pc.move_to(box).align_to(box, RIGHT).shift(LEFT * 11 * u)
+        row = Group(box, fill, lab, pc)
+        row.box, row.fill, row.label, row.pct = box, fill, lab, pc
+        rows.append(row)
+    opts = Group(*rows).arrange(DOWN, buff=bar_gap)
+    opts.align_to(np.array([col_x, 0, 0]), LEFT)
+
+    # vertical rhythm from the reference layout (px from the card top):
+    # name line ~262, question 290 / 315, votes 343, first option 368
+    head_line.set_y(0.0)
+    q_lines.next_to(head_line, DOWN, buff=13 * u).align_to(head_line, LEFT)
+    votes_mob.next_to(q_lines, DOWN, buff=14 * u).align_to(head_line, LEFT)
+    opts.next_to(votes_mob, DOWN, buff=18 * u).align_to(head_line, LEFT)
+    av.move_to(np.array([-width / 2 + 42 * u, head_line.get_top()[1] - 14 * u, 0]))
+
+    content = Group(av, head_line, q_lines, votes_mob, opts)
+    card_top = head_line.get_top()[1] + 20 * u
+    card_bot = opts.get_bottom()[1] - 26 * u
+    surf = RoundedRectangle(width=width, height=card_top - card_bot, corner_radius=12 * u,
+                            fill_color=ManimColor(C["surface"]), fill_opacity=1.0,
+                            stroke_color=ManimColor(C["border"]), stroke_width=1.5)
+    surf.move_to(np.array([0, (card_top + card_bot) / 2, 0]))
+    post = Group(surf, content)
+    post.move_to(ORIGIN)
+    post.surface, post.header, post.question = surf, Group(av, head_line), q_lines
+    post.votes, post.options = votes_mob, opts
+    if not page:
+        return post
+    if post.height > frame_h - 0.6:
+        post.scale((frame_h - 0.6) / post.height)
+    bg = Rectangle(width=frame_w, height=frame_h, fill_color=ManimColor(C["surface"]),
+                   fill_opacity=1.0, stroke_width=0)
+    out = Group(bg, post)
+    out.post = post
+    return out
