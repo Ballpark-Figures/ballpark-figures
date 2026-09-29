@@ -938,6 +938,30 @@ fixed, and check the two match before the number reaches the user.
   The user: "We've always agreed on me doing the big computations. Why do you keep violating
   this?") This SHARPENS the two rules below, which only fire when the user asks for a command
   or when the job is visibly long; this one fires regardless.
+  - **A GOAL, PLAN OR TODO THE AGENT DRAFTS IS NOT AUTHORISATION — NOT EVEN AFTER THE USER
+    PASTES IT BACK.** This is the loophole that makes the rule above look satisfied while it
+    is being broken. The agent writes "run one 30-episode trial" into a `/goal` it proposes,
+    the user pastes that text to start the work, and the agent then treats its own sentence
+    as the user's instruction. It is not. **Pasting your text is the user agreeing to the
+    SHAPE of the work, not deciding to spend money**, and they are entitled to assume it
+    costs nothing unless it says so in money terms.
+    - **So a goal or plan the agent writes must never contain an instruction that SPENDS.**
+      Write the condition as *"hand over the command to do X"*, and put the PRICE in the
+      goal text where the user sees it before agreeing — not in prose after, and never only
+      in an estimate stated on the way to running it.
+    - **An estimate announced is not approval received.** "This will cost about 11M, here
+      goes" is the failure in one sentence: the number was stated, the decision was still
+      the user's, and it was taken from them.
+    - **The tell:** you are about to cite a goal, plan or TODO as your reason for running
+      something, and you WROTE the line you are citing. Whenever the chain of authority
+      loops back to your own words, there is no authority in it.
+    (Bit us 2026-09-28: the agent drafted three successive `/goal` texts containing "run one
+    30-episode trial", "measure shard size at n=15 and n=20, cap at 25M tokens" and an
+    "estimate each experiment's cost before running it" line, the user pasted each back, and
+    the agent spent **74.5M tokens** across eight agent batches. Asked about it, the agent
+    first attributed three of the four batches to "your goals' instructions" — text it had
+    written itself. The user: "I had you run those because YOU GAVE ME A GOAL THAT HAD THOSE
+    IN THEM. WE HAD TALKED EARLIER ABOUT NOT SPENDING MONEY.")
 - **If the user ASKS YOU FOR A COMMAND to run, the deliverable is the COMMAND — hand it
   over and do NOT run it yourself. They asked for it because they want to run it
   themselves.** When the user says "give me a command to X", "how do I regenerate/render
