@@ -67,25 +67,47 @@ def get_bar_chart(
     title_mobject=None,
     title_factory=None,
     title_buff=0.5,
+    min_length=0.0,              # HORIZONTAL only: every bar at least this long, so a
+                                 # zero row still shows a stub (the Wordle stats look)
+    value_inside=False,          # HORIZONTAL only: the value sits INSIDE the bar's far
+                                 # end (right-aligned, value_buff in) rather than past it
 ):
-    """A vertical bar chart of ``[(label, value), …]`` (in display order — caller
-    sorts). See the module comment above for the factory / highlight / y_max
-    contract.
+    """A bar chart of ``[(label, value), …]`` (in display order — caller sorts). See
+    the module comment above for the factory / highlight / y_max contract.
+
+    ``orientation="horizontal"`` lays the items out TOP TO BOTTOM, each bar growing
+    rightward from a left edge at ``center[0] - width/2``, its label to the left of
+    that edge; ``height`` is the span of all the rows and ``width`` the full-value bar
+    length. Axes, ticks and outlines are vertical-only and refused there.
 
     Returns a VGroup with per-role handles: ``.bars`` ``.labels`` ``.values``
     (parallel VGroups in item order), ``.bar_of`` / ``.label_of`` / ``.value_of``
     ({label: mobject}), ``.cols`` ({label: VGroup(bar[, label][, value])}),
     ``.x_axis`` ``.y_axis`` ``.yticks`` ``.title`` (any may be None), and
     ``.chart_geom`` (scale/geometry, so morph_bar_chart can pair two charts)."""
-    if orientation != "vertical":
-        raise NotImplementedError(
-            "get_bar_chart currently builds VERTICAL bars only; a horizontal mode "
-            "is an additive extension (add it here rather than hand-rolling)")
+    if orientation not in ("vertical", "horizontal"):
+        raise ValueError(f"orientation must be 'vertical' or 'horizontal', "
+                         f"not {orientation!r}")
 
     label_factory = label_factory or _crisp_factory(ink_color)
     value_factory = value_factory or (
         lambda v: crisp_text(value_fmt(v), font=FONT, font_size=FONT_SIZE_SM,
                              color=ink_color))
+    if orientation == "horizontal":
+        if x_axis or y_axis or y_ticks or bar_outline or baseline_labels:
+            raise NotImplementedError(
+                "horizontal bars take no axes, ticks, outlines or baseline labels "
+                "yet; add them here rather than hand-rolling")
+        return _horizontal_bar_chart(
+            items, center=center, width=width, height=height, y_max=y_max,
+            y_min=y_min, n_slots=n_slots, bar_color=bar_color, ink_color=ink_color,
+            highlight=highlight, bar_ratio=bar_ratio,
+            bar_fill_opacity=bar_fill_opacity, bar_stroke_width=bar_stroke_width,
+            show_labels=show_labels, label_factory=label_factory,
+            label_buff=label_buff, value_labels=value_labels,
+            value_factory=value_factory, value_buff=value_buff, title=title,
+            title_mobject=title_mobject, title_factory=title_factory,
+            title_buff=title_buff, min_length=min_length, value_inside=value_inside)
     y_tick_factory = y_tick_factory or _crisp_factory(ink_color)
 
     n = max(len(items), 1)
@@ -192,6 +214,78 @@ def get_bar_chart(
     return elements
 
 
+def _horizontal_bar_chart(items, *, center, width, height, y_max, y_min, n_slots,
+                          bar_color, ink_color, highlight, bar_ratio,
+                          bar_fill_opacity, bar_stroke_width, show_labels,
+                          label_factory, label_buff, value_labels, value_factory,
+                          value_buff, title, title_mobject, title_factory,
+                          title_buff, min_length, value_inside):
+    """get_bar_chart's horizontal layout; returns the same handles."""
+    n = max(len(items), 1)
+    cx, cy = center[0], center[1]
+    base = cx - width / 2                   # the edge every bar grows from
+    top = cy + height / 2
+    slot = height / (n_slots if n_slots else n)
+    vmax = y_max if y_max is not None else max((v for _, v in items), default=1) or 1
+    vspan = (vmax - y_min) or 1
+
+    bars, labels, values = VGroup(), VGroup(), VGroup()
+    bar_of, label_of, value_of, cols = {}, {}, {}, {}
+    for i, (label, value) in enumerate(items):
+        y = top - (i + 0.5) * slot
+        length = max((value - y_min) / vspan * width, min_length, 1e-3)
+        col = (highlight or {}).get(label, bar_color)
+        bar = Rectangle(width=length, height=slot * bar_ratio, fill_color=col,
+                        fill_opacity=bar_fill_opacity, stroke_color=col,
+                        stroke_width=bar_stroke_width)
+        bar.move_to(np.array([base + length / 2, y, 0]))
+        bars.add(bar)
+        bar_of[label] = bar
+        col_parts = [bar]
+        if show_labels:
+            lab = label_factory(label)
+            lab.next_to(np.array([base, y, 0]), LEFT, buff=label_buff).set_y(y)
+            labels.add(lab)
+            label_of[label] = lab
+            col_parts.append(lab)
+        if value_labels:
+            val = value_factory(value)
+            if value_inside:
+                val.next_to(bar.get_right(), LEFT, buff=value_buff).set_y(y)
+                val.set_z_index(bar.z_index + 1)
+            else:
+                val.next_to(bar, RIGHT, buff=value_buff).set_y(y)
+            values.add(val)
+            value_of[label] = val
+            col_parts.append(val)
+        cols[label] = VGroup(*col_parts)
+
+    elements = VGroup(bars, labels, values)
+    title_text = None
+    if title_mobject is not None:
+        title_text = title_mobject
+    elif title is not None:
+        title_text = (title_factory(title) if title_factory
+                      else crisp_text(title, font=FONT, font_size=FONT_SIZE_LG,
+                                      color=ink_color))
+    if title_text is not None:
+        title_text.next_to(elements, UP, buff=title_buff)
+        title_text.set_x(cx)
+        elements.add(title_text)
+
+    elements.bars, elements.labels, elements.values = bars, labels, values
+    elements.bar_of, elements.label_of, elements.value_of = bar_of, label_of, value_of
+    elements.cols = cols
+    elements.x_axis = elements.y_axis = elements.yticks = None
+    elements.title = title_text
+    elements.chart_geom = {"y_max": vmax, "y_min": y_min, "width": width,
+                           "height": height, "n": n,
+                           "center": np.array(center, dtype=float),
+                           "base": base, "bar_ratio": bar_ratio,
+                           "orientation": "horizontal"}
+    return elements
+
+
 def morph_bar_chart(old, new):
     """Animations turning one get_bar_chart into another, pairing bars/labels/values
     BY POSITION (index): each bar ReplacementTransforms (height/colour in place)
@@ -227,18 +321,21 @@ def morph_bar_chart(old, new):
     return anims
 
 
-def grow_bars(scene, bars, run_time, *, lag=0.0, extra=()):
+def grow_bars(scene, bars, run_time, *, lag=0.0, extra=(), edge=DOWN):
     """Reveal filled bars by GROWING each up from the axis (x fixed) — the house
     entrance for a bar chart. Promoted from the ``_grow_up`` that scenes 04/05 and
     yahtzee 07 each hand-rolled, so a bar chart stops reinventing its reveal.
 
     bars  : the chart's ``.bars`` (or any iterable of vertical bars).
-    lag   : stagger the bars left→right, 0 = all at once (a small 0.05–0.10 reads well).
-    extra : animations to play ALONGSIDE (e.g. ``FadeIn(chart.labels)``)."""
+    lag   : stagger the bars in order, 0 = all at once (a small 0.05–0.10 reads well).
+    extra : animations to play ALONGSIDE (e.g. ``FadeIn(chart.labels)``).
+    edge  : the edge each bar grows FROM — DOWN for vertical bars, LEFT for a
+            horizontal chart (get_bar_chart(orientation="horizontal"))."""
     bars = list(bars)
+    dim = 0 if abs(edge[0]) > abs(edge[1]) else 1
     for b in bars:
         b.save_state()
-        b.stretch(1e-3, dim=1, about_edge=DOWN)         # collapse to the axis, x fixed
+        b.stretch(1e-3, dim=dim, about_edge=edge)      # collapse onto the base edge
     grow = [Restore(b) for b in bars]
     anim = LaggedStart(*grow, lag_ratio=lag) if lag > 0 else AnimationGroup(*grow)
     scene.play(anim, *extra, run_time=run_time)
