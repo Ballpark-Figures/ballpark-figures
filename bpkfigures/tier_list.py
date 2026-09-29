@@ -316,25 +316,37 @@ def tile_map(tl, letters):
 
 
 def morph_into(scene, src, dst, src_letters, dst_letters, row_map, run_time, *,
-               extra=()):
+               extra=(), split_from=None):
     """Transform a COPY of filled tier list `src` into `dst`: per-role structure
     (cell/panel/label of src row i → dst row `row_map[i]`, so two rows can MERGE onto
     one) + per-LETTER moves (each letter slides to its dst tile). `src` stays put; `dst`
     is left on screen at the end. `extra` plays ALONGSIDE (e.g. a title fading in).
     Piece-by-piece via role handles, never a blob morph — see bpkfigures CLAUDE.md.
-    (Promoted from hangman scene 17's `_morph_into`.) A dst row that NO src row maps
-    onto (dst has more tiers than src) fades its cell/panel/label in alongside."""
+    (Promoted from hangman scene 17's `_morph_into`.)
+
+    SPLITTING — the reverse of a merge: pass `split_from`, one src row index PER DST
+    row (and `row_map=None`), and every dst row's cell/panel/label grows out of a copy
+    of that src row, so one src tier can become two and every tier travels in from
+    `src`. Without it, a dst row no src row maps onto fades in where it stands.
+    Letters are always drawn ABOVE the moving structure."""
     dst_tile = {ch: dst.contents[i][k]
                 for i, lets in enumerate(dst_letters) for k, ch in enumerate(lets)}
+    if split_from is not None:
+        assert row_map is None and len(split_from) == dst.n, "one src row per dst row"
+        row_pairs = [(i, j) for j, i in enumerate(split_from)]
+    else:
+        row_pairs = list(enumerate(row_map))
     pairs = []
-    for i, j in enumerate(row_map):
+    for i, j in row_pairs:
         pairs += [(src.cells[i], dst.cells[j]), (src.panels[i], dst.panels[j]),
                   (src.labels[i], dst.labels[j])]
     for i, lets in enumerate(src_letters):
         for k, ch in enumerate(lets):
             pairs.append((src.contents[i][k], dst_tile[ch]))
+    covered = {j for _, j in row_pairs}
     fresh = [VGroup(dst.cells[j], dst.panels[j], dst.labels[j]).copy()
-             for j in range(dst.n) if j not in set(row_map)]
+             for j in range(dst.n) if j not in covered]
+    scene.add(*fresh)                  # under the letters, which are added last
     movers = [a.copy() for a, _ in pairs]
     for m in movers:
         scene.add(m)
