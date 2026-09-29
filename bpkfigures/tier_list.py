@@ -51,8 +51,10 @@ LETTER_BUFF  = 0.26
 
 
 def panel_width_for(letters):
-    """Panel width fitting the FULLEST tier of `letters` with equal side margins."""
-    return 2 * LETTER_BUFF + max(len(t) for t in letters) * LETTER_PITCH
+    """Panel width fitting the FULLEST tier of `letters` with equal side margins (a
+    double counts `token_slots` letters)."""
+    return 2 * LETTER_BUFF + max(sum(token_slots(c) for c in t) for t in letters) \
+        * LETTER_PITCH
 
 
 _DEFAULT_PANEL_W = 2 * LETTER_BUFF + 6 * LETTER_PITCH
@@ -107,8 +109,8 @@ _GROUP_BELOW = {"TOP": _A_HIGH, "HIGH": _A_MID,  "MID": _A_LOW,  "LOW": _A_BELOW
 def name_colors(tier_names):
     """Per-tier cell colours for a named tier structure `tier_names` (list of
     (word, arrow)). A single tier of a group (arrow None) takes the group base; an
-    up/down tier leans by ±_LEAN toward the group above/below. name_colors(NAME_LABELS)
-    reproduces NAME_TIER_COLORS."""
+    up/down tier leans by ±_LEAN toward the group above/below; a "square" (middle) tier
+    takes the group base. name_colors(NAME_LABELS) reproduces NAME_TIER_COLORS."""
     out = []
     for word, arrow in tier_names:
         base = _GROUP_BASE[word]
@@ -176,13 +178,18 @@ def number_label(i, *, height=0.44, color=LABEL_COLOR):
 
 def name_label_spec(word, arrow, *, height=0.34, color=LABEL_COLOR):
     """The named tier label for a (word, arrow) spec: a word (TOP/HIGH/MID/LOW) with an
-    optional up/down arrow to its RIGHT. `height` is the word's cap height."""
+    optional marker to its RIGHT: an up/down arrow, or "square" for the MIDDLE tier of
+    a three-way split (▲ ■ ▼). `height` is the word's cap height."""
     txt = crisp_text(word, font_size=FONT_SIZE_LG, color=color, weight=BOLD)
     txt.set_height(height)
     if arrow is None:
         return VGroup(txt).move_to(ORIGIN)
-    tri = Triangle(fill_color=color, fill_opacity=1.0, stroke_width=0)
-    tri.set_height(height * 0.62)
+    if arrow == "square":
+        tri = Square(fill_color=color, fill_opacity=1.0, stroke_width=0)
+        tri.set_height(height * 0.50)          # optically matches the triangles
+    else:
+        tri = Triangle(fill_color=color, fill_opacity=1.0, stroke_width=0)
+        tri.set_height(height * 0.62)
     if arrow == "down":
         tri.rotate(PI)
     tri.next_to(txt, RIGHT, buff=height * 0.32)
@@ -271,26 +278,47 @@ def get_tier_list(labels="letter", *, center=ORIGIN, panel_width=_DEFAULT_PANEL_
 
 
 # ── filling a tier with its letters ───────────────────────────────────────────
+DOUBLE_SMALL = 0.62          # a double's first copy, as a fraction of full height
+DOUBLE_GAP = 0.06            # between a double's two copies (units at height 0.5)
+DOUBLE_SLOTS = 1.6           # a double's slot width, in single-letter slots
+
+
+def token_slots(token):
+    """How many letter slots a TOKEN takes: 1 for a letter, DOUBLE_SLOTS for a double."""
+    return 1.0 if len(token) == 1 else DOUBLE_SLOTS
+
+
 def letter_tile(ch, *, height=0.5, color=None):
-    """One tier letter, drawn on the dark panel — coloured vowel-red / consonant-blue
-    by default (`tile_color`); pass `color` to override."""
+    """One tier TOKEN, drawn on the dark panel — coloured vowel-red / consonant-blue
+    by default (`tile_color`); pass `color` to override. A token is a letter, or a
+    DOUBLE ("ee", the second copy of a letter): a small copy followed by a full-size
+    one, sitting on one baseline."""
     if color is None:
-        color = tile_color(ch)
-    return crisp_text(ch.upper(), font_size=FONT_SIZE_LG, color=color,
-                      weight=BOLD).set_height(height)
+        color = tile_color(ch[0])
+    def glyph(h):
+        return crisp_text(ch[0].upper(), font_size=FONT_SIZE_LG, color=color,
+                          weight=BOLD).set_height(h)
+    if len(ch) == 1:
+        return glyph(height)
+    small, full = glyph(height * DOUBLE_SMALL), glyph(height)
+    small.next_to(full, LEFT, buff=DOUBLE_GAP * height / 0.5).align_to(full, DOWN)
+    return VGroup(small, full)
 
 
 def fill_tier(tl, i, letters, *, height=0.5, buff=LETTER_BUFF,
               pitch=LETTER_PITCH):
-    """Lay tier `i`'s `letters` (a sourced string, top tier first) left→right
-    in its panel — each centred in a fixed `pitch`-wide slot so they stay evenly
-    spaced regardless of glyph width — and add them to the tier's `.contents` (so
-    later emphasis dims them with the row). Returns the VGroup of new tiles."""
+    """Lay tier `i`'s `letters` (a sourced string, or a list of TOKENS, top tier
+    first) left→right in its panel — each centred in a fixed-width slot (`pitch`, or
+    `token_slots` of it for a double) so they stay evenly spaced regardless of glyph
+    width — and add them to the tier's `.contents` (so later emphasis dims them with
+    the row). Returns the VGroup of new tiles."""
     cy = tl.row_cys[i]
-    x0 = tl.panel_left_x + buff
-    tiles = VGroup(*[letter_tile(ch, height=height).move_to(
-                        [x0 + pitch / 2 + k * pitch, cy, 0])
-                     for k, ch in enumerate(letters)])
+    x = tl.panel_left_x + buff
+    tiles = VGroup()
+    for ch in letters:
+        w = token_slots(ch) * pitch
+        tiles.add(letter_tile(ch, height=height).move_to([x + w / 2, cy, 0]))
+        x += w
     tl.contents[i].add(*tiles)
     return tiles
 
@@ -299,7 +327,7 @@ def fill_tier(tl, i, letters, *, height=0.5, buff=LETTER_BUFF,
 def filled_list(letters, *, names=None, scale=1.0, panel_width=_DEFAULT_PANEL_W):
     """A tier list with each tier's `letters` filled in — default the 7-tier NAMED
     structure, or a custom `names` (list of (word, arrow)) — scaled and ready to
-    `.move_to(...)`. `letters` is one string per tier, top→bottom. The shared builder
+    `.move_to(...)`. `letters` is one string (or list of TOKENS) per tier, top→bottom. The shared builder
     behind the scene-17 / scene-22 tier COMPARISONS."""
     tl = (get_tier_list("name", panel_width=panel_width) if names is None
           else get_tier_list(names=names, panel_width=panel_width))
@@ -322,7 +350,8 @@ def morph_into(scene, src, dst, src_letters, dst_letters, row_map, run_time, *,
     one) + per-LETTER moves (each letter slides to its dst tile). `src` stays put; `dst`
     is left on screen at the end. `extra` plays ALONGSIDE (e.g. a title fading in).
     Piece-by-piece via role handles, never a blob morph — see bpkfigures CLAUDE.md.
-    (Promoted from hangman scene 17's `_morph_into`.)
+    (Promoted from hangman scene 17's `_morph_into`.) A dst TOKEN that src lacks (a
+    double added to the list) fades in at its place.
 
     SPLITTING — the reverse of a merge: pass `split_from`, one src row index PER DST
     row (and `row_map=None`), and every dst row's cell/panel/label grows out of a copy
@@ -346,13 +375,17 @@ def morph_into(scene, src, dst, src_letters, dst_letters, row_map, run_time, *,
     covered = {j for _, j in row_pairs}
     fresh = [VGroup(dst.cells[j], dst.panels[j], dst.labels[j]).copy()
              for j in range(dst.n) if j not in covered]
+    src_tokens = {ch for lets in src_letters for ch in lets}
+    fresh_tiles = [dst_tile[ch].copy() for lets in dst_letters for ch in lets
+                   if ch not in src_tokens]
     scene.add(*fresh)                  # under the letters, which are added last
     movers = [a.copy() for a, _ in pairs]
     for m in movers:
         scene.add(m)
+    scene.add(*fresh_tiles)            # new tokens (dst has, src lacks) fade in on top
     scene.play(*[Transform(m, b.copy()) for m, (_, b) in zip(movers, pairs)],
-               *[FadeIn(f) for f in fresh], *extra, run_time=run_time)
-    scene.remove(*movers, *fresh)
+               *[FadeIn(f) for f in fresh + fresh_tiles], *extra, run_time=run_time)
+    scene.remove(*movers, *fresh, *fresh_tiles)
     scene.add(dst)
 
 
