@@ -233,6 +233,29 @@ load wherever you're working. Video-specific rules live in that video's own
   Instead, treat the urge to promise as a prompt to ask the user: "Should I add
   this to a CLAUDE.md?" If yes, make the edit that turn; if no, drop it — just
   don't leave it as a hollow promise that quietly evaporates.
+- **NEVER END A TURN ON A STATEMENT OF INTENT. If you are about to write "moving on to X",
+  do X instead.** A turn ends with delivered work, a genuinely blocking question, or an
+  explicit stop and the reason for it — never with an announcement of the next step.
+  - **Why this is not a style note.** "Moving to (3)" is true, informative, and reads like
+    a natural place to stop, which is exactly what makes it dangerous: it FEELS like
+    progress while producing nothing, and it costs the user a round-trip to restart you.
+    In a multi-step task or an autonomous `/goal` run it silently halts the work and hands
+    the user a prompting job they did not ask for.
+  - **It is the hollow-promise failure above, one scale smaller.** "I'll do better next
+    time" evaporates across a session; "I'll do X next" evaporates at the end of the turn.
+    Both substitute a description of future work for the work.
+  - The tell: the last sentence you have written names a task rather than reporting one,
+    and there is no tool call after it. Either make the call or say plainly that you are
+    stopping and why — "stopping here, this needs your decision on Y" is a fine ending;
+    "next I'll tackle Y" is not.
+  - Corollary, since the honest version matters: when you genuinely SHOULD stop — the next
+    step spends real money, needs a decision that is the user's, or the turn budget is
+    gone — say so outright and name what is outstanding. The rule forbids the empty
+    announcement, not the deliberate handoff.
+  (Bit us 2026-09-28: during one `/goal` run the agent ended three separate turns with
+  "moving to condition (N)" and did not touch it, so the user had to prompt each time and
+  finally asked "You keep saying you're moving onto something but never do. How do we fix
+  this?")
 
 ## The numbers are the product — never invent a calculation
 This channel's job is: do rigorous math, then present it. So every quantity on
