@@ -50,7 +50,8 @@ import math
 
 import numpy as np
 from manim import (VGroup, Line, Dot, Polygon, Animation, Mobject, AnimationGroup,
-                   GrowFromCenter, Create, FadeIn, UP, DOWN, WHITE, config)
+                   GrowFromCenter, GrowFromPoint, Create, FadeIn,
+                   smootherstep, UP, DOWN, WHITE, config)
 
 from bpkfigures.style import crisp_text, FONT_SIZE_SM
 from bpkfigures.card import card_behind
@@ -330,9 +331,14 @@ class ZoomLine(VGroup):
             mk.label.move_to([x, y1 - lab_gap - mk.label.height / 2, 0])
         mk.stem.put_start_and_end_on([x, y0, 0], [x, y1, 0])
 
-    def marker_in(self, mk, shift=0.2):
-        """The marker's entrance: dot grows, stem draws, label rises into place
-        (pass run_time to self.play)."""
+    def marker_in(self, mk, pop=True, shift=0.2):
+        """The marker's entrance (pass run_time to self.play). ``pop``: the label
+        grows OUT OF THE DOT to its place while the stem draws and the dot grows,
+        all starting together (so a sound cue lands on the call). Otherwise: dot
+        grows, stem draws, label rises into place, staggered."""
+        if pop:
+            return AnimationGroup(GrowFromCenter(mk.dot), Create(mk.stem),
+                                  GrowFromPoint(mk.label, mk.dot.get_center()))
         return AnimationGroup(GrowFromCenter(mk.dot), Create(mk.stem),
                               FadeIn(mk.label, shift=mk.side * shift),
                               lag_ratio=0.35)
@@ -377,9 +383,17 @@ UP_ = np.array([0.0, 1.0, 0.0])
 
 class ZoomLineTo(Animation):
     """Move a ZoomLine's window to ``lo..hi``: geometric in width, about the value
-    that holds its screen position (a pan when the widths match)."""
+    that holds its screen position (a pan when the widths match).
+
+    Eased with ``smootherstep`` by default, NOT manim's ``smooth``: smooth never
+    comes to rest (its end speed is ~7% of its mean), and a geometric zoom moves the
+    far side of the screen fastest, so MEASURED on a 3..2500 -> 3.42..8 zoom the
+    ticks on the right were still going ~2 units/s in the last frame and then
+    stopped dead. smootherstep has zero speed and acceleration at both ends (0.008
+    units/s in that frame)."""
 
     def __init__(self, line, lo, hi, **kwargs):
+        kwargs.setdefault("rate_func", smootherstep)
         self.target = (float(lo), float(hi))
         super().__init__(line, **kwargs)
 
