@@ -313,7 +313,7 @@ def _assigned_names(tree):
 def lint_file(path):
     """Return sorted, de-duplicated (lineno, message) style warnings for one scene
     file. Returns [] on a syntax error (the caller's parse reports those)."""
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         src = f.read()
     try:
         tree = ast.parse(src, filename=path)

@@ -39,11 +39,20 @@ def get_resolve():
         sys.path.insert(0, mods)
     os.environ.setdefault("RESOLVE_SCRIPT_API", _API)
     os.environ.setdefault("RESOLVE_SCRIPT_LIB", _LIB)
+    # Resolve's fusionscript library resets this process's locale to plain "C" when
+    # it connects, which turns Python's default text encoding into ASCII: every
+    # later open() without an encoding then dies on the first non-ASCII byte (it
+    # broke `render NN all --stills` after subscene a, reading the next scene file).
+    # So the locale is put back however the connection goes.
+    import locale
+    saved = locale.setlocale(locale.LC_ALL)
     try:
         import DaVinciResolveScript as dvr
         return dvr.scriptapp("Resolve")  # None if Resolve isn't running
     except Exception:
         return None
+    finally:
+        locale.setlocale(locale.LC_ALL, saved)
 
 
 def current_timeline(resolve=None):

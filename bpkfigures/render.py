@@ -597,7 +597,7 @@ def _clean_stale_thumb(scene_path, prefix, letter, keep_output):
 
 def _load_manifest(path):
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return {}
@@ -776,7 +776,7 @@ def _check_syntax(targets):
 
     for p in dict.fromkeys(scene_paths + asset_paths):   # dedup, keep order
         try:
-            with open(p) as f:
+            with open(p, encoding="utf-8") as f:
                 ast.parse(f.read(), filename=p)
         except SyntaxError as e:
             print(f"{p}:{e.lineno}: {e.msg}", file=sys.stderr)

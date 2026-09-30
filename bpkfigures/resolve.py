@@ -31,7 +31,7 @@ def _find_file(prefix):
     return matches[0]
 
 def _parse(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         tree = ast.parse(f.read(), filename=path)
     for node in tree.body:
         if not isinstance(node, ast.ClassDef):
