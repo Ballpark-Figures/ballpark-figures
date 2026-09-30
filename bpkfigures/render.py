@@ -560,8 +560,8 @@ def _thumb_key(cls, scene_path, name, qtag):
     srcs = [
         f"v{S.SNAPSHOT_VERSION}",
         f"q:{qtag}",
-        S._source_hash([bpk, project_root],
-                       exclude={os.path.realpath(scene_path)} | tooling),
+        S._files_hash(S._import_closure(scene_path, [bpk, project_root],
+                                        [project_root, os.path.dirname(bpk)]) - tooling),
         S._scene_source_digest(cls, ["setup_scene", name]),
     ]
     return hashlib.md5("".join(srcs).encode()).hexdigest()

@@ -1,3 +1,4 @@
+import ast
 import hashlib
 import inspect
 import os
@@ -54,7 +55,7 @@ SUBSCENE_HOLD = 1.0
 # leak either. A restored _audio_t0 from whichever run happened to write the
 # snapshot would silently shift every cue in the clip.
 _NEVER_PICKLE = {"_audio_t0", "_sfx_live", "_sfx_still", "_sfx_cues",
-                 "_in_setup_scene"}
+                 "_in_setup_scene", "_dep_files"}
 
 _BPK_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -90,6 +91,94 @@ def _source_hash(roots, exclude=()):
         if root and os.path.isdir(root):
             files.update(os.path.realpath(p) for p in _iter_py_files(root))
     files -= skip
+    h = hashlib.md5()
+    for f in sorted(files):
+        try:
+            with open(f, "rb") as fh:
+                h.update(f.encode())
+                h.update(fh.read())
+        except OSError:
+            pass
+    return h.hexdigest()
+
+
+def _module_files(name, dirs):
+    """The files importing dotted module `name` would EXECUTE, found under `dirs`
+    (tried in order, like sys.path): each parent package's __init__.py, then the
+    module itself (`x.py` or `x/__init__.py`). The first dir holding the top-level
+    name wins; [] if none does (a third-party module)."""
+    parts = name.split(".")
+    for d in dirs:
+        top = os.path.join(d, parts[0])
+        if not (os.path.isfile(top + ".py") or os.path.isdir(top)):
+            continue
+        out, path = [], d
+        for i, p in enumerate(parts):
+            path = os.path.join(path, p)
+            if os.path.isfile(os.path.join(path, "__init__.py")):
+                out.append(os.path.join(path, "__init__.py"))
+            elif i == len(parts) - 1 and os.path.isfile(path + ".py"):
+                out.append(path + ".py")
+                break
+            else:
+                break
+        return out
+    return []
+
+
+def _import_closure(entry, roots, search):
+    """Every project .py file (under `roots`) that `entry` can import, followed
+    RECURSIVELY and STATICALLY: every import statement anywhere in a file's AST
+    counts, including ones inside functions, so a module imported lazily by a
+    later subscene is in the closure from the start. That is the point of doing it
+    statically — sys.modules depends on what has RUN, so it would differ between a
+    full render and a single-subscene render and flip the key between them.
+
+    Resolution tries the importing file's own directory first (a data module that
+    puts its own folder on sys.path), then `search` (the scene's sys.path roots).
+    Relative imports resolve against the importing package. Anything that resolves
+    outside `roots` (manim, numpy, math/ pipeline code) is not followed.
+
+    Returns the set of realpaths, `entry` itself excluded."""
+    roots = [os.path.realpath(r) for r in roots if r]
+    under = lambda p: any(p == r or p.startswith(r + os.sep) for r in roots)
+    entry = os.path.realpath(entry)
+    seen, stack = {entry}, [entry]
+    while stack:
+        f = stack.pop()
+        try:
+            with open(f, "rb") as fh:
+                tree = ast.parse(fh.read(), filename=f)
+        except (OSError, SyntaxError, ValueError):
+            continue
+        here = os.path.dirname(f)
+        for node in ast.walk(tree):
+            names, dirs = [], [here, *search]
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:                       # relative: from the package
+                    base = here
+                    for _ in range(node.level - 1):
+                        base = os.path.dirname(base)
+                    dirs = [os.path.dirname(base)]
+                    pkg = os.path.basename(base)
+                    mod = pkg + ("." + node.module if node.module else "")
+                else:
+                    mod = node.module
+                names = [mod] + [f"{mod}.{a.name}" for a in node.names if a.name != "*"]
+            for name in names:
+                for p in _module_files(name, dirs):
+                    p = os.path.realpath(p)
+                    if p not in seen and under(p):
+                        seen.add(p)
+                        stack.append(p)
+    seen.discard(entry)
+    return seen
+
+
+def _files_hash(files):
+    """md5 over the path and source of each of `files`, in sorted order."""
     h = hashlib.md5()
     for f in sorted(files):
         try:
@@ -283,7 +372,7 @@ class BpkScene(Scene):
         # A snapshot at idx is valid iff the code that PRODUCES its end-state is
         # unchanged. The key hashes three things:
         #   1. a manual version stamp
-        #   2. _source_hash of project code (assets/config/bpkfigures) EXCEPT the
+        #   2. hash of the project code this scene IMPORTS (_dependency_files) EXCEPT the
         #      scene's own file — so an asset appearance change still invalidates
         #      (correctness), but editing a subscene body doesn't flip this term.
         #   3. the scene-side dependency closure of setup_scene + subscenes
@@ -312,8 +401,21 @@ class BpkScene(Scene):
         scene_dir = os.path.dirname(scene_file)
         siblings = {os.path.realpath(os.path.join(scene_dir, f))
                     for f in os.listdir(scene_dir) if f.endswith(".py")}
-        return (_source_hash(self._project_roots(), exclude=siblings | tooling),
+        return (_files_hash(self._dependency_files() - siblings - tooling),
                 _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])))
+
+    def _dependency_files(self):
+        """The project .py files this scene can import (`_import_closure`), cached
+        per run. ONLY THESE feed the source hash: until 2026-09-30 it was every .py
+        under bpkfigures/ and animations/, so another tab saving an asset or a
+        shared module this scene never imports (bpkfigures/number_line.py, for
+        scene 13) threw away every snapshot of every scene mid-render."""
+        if getattr(self, "_dep_files", None) is None:
+            scene_file = os.path.realpath(inspect.getfile(type(self)))
+            roots = self._project_roots()
+            search = [roots[1], os.path.dirname(_BPK_DIR)]   # animations/, the umbrella
+            self._dep_files = _import_closure(scene_file, roots, search)
+        return self._dep_files
 
     def _snapshot_path(self, idx):
         os.makedirs(SNAPSHOT_DIR, exist_ok=True)
