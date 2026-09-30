@@ -1571,16 +1571,22 @@ calls for; no titles/labels/narration that weren't asked for.
   rebuild the whole prefix. Combined with lazy building (above), editing a
   subscene's `_setup_<name>` invalidates only that subscene onward, so the heavy
   early build-up stays cached.
-- Snapshot key = `SNAPSHOT_VERSION` + hash of project source (EXCLUDING ALL scene
-  files AND the render/resolve CLI tooling, which never affect output) + a
-  per-subscene dependency digest. Scenes are INDEPENDENT: editing a SIBLING scene
-  (e.g. `06tiers.py` while working `05`) does NOT invalidate this scene — its own
-  code is captured by the digest. Editing a later subscene (or code only it uses)
-  leaves earlier snapshots valid; editing an asset/config/shared helper (or
-  `scene.py`/`style.py`) invalidates them; editing `render.py`/`resolve.py` does
-  NOT. Bump `SNAPSHOT_VERSION` to force-invalidate. (A snapshot MISS now prints
-  WHICH key term changed — `srchash` vs `digest` — so a surprise full-replay is
-  diagnosable at a glance.)
+- Snapshot key = `SNAPSHOT_VERSION` + hash of the project `.py` files the scene
+  IMPORTS (`_import_closure`: every import statement in the scene file, followed
+  recursively and statically, lazy imports included; scene files and the
+  render/resolve CLI tooling excluded) + a per-subscene dependency digest. Scenes
+  are INDEPENDENT: editing a SIBLING scene, or an asset/shared module this scene
+  never imports, does NOT invalidate it. (Until 2026-09-30 the hash covered EVERY
+  `.py` under `bpkfigures/` and `animations/`, so another tab saving any asset
+  threw away every scene's snapshots mid-render.) Editing a later subscene (or code
+  only it uses) leaves earlier snapshots valid; editing an asset/config/shared
+  helper the scene imports invalidates them. Bump `SNAPSHOT_VERSION` to
+  force-invalidate. A snapshot MISS prints WHICH key term changed — `srchash` vs
+  `digest`. **The closure has a gate**: `python -m bpkfigures.check_snapshot_deps`
+  from a `scenes/` dir imports each scene for real and fails if it loaded a project
+  file the closure missed. Run it after an unusual import (importlib, exec).
+  **NOT covered, as before: non-`.py` inputs** — a `*_cache.json` regenerated under
+  a scene does not invalidate its snapshots; use `--recompute`.
 - **A scene-file MODULE CONSTANT the subscene reads IS captured in its digest —
   editing it invalidates the snapshot.** The digest repr's the VALUE of every
   module-level constant a subscene's code closure references, of ANY stable-repr
