@@ -737,6 +737,14 @@ snapshot save).
 - Per-scene branches ARE possible but ONLY via git worktrees in SEPARATE windows — more
   window management than the user wants, so reach for it only if truly isolated branches
   are needed.
+- **A thread about ONE scene gets named after it — so OPEN the first reply with a
+  paste-ready `/rename` line.** With several tabs open, the user wants each tab's name to
+  START with the scene it covers, number included (`07dynamic_programming …`). The agent
+  CANNOT set a thread title itself — no tool or hook can (checked against the Claude Code
+  docs, 2026-09-30); only the user's `/rename` or the session picker can. So the first
+  reply in a scene thread begins with the command built from the scene's file stem, e.g.
+  `/rename 07dynamic_programming`, for the user to paste. Once per thread; skip it for
+  threads not about a single scene.
 
 ## Where instructions live (which CLAUDE.md, and CLAUDE.md vs memory)
 How the user wants the agent to record things worth remembering:
