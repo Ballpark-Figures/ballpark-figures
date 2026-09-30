@@ -634,9 +634,10 @@ Pull colours and surfaces from the shared package instead of inventing ad-hoc va
   - Don't introduce one-off hex unless asked; a genuinely new shade goes in `style.py`,
     not buried in a scene.
 - **Text ENTERS with `FadeIn` — NEVER manim's `Write` (or `AddTextLetterByLetter`).**
-  The house entrance is a plain `FadeIn(label)` or one with a small shift
-  (`FadeIn(title, shift=DOWN * 0.2)`); yahtzee and hangman use `Write` nowhere in their
-  scenes. `render --check` lints for it. (Bit us on wordle 01: three "N guesses" labels
+  The house entrance is a plain `FadeIn(label)`. Whether a given KIND of text (a title,
+  a caption) also drifts in, and whether it arrives with its content, is that VIDEO's
+  convention: read it off the sibling scenes (§ Never invent a convention mid-video),
+  never off this sentence. yahtzee and hangman use `Write` nowhere in their scenes. `render --check` lints for it. (Bit us on wordle 01: three "N guesses" labels
   shipped with `Write`, which draws the glyph outlines stroke-by-stroke — not our look.)
 - **ALL text goes through `crisp_text`/`crisp_paragraph`** — never raw `Text(...)`. They
   render at brand `FONT` (defaulted now) and supersample. Match a neighbouring element's
@@ -1323,6 +1324,22 @@ calls for; no titles/labels/narration that weren't asked for.
   the convention. Can't find a precedent? ASK before inventing. And when a search concludes
   "the convention is X," check X predates your own edits — code you just wrote is not a
   precedent.
+- **NEVER INVENT A CONVENTION MID-VIDEO — the precedent for a recurring element is what
+  the EARLIER SCENES of this video actually do, looked up, not what seems reasonable.**
+  Titles, subtitles, labels, entrances and exits recur in almost every video, so by
+  scene 5 each one already HAS a convention. Before building one, find it: grep this
+  video's scenes for the same kind of element and read the `self.play` that brings it
+  on, not just its construction — its look and its motion are both the convention.
+  Then, in order: follow it; if this video has no instance yet, follow the previous
+  video's; if neither has one, ASK. Three sources are NOT precedents: an EXAMPLE inside
+  a rule in this file (it illustrates the rule, it is not a house style), code you
+  wrote this session, and what manim's docs show. Sourcing half an element — the size
+  and colour from a sibling, the motion from memory — is the same failure.
+  (Bit us on wordle 13, 2026-09-30: the title's font and colour came from 08, but its
+  entrance, `FadeIn(title, shift=DOWN * 0.2)`, was copied from the example that used to
+  sit in the text-entrance rule above. No scene in the video does that; every title
+  there is a plain `FadeIn` played with its content. The reuse map sourced the title's
+  look and listed no entrance at all, so nothing forced the search.)
 - Read the existing assets and the video's gameplay REFERENCE scene (its CLAUDE.md's named
   canonical example) BEFORE building a gameplay-style beat. Use the existing helpers.
 - **A recurring ENTRANCE/EXIT/emphasis motion is an asset — grep the other SCENES
@@ -1874,7 +1891,11 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   element forces you to look; an element you CANNOT name an existing source for is a HARD
   STOP — grep the assets AND the sibling scenes, and if there's genuinely no source,
   FLAG-and-ASK before building it. Never invent a variant of a thing a sibling scene
-  already renders.** (Because the map is user-visible at preflight, an invented entry gets
+  already renders.** **Every element that appears or disappears gets its OWN entrance
+  and exit line in the map, citing the `file:line` of the sibling `self.play` it copies**
+  (`title in: FadeIn with the bars, 08histogram.py:369`). An element whose look is
+  sourced but whose entrance is not is an unsourced element; an entrance with no
+  citation is the same HARD STOP. (Because the map is user-visible at preflight, an invented entry gets
   caught BEFORE any code is built on it — the cheapest possible point.) **Re-run at
   handoff** on a verification frame: read the STYLING (text in `FONT`? colours semantic?
   reused props render as elsewhere?), not just position/overlap. **NOT new-scene-only —
