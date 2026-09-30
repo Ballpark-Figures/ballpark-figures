@@ -567,6 +567,10 @@ the "where do I look" map.
   04's avg-misses-by-length, or a sorted letter-frequency chart with written-font
   labels + a morphing mode) is a DIFFERENT asset. Don't force-fit one into the
   other — improve/extend the right shared helper (or build it if missing).
+- **A number line or timeline** → `bpkfigures.number_line.ZoomLine`: `zoom(lo, hi)` rescales
+  it with ticks and labels re-thinning smoothly (nested 1/5 step ladder, each level fading by its
+  on-screen spacing); `add_marker` + `marker_in` pin labelled points that ride the zoom;
+  `min_label_step=1` for whole years/guesses. Never hand-roll a manim `NumberLine` for these.
 - **Spotlight element(s)** → `highlight()` (highlight.py, holds by default).
   **Emphasise one OF a group** → dim the rest (save_state/Restore; scenes 07/08).
 - **A frame-edge position** → read `config.frame_x_radius/​y_radius` (8.0/4.5) at
