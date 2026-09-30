@@ -50,7 +50,7 @@ import math
 
 import numpy as np
 from manim import (VGroup, Line, Dot, Polygon, Animation, Mobject, AnimationGroup,
-                   GrowFromCenter, GrowFromPoint, Create, FadeIn,
+                   GrowFromCenter, Create, FadeIn,
                    smootherstep, UP, DOWN, WHITE, config)
 
 from bpkfigures.style import crisp_text, FONT_SIZE_SM
@@ -282,7 +282,7 @@ class ZoomLine(VGroup):
     # ── markers ───────────────────────────────────────────────────────────────
     def add_marker(self, value, lines, *, side=UP, stem=0.45, gap=0.12,
                    dot_radius=0.08, font_size=30, color=None, stem_stroke=2.5,
-                   text_color=None, box=None):
+                   text_color=None, box=None, grow=1.0):
         """A dot at ``value``, a stem, and ``lines`` centred at the stem's end —
         each line a string, a (string, color) pair, or a Mobject (a word's tiles,
         say), stacked on a fixed
@@ -295,13 +295,19 @@ class ZoomLine(VGroup):
         is VGroup(card, lines) and .box is the card. ``text_color`` colours the
         lines alone (a cream card wants dark text); the dot and stem keep ``color``.
         A DOWN marker's stem runs from the dot through the tick-label band, and a
-        tick label it would cross is dropped."""
+        tick label it would cross is dropped.
+
+        ``grow`` (0..1) is how far the marker has popped out of its dot: at 0 it is
+        invisible, at 1 fully in place. It is applied by every reposition, so a
+        pop (``marker_in``) and a zoom can run at once. Add a marker that pops in
+        later with ``grow=0``."""
         color = color or self.color
         if isinstance(lines, str):
             lines = [lines]
         mk = VGroup()
         mk.value, mk.side = float(value), np.array(side, dtype=float)
         mk.stem_len, mk.gap = stem, gap
+        mk.grow, mk.dot_radius = float(grow), dot_radius
         mk.dot = Dot(radius=dot_radius, color=color)
         mk.stem = Line(ORIGIN_, UP_, color=color, stroke_width=stem_stroke)
         content = stack_lines(lines, font_size=font_size,
@@ -312,36 +318,46 @@ class ZoomLine(VGroup):
             mk.label = VGroup(mk.box, content)
         else:
             mk.label = content
+        mk.label_w = mk.label.width              # full size, for the growth scale
         mk.add(mk.dot, mk.stem, mk.label)
         self._place_marker(mk)
         self.markers.add(mk)
         return mk
 
     def _place_marker(self, mk):
+        """Put the marker at its value, popped out ``mk.grow`` of the way: the
+        dot at that fraction of its size, the stem that fraction of its length,
+        and the label that fraction of its size, on the straight path from the
+        dot to its full-size place."""
+        g = min(max(mk.grow, 1e-3), 1.0)
         x = self.x_of(mk.value)
-        mk.dot.move_to([x, self.y, 0])
+        dot = np.array([x, self.y, 0.0])
+        mk.dot.set_width(2 * mk.dot_radius * g).move_to(dot)
+        mk.label.scale(g * mk.label_w / mk.label.width)
+        full_h = mk.label.height / g
         lab_gap = 0.0 if mk.box is not None else mk.gap   # a stem meets its card
         if mk.side[1] >= 0:
             y0 = self.y + mk.gap
             y1 = y0 + mk.stem_len
-            mk.label.move_to([x, y1 + lab_gap + mk.label.height / 2, 0])
+            home = np.array([x, y1 + lab_gap + full_h / 2, 0])
         else:
             y0 = self.y - mk.gap
             y1 = self.label_band_bottom() - mk.gap
-            mk.label.move_to([x, y1 - lab_gap - mk.label.height / 2, 0])
-        mk.stem.put_start_and_end_on([x, y0, 0], [x, y1, 0])
+            home = np.array([x, y1 - lab_gap - full_h / 2, 0])
+        mk.label.move_to(dot + (home - dot) * g)
+        mk.stem.put_start_and_end_on([x, y0, 0], [x, y0 + (y1 - y0) * g + 1e-4, 0])
 
-    def marker_in(self, mk, pop=True, shift=0.2):
+    def marker_in(self, mk, pop=True, shift=0.2, **kwargs):
         """The marker's entrance (pass run_time to self.play). ``pop``: the label
         grows OUT OF THE DOT to its place while the stem draws and the dot grows,
-        all starting together (so a sound cue lands on the call). Otherwise: dot
-        grows, stem draws, label rises into place, staggered."""
+        all starting together (so a sound cue lands on the call) — a MarkerPop,
+        which drives ``mk.grow`` and so can overlap a zoom. Otherwise: dot grows,
+        stem draws, label rises into place, staggered (not zoom-safe)."""
         if pop:
-            return AnimationGroup(GrowFromCenter(mk.dot), Create(mk.stem),
-                                  GrowFromPoint(mk.label, mk.dot.get_center()))
+            return MarkerPop(self, mk, **kwargs)
         return AnimationGroup(GrowFromCenter(mk.dot), Create(mk.stem),
                               FadeIn(mk.label, shift=mk.side * shift),
-                              lag_ratio=0.35)
+                              lag_ratio=0.35, **kwargs)
 
 
 def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
@@ -379,6 +395,28 @@ def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
 
 ORIGIN_ = np.array([0.0, 0.0, 0.0])
 UP_ = np.array([0.0, 1.0, 0.0])
+
+
+class MarkerPop(Animation):
+    """A marker popping out of its dot: ``mk.grow`` 0 -> 1. The line places the
+    marker from ``grow`` on every reposition, so a zoom played alongside keeps
+    the growing marker where it belongs."""
+
+    def __init__(self, line, mk, **kwargs):
+        self.line = line
+        super().__init__(mk, **kwargs)
+
+    def create_starting_mobject(self):
+        return Mobject()
+
+    def interpolate_mobject(self, alpha):
+        self.mobject.grow = self.rate_func(alpha)
+        self.line._place_marker(self.mobject)
+
+    def finish(self):
+        super().finish()
+        self.mobject.grow = 1.0
+        self.line._place_marker(self.mobject)
 
 
 class ZoomLineTo(Animation):
