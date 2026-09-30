@@ -283,7 +283,8 @@ class ZoomLine(VGroup):
                    dot_radius=0.08, font_size=30, color=None, stem_stroke=2.5,
                    text_color=None, box=None):
         """A dot at ``value``, a stem, and ``lines`` centred at the stem's end —
-        each line a string or a Mobject (a word's tiles, say), stacked on a fixed
+        each line a string, a (string, color) pair, or a Mobject (a word's tiles,
+        say), stacked on a fixed
         baseline pitch, on ``side`` (UP or DOWN) of the line. Added to the line
         (so a later FadeIn/marker_in finds it on screen) and moved with every
         window change. Returns it, with handles .dot .stem .label .value.
@@ -340,13 +341,17 @@ class ZoomLine(VGroup):
 def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
     """Centred lines, top to bottom: a string is crisp_text sat on its BASELINE,
     ``pitch`` cap-heights below the one before (so descenders and brackets never
-    change the spacing); a Mobject sits ``gap`` cap-heights clear of its
-    neighbours' baselines/tops. Returns a VGroup."""
+    change the spacing); a ``(string, color)`` pair is the same in its own colour;
+    a Mobject sits ``gap`` cap-heights clear of its neighbours' baselines/tops.
+    Returns a VGroup."""
     cap = crisp_text("H", font_size=font_size).height
     out = VGroup()
     base = None        # the previous text line's baseline
     bottom = None      # the previous mobject's bottom
     for ln in lines:
+        line_color = color
+        if isinstance(ln, tuple):
+            ln, line_color = ln
         if isinstance(ln, str):
             if base is None and bottom is None:
                 y = 0.0
@@ -354,7 +359,7 @@ def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
                 y = bottom - gap * cap - cap
             else:
                 y = base - pitch * cap
-            out.add(crisp_text(ln, color=color, font_size=font_size,
+            out.add(crisp_text(ln, color=line_color, font_size=font_size,
                                baseline_at=(0.0, y)))
             base, bottom = y, None
         else:
