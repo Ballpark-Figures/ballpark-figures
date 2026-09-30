@@ -9,6 +9,9 @@
 THE WINDOW. ``(lo, hi)`` is the value range mapped onto ``x_range``; the drawn line
 runs further, to ``ends`` (default: the frame edges less a buffer, with arrow tips),
 so it reads as extending both ways. Ticks and labels fill the whole drawn line.
+``start=V`` (or ``end=V``) instead STOPS that side at value V in a dot, with no ticks
+beyond it — a ray from 0, say. The dot rides the window; once V is off-screen the
+line simply runs off that frame edge.
 
 THE TICKS. Tick values come from a NESTED LADDER of steps, ``mantissas`` x 10^k
 (default 1, 5 -> ..., 0.5, 1, 5, 10, 50, ...). Nested means every step divides the
@@ -26,7 +29,9 @@ not a multiple of 2 — and would show 0 2 4 5 6 8; it is refused.) ``min_label_
 ``tick_min``/``tick_max`` clip where ticks exist at all.
 
 MARKERS. ``add_marker(value, lines, side=UP|DOWN)`` hangs a dot, a stem and a
-centred label at a value; it rides the window from then on. A DOWN marker's stem
+centred label at a value; it rides the window from then on. Each line is a string or
+a Mobject (``stack_lines``: text on a fixed baseline pitch, so brackets and
+descenders never change the spacing). A DOWN marker's stem
 starts below the tick labels.
 
 ZOOMING. ``zoom(lo, hi)`` returns a ``ZoomLineTo`` animation: the width changes
@@ -44,10 +49,10 @@ removed one can stay in that frame's list, so it is set to opacity 0 first.
 import math
 
 import numpy as np
-from manim import (VGroup, Line, Dot, Animation, Mobject, AnimationGroup,
+from manim import (VGroup, Line, Dot, Polygon, Animation, Mobject, AnimationGroup,
                    GrowFromCenter, Create, FadeIn, UP, DOWN, WHITE, config)
 
-from bpkfigures.style import crisp_text, crisp_paragraph, FONT_SIZE_SM
+from bpkfigures.style import crisp_text, FONT_SIZE_SM
 
 
 def _ramp(x, lo, hi):
@@ -69,7 +74,8 @@ class ZoomLine(VGroup):
                  major_len=0.24, minor_len=0.12, tick_stroke=2.5,
                  font_size=FONT_SIZE_SM, label_buff=0.14, fmt=default_fmt,
                  min_tick_step=None, min_label_step=None,
-                 tick_min=None, tick_max=None, **kwargs):
+                 tick_min=None, tick_max=None, start=None, end=None,
+                 end_dot_radius=0.08, **kwargs):
         super().__init__(**kwargs)
         for a, b in zip(mantissas, list(mantissas[1:]) + [10 * mantissas[0]]):
             if b % a:
@@ -87,21 +93,52 @@ class ZoomLine(VGroup):
         self.min_tick_step, self.min_label_step = min_tick_step, min_label_step
         self.tick_min, self.tick_max = tick_min, tick_max
         self.tips, self.tip_length = tips, tip_length
+        self.start, self.end = start, end
 
         self.line = Line([ends[0], y, 0], [ends[1], y, 0], color=color,
                          stroke_width=stroke_width)
-        if tips:
-            self.line.add_tip(tip_length=tip_length, tip_width=tip_length)
-            self.line.add_tip(tip_length=tip_length, tip_width=tip_length,
-                              at_start=True)
+        # an end with a VALUE stops there in a dot; an open end gets an arrow tip
+        self.caps = VGroup()
+        self.start_dot = self.end_dot = None
+        if start is not None:
+            self.start_dot = Dot(radius=end_dot_radius, color=color)
+            self.caps.add(self.start_dot)
+        elif tips:
+            self.caps.add(self._tip(ends[0], -1))
+        if end is not None:
+            self.end_dot = Dot(radius=end_dot_radius, color=color)
+            self.caps.add(self.end_dot)
+        elif tips:
+            self.caps.add(self._tip(ends[1], 1))
         self.ticks = VGroup()          # contents change with the window
         self.labels = VGroup()
         self.markers = VGroup()
-        self.add(self.line, self.ticks, self.labels, self.markers)
+        self.add(self.line, self.caps, self.ticks, self.labels, self.markers)
         self._tick_mobs = {}           # n (multiple of the finest step) -> Line
         self._label_cache = {}         # label text -> crisp_text
         self._finest = None
         self.set_window(lo, hi)
+
+    def _tip(self, x, direction):
+        L = self.tip_length
+        return Polygon([x, self.y, 0], [x - direction * L, self.y + L / 2, 0],
+                       [x - direction * L, self.y - L / 2, 0], color=self.color,
+                       fill_opacity=1.0, stroke_width=0)
+
+    def _line_span(self):
+        """(x where the drawn line starts, x where it stops), and whether each end
+        is a tip. A valued end sits at its value, or runs off the frame edge when
+        that value is off-screen."""
+        fx = config.frame_x_radius
+        if self.start is not None:
+            left, ltip = max(self.x_of(self.start), -fx - 0.1), False
+        else:
+            left, ltip = self.ends[0], self.tips
+        if self.end is not None:
+            right, rtip = min(self.x_of(self.end), fx + 0.1), False
+        else:
+            right, rtip = self.ends[1], self.tips
+        return left, right, ltip, rtip
 
     # ── mapping ───────────────────────────────────────────────────────────────
     @property
@@ -150,13 +187,25 @@ class ZoomLine(VGroup):
         """Show values ``lo..hi`` across ``x_range``; re-thin ticks, move markers."""
         self.lo, self.hi = float(lo), float(hi)
         sf = self.scale_factor
-        inner = self.tip_length if self.tips else 0.0
-        x0, x1 = self.ends[0] + inner, self.ends[1] - inner
+        left, right, ltip, rtip = self._line_span()
+        x0 = left + (self.tip_length if ltip else 0.0)
+        x1 = right - (self.tip_length if rtip else 0.0)
+        body_end = max(x1, left + 1e-4)       # the tip, if any, covers the rest
+        self.line.put_start_and_end_on([left, self.y, 0], [body_end, self.y, 0])
+        if self.start_dot is not None:
+            self.start_dot.move_to([self.x_of(self.start), self.y, 0])
+        if self.end_dot is not None:
+            self.end_dot.move_to([self.x_of(self.end), self.y, 0])
+        # a label must clear a tip; beside a dotted end it slides off the frame
+        lab_x0 = x0 if ltip else -math.inf
+        lab_x1 = x1 if rtip else math.inf
         vmin, vmax = self.v_of(x0), self.v_of(x1)
-        if self.tick_min is not None:
-            vmin = max(vmin, self.tick_min)
-        if self.tick_max is not None:
-            vmax = min(vmax, self.tick_max)
+        for lo_clip in (self.tick_min, self.start):
+            if lo_clip is not None:
+                vmin = max(vmin, lo_clip)
+        for hi_clip in (self.tick_max, self.end):
+            if hi_clip is not None:
+                vmax = min(vmax, hi_clip)
 
         smallest = self.tick_fade[0] / sf
         if self.min_tick_step is not None:
@@ -201,7 +250,7 @@ class ZoomLine(VGroup):
                 if l_op > 0:
                     lab = self._label(self.fmt(v + 0.0, level))
                     lab.move_to([x, label_top - lab.height / 2, 0])
-                    if x0 + lab.width / 2 <= x <= x1 - lab.width / 2:
+                    if lab_x0 + lab.width / 2 <= x <= lab_x1 - lab.width / 2:
                         lab.set_opacity(l_op)
                         live_labels.append(lab)
 
@@ -225,8 +274,9 @@ class ZoomLine(VGroup):
     # ── markers ───────────────────────────────────────────────────────────────
     def add_marker(self, value, lines, *, side=UP, stem=0.45, gap=0.12,
                    dot_radius=0.08, font_size=30, color=None, stem_stroke=2.5):
-        """A dot at ``value``, a stem, and ``lines`` (one string per line) centred
-        at the stem's end, on ``side`` (UP or DOWN) of the line. Added to the line
+        """A dot at ``value``, a stem, and ``lines`` centred at the stem's end —
+        each line a string or a Mobject (a word's tiles, say), stacked on a fixed
+        baseline pitch, on ``side`` (UP or DOWN) of the line. Added to the line
         (so a later FadeIn/marker_in finds it on screen) and moved with every
         window change. Returns it, with handles .dot .stem .label .value."""
         color = color or self.color
@@ -237,8 +287,7 @@ class ZoomLine(VGroup):
         mk.stem_len, mk.gap = stem, gap
         mk.dot = Dot(radius=dot_radius, color=color)
         mk.stem = Line(ORIGIN_, UP_, color=color, stroke_width=stem_stroke)
-        mk.label = crisp_paragraph(*lines, alignment="center", color=color,
-                                   font_size=font_size)
+        mk.label = stack_lines(lines, font_size=font_size, color=color)
         mk.add(mk.dot, mk.stem, mk.label)
         self._place_marker(mk)
         self.markers.add(mk)
@@ -263,6 +312,35 @@ class ZoomLine(VGroup):
         return AnimationGroup(GrowFromCenter(mk.dot), Create(mk.stem),
                               FadeIn(mk.label, shift=mk.side * shift),
                               lag_ratio=0.35)
+
+
+def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
+    """Centred lines, top to bottom: a string is crisp_text sat on its BASELINE,
+    ``pitch`` cap-heights below the one before (so descenders and brackets never
+    change the spacing); a Mobject sits ``gap`` cap-heights clear of its
+    neighbours' baselines/tops. Returns a VGroup."""
+    cap = crisp_text("H", font_size=font_size).height
+    out = VGroup()
+    base = None        # the previous text line's baseline
+    bottom = None      # the previous mobject's bottom
+    for ln in lines:
+        if isinstance(ln, str):
+            if base is None and bottom is None:
+                y = 0.0
+            elif bottom is not None:
+                y = bottom - gap * cap - cap
+            else:
+                y = base - pitch * cap
+            out.add(crisp_text(ln, color=color, font_size=font_size,
+                               baseline_at=(0.0, y)))
+            base, bottom = y, None
+        else:
+            top = (0.0 if base is None and bottom is None
+                   else (base - gap * cap if bottom is None else bottom - gap * cap))
+            ln.move_to([0.0, top - ln.height / 2, 0])
+            out.add(ln)
+            base, bottom = None, ln.get_bottom()[1]
+    return out
 
 
 ORIGIN_ = np.array([0.0, 0.0, 0.0])
