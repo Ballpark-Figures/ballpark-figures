@@ -53,6 +53,9 @@ from manim import (VGroup, Line, Dot, Polygon, Animation, Mobject, AnimationGrou
                    GrowFromCenter, Create, FadeIn, UP, DOWN, WHITE, config)
 
 from bpkfigures.style import crisp_text, FONT_SIZE_SM
+from bpkfigures.card import card_behind
+
+STEM_CLEAR = 0.06      # a tick label keeps this far from a DOWN marker's stem
 
 
 def _ramp(x, lo, hi):
@@ -200,6 +203,7 @@ class ZoomLine(VGroup):
         lab_x0 = x0 if ltip else -math.inf
         lab_x1 = x1 if rtip else math.inf
         vmin, vmax = self.v_of(x0), self.v_of(x1)
+        down_xs = [self.x_of(m.value) for m in self.markers if m.side[1] < 0]
         for lo_clip in (self.tick_min, self.start):
             if lo_clip is not None:
                 vmin = max(vmin, lo_clip)
@@ -250,7 +254,10 @@ class ZoomLine(VGroup):
                 if l_op > 0:
                     lab = self._label(self.fmt(v + 0.0, level))
                     lab.move_to([x, label_top - lab.height / 2, 0])
-                    if lab_x0 + lab.width / 2 <= x <= lab_x1 - lab.width / 2:
+                    crossed = any(abs(x - mx) < lab.width / 2 + STEM_CLEAR
+                                  for mx in down_xs)
+                    if (lab_x0 + lab.width / 2 <= x <= lab_x1 - lab.width / 2
+                            and not crossed):
                         lab.set_opacity(l_op)
                         live_labels.append(lab)
 
@@ -273,12 +280,20 @@ class ZoomLine(VGroup):
 
     # ── markers ───────────────────────────────────────────────────────────────
     def add_marker(self, value, lines, *, side=UP, stem=0.45, gap=0.12,
-                   dot_radius=0.08, font_size=30, color=None, stem_stroke=2.5):
+                   dot_radius=0.08, font_size=30, color=None, stem_stroke=2.5,
+                   text_color=None, box=None):
         """A dot at ``value``, a stem, and ``lines`` centred at the stem's end —
         each line a string or a Mobject (a word's tiles, say), stacked on a fixed
         baseline pitch, on ``side`` (UP or DOWN) of the line. Added to the line
         (so a later FadeIn/marker_in finds it on screen) and moved with every
-        window change. Returns it, with handles .dot .stem .label .value."""
+        window change. Returns it, with handles .dot .stem .label .value.
+
+        ``box`` puts the lines on the shared card (``card.card_behind``): True for
+        its defaults, or a dict of its kwargs (``pad``, ``fill``, ...). Then .label
+        is VGroup(card, lines) and .box is the card. ``text_color`` colours the
+        lines alone (a cream card wants dark text); the dot and stem keep ``color``.
+        A DOWN marker's stem runs from the dot through the tick-label band, and a
+        tick label it would cross is dropped."""
         color = color or self.color
         if isinstance(lines, str):
             lines = [lines]
@@ -287,7 +302,14 @@ class ZoomLine(VGroup):
         mk.stem_len, mk.gap = stem, gap
         mk.dot = Dot(radius=dot_radius, color=color)
         mk.stem = Line(ORIGIN_, UP_, color=color, stroke_width=stem_stroke)
-        mk.label = stack_lines(lines, font_size=font_size, color=color)
+        content = stack_lines(lines, font_size=font_size,
+                              color=text_color or color)
+        mk.box = None
+        if box:
+            mk.box = card_behind(content, **({} if box is True else dict(box)))
+            mk.label = VGroup(mk.box, content)
+        else:
+            mk.label = content
         mk.add(mk.dot, mk.stem, mk.label)
         self._place_marker(mk)
         self.markers.add(mk)
@@ -296,14 +318,15 @@ class ZoomLine(VGroup):
     def _place_marker(self, mk):
         x = self.x_of(mk.value)
         mk.dot.move_to([x, self.y, 0])
+        lab_gap = 0.0 if mk.box is not None else mk.gap   # a stem meets its card
         if mk.side[1] >= 0:
             y0 = self.y + mk.gap
             y1 = y0 + mk.stem_len
-            mk.label.move_to([x, y1 + mk.gap + mk.label.height / 2, 0])
+            mk.label.move_to([x, y1 + lab_gap + mk.label.height / 2, 0])
         else:
-            y0 = self.label_band_bottom() - mk.gap
-            y1 = y0 - mk.stem_len
-            mk.label.move_to([x, y1 - mk.gap - mk.label.height / 2, 0])
+            y0 = self.y - mk.gap
+            y1 = self.label_band_bottom() - mk.gap
+            mk.label.move_to([x, y1 - lab_gap - mk.label.height / 2, 0])
         mk.stem.put_start_and_end_on([x, y0, 0], [x, y1, 0])
 
     def marker_in(self, mk, shift=0.2):
