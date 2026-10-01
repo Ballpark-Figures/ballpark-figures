@@ -370,7 +370,9 @@ class ZoomLine(VGroup):
 def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
     """Centred lines, top to bottom: a string is crisp_text sat on its BASELINE,
     ``pitch`` cap-heights below the one before (so descenders and brackets never
-    change the spacing); a ``(string, color)`` pair is the same in its own colour;
+    change the spacing); a ``(string, color)`` pair is the same in its own colour
+    (None keeps ``color``), and ``(string, color, text_kwargs)`` also passes
+    ``text_kwargs`` to crisp_text (``{"t2w": {"R": BOLD}}`` bolds the R);
     a Mobject sits ``gap`` cap-heights clear of its neighbours' baselines/tops.
     Returns a VGroup."""
     cap = crisp_text("H", font_size=font_size).height
@@ -378,9 +380,11 @@ def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
     base = None        # the previous text line's baseline
     bottom = None      # the previous mobject's bottom
     for ln in lines:
-        line_color = color
+        line_color, text_kw = color, {}
         if isinstance(ln, tuple):
-            ln, line_color = ln
+            ln, c, *rest = ln
+            line_color = c if c is not None else color
+            text_kw = rest[0] if rest else {}
         if isinstance(ln, str):
             if base is None and bottom is None:
                 y = 0.0
@@ -389,7 +393,7 @@ def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
             else:
                 y = base - pitch * cap
             out.add(crisp_text(ln, color=line_color, font_size=font_size,
-                               baseline_at=(0.0, y)))
+                               baseline_at=(0.0, y), **text_kw))
             base, bottom = y, None
         else:
             top = (0.0 if base is None and bottom is None
