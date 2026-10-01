@@ -185,14 +185,19 @@ class CrispCounter:
     pickles fine) can live in ``setup_scene`` and only the updater is attached in the body."""
 
     def __init__(self, prefix, tracker, *, left, y, font_size, color=BLACK,
-                 weight=NORMAL, fmt=None, up_color=None, down_color=None):
+                 weight=NORMAL, fmt=None, up_color=None, down_color=None,
+                 color_of=None):
+        # color_of: optional value -> colour; when given the readout is always the
+        # colour of the value it shows (no flash), e.g. a win rate on a red-green scale
+        self.color_of = color_of
         self.prefix, self.tracker = prefix, tracker
         self.left, self.y, self.font_size = left, y, font_size
         self.color, self.weight = color, weight
         self.fmt = fmt or (lambda v: f"{v:.2f}")
         self.up_color = ACCENT_GREEN if up_color is None else up_color
         self.down_color = CRIMSON if down_color is None else down_color
-        self.mob = self._build(tracker.get_value(), color)
+        v = tracker.get_value()
+        self.mob = self._build(v, color if color_of is None else color_of(v))
 
     def _build(self, value, num_color):
         numstr = self.fmt(value)
@@ -210,7 +215,9 @@ class CrispCounter:
         def upd(m):
             v = self.tracker.get_value()
             c = self.color
-            if col is not None and abs(v1 - v0) > 1e-9:
+            if self.color_of is not None:
+                c = self.color_of(v)
+            elif col is not None and abs(v1 - v0) > 1e-9:
                 a = (v - v0) / (v1 - v0)                          # 0..1 count progress
                 t = 0.0 if a < 0.72 else (a - 0.72) / 0.28        # hold flash, then ease to base
                 c = interpolate_color(col, self.color, t)
