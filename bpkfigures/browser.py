@@ -10,9 +10,9 @@ string is passed in; nothing is computed.
     win.viewport    # the page's rectangle, for placing things inside it
     win.type_url(scene, "duotrigordle.com", run_time=1.0)   # caret + letters
 
-THE PAGE IS 16:9 AND FILLS THE VIEWPORT. A screenshot from `web_shots.py` is
-1920x1080, so it fits exactly; anything else is scaled to the viewport's width and
-clipped to nothing — pass a page that already has the viewport's shape.
+THE PAGE FILLS THE VIEWPORT, AND THE VIEWPORT TAKES THE SCREENSHOT'S SHAPE (or
+`aspect`, height over width; 16:9 when there is no image). So a 1920x1080 capture
+makes a 16:9 window and a 1920x1490 one a taller window, with no cropping.
 
 DARK MODE IS CHROME'S, in the sizes of a 1920px-wide Chrome window: the tab strip and
 toolbar together are ~4.5% of the window's width. Light mode exists for symmetry with
@@ -32,6 +32,8 @@ BUILT small (or swapped for a small build at the end of the shrink).
 from manim import *
 
 from bpkfigures.style import crisp_text
+from PIL import Image
+
 from bpkfigures.youtube_card import _image
 
 _DARK = dict(frame="#202124", tab="#35363A", toolbar="#35363A", omnibox="#202124",
@@ -47,12 +49,19 @@ RADIUS = 0.006
 
 
 class BrowserWindow(Group):
-    def __init__(self, url, title, *, image=None, page=None, width=12.0, dark=True):
+    def __init__(self, url, title, *, image=None, page=None, width=12.0, aspect=None,
+                 dark=True):
         super().__init__()
         C = _DARK if dark else _LIGHT
         self.C, self.W = C, width
         tab_h, bar_h = TAB_STRIP * width, TOOLBAR * width
-        view_h = width * 9 / 16
+        if aspect is None:                 # height / width of the page area
+            if image is not None:
+                with Image.open(image) as im:
+                    aspect = im.height / im.width
+            else:
+                aspect = 9 / 16
+        view_h = width * aspect
         total_h = tab_h + bar_h + view_h
 
         # ── the page ─────────────────────────────────────────────────────────
