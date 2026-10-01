@@ -29,7 +29,8 @@ not a multiple of 2 — and would show 0 2 4 5 6 8; it is refused.) ``min_label_
 ``tick_min``/``tick_max`` clip where ticks exist at all.
 
 MARKERS. ``add_marker(value, lines, side=UP|DOWN)`` hangs a dot, a stem and a
-centred label at a value; it rides the window from then on. Each line is a string or
+centred label at a value; it rides the window from then on, and
+``move_marker(mk, value)`` slides it to another value. Each line is a string or
 a Mobject (``stack_lines``: text on a fixed baseline pitch, so brackets and
 descenders never change the spacing). A DOWN marker's stem
 starts below the tick labels.
@@ -359,6 +360,12 @@ class ZoomLine(VGroup):
                               FadeIn(mk.label, shift=mk.side * shift),
                               lag_ratio=0.35, **kwargs)
 
+    def move_marker(self, mk, value, **kwargs):
+        """An animation sliding the marker along the line to ``value`` (pass
+        run_time to self.play): dot, stem and label travel together, placed by the
+        same rule as every reposition, so the marker reads its new value after."""
+        return MarkerTo(self, mk, value, **kwargs)
+
 
 def stack_lines(lines, *, font_size, color=WHITE, pitch=1.75, gap=0.55):
     """Centred lines, top to bottom: a string is crisp_text sat on its BASELINE,
@@ -416,6 +423,36 @@ class MarkerPop(Animation):
     def finish(self):
         super().finish()
         self.mobject.grow = 1.0
+        self.line._place_marker(self.mobject)
+
+
+class MarkerTo(Animation):
+    """A marker sliding to a new value: ``mk.value`` eased from where it is to
+    ``value``, the line placing it every frame (``ZoomLine.move_marker``).
+
+    The marker's own updaters keep running while it slides (manim suspends them
+    by default), so a readout inside its label — a counting number, say — keeps
+    redrawing as it rides along."""
+
+    def __init__(self, line, mk, value, **kwargs):
+        self.line, self.v1 = line, float(value)
+        kwargs.setdefault("suspend_mobject_updating", False)
+        super().__init__(mk, **kwargs)
+
+    def begin(self):
+        self.v0 = self.mobject.value
+        super().begin()
+
+    def create_starting_mobject(self):
+        return Mobject()
+
+    def interpolate_mobject(self, alpha):
+        self.mobject.value = self.v0 + (self.v1 - self.v0) * self.rate_func(alpha)
+        self.line._place_marker(self.mobject)
+
+    def finish(self):
+        super().finish()
+        self.mobject.value = self.v1
         self.line._place_marker(self.mobject)
 
 

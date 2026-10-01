@@ -220,7 +220,18 @@ class CrispCounter:
     def count(self, scene, value, run_time, *, flash="auto"):
         """Animate the tracker to ``value`` (the readout follows via a become() updater);
         the number flashes by direction unless ``flash="none"`` (an undo/reset)."""
+        scene.play(self.count_anim(value, flash=flash), run_time=run_time)
+        self.end_count()
+
+    def count_anim(self, value, *, flash="auto"):
+        """``count`` split open, for a count that runs INSIDE a larger play: attaches
+        the readout's updater and returns the tracker's animation to play alongside
+        the rest; call ``end_count()`` after the play. ``left``/``y`` may be changed
+        while it runs (by an updater added BEFORE this call) to carry the readout
+        along with something that moves."""
         v0 = self.tracker.get_value()
         self.mob.add_updater(self._updater(v0, value, flash))
-        scene.play(self.tracker.animate.set_value(value), run_time=run_time)
+        return self.tracker.animate.set_value(value)
+
+    def end_count(self):
         self.mob.clear_updaters()
