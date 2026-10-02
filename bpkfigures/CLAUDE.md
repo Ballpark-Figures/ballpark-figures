@@ -902,7 +902,14 @@ short block, and short means short — roughly:
 - **the goal**, one line, restated rather than assumed;
 - **what changed**, one line each, no more than about five;
 - **where trust stands**, one line — the number that says whether the data can be used;
-- **what is waiting on the user**, named explicitly, or "nothing".
+- **what is waiting on the user**, named explicitly, or "nothing";
+- **next steps** — what the agent would do next, in priority order, two or three at most.
+
+**`waiting on you` and `next steps` are DIFFERENT LINES and must not be merged.** The first is
+a decision only the user can make; the second is work the agent would get on with. Collapsing
+them either hands the user a to-do list they did not ask for, or buries a real decision inside
+a plan and lets the agent proceed as though it were settled. "Nothing is waiting on you, and
+next I would do X" is the common and useful case.
 
 Rules for it:
 - **It goes at the END**, after the detail, not instead of it. The detail is still owed; the
