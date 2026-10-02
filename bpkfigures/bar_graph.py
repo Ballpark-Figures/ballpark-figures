@@ -552,3 +552,27 @@ def get_bar_graph(
 
     table.move_to(center)
     return table
+
+
+# ═══ 100%-STACKED horizontal bar (one row of a share breakdown) ═══════════════
+#
+# One bar split into consecutive coloured segments by SHARE (the shares sum to 1
+# and fill `length`), its LEFT edge at the origin — place it with
+# `.shift(left_point)`. A share of 0 still gets a (1e-3 wide) segment, so every
+# bar built from the same colour list has the SAME number of segments and one
+# Transforms piece-by-piece into another (a breakdown morphing between two data
+# sets). Added for wordle scene 17's strategy breakdown; grow it in with
+# `grow_bars(..., edge=LEFT)`.
+
+def get_stacked_bar(shares, colors, *, length, height, opacity=1.0):
+    """VGroup of segments (also `.segments`), left edge at x=0, centred on y=0."""
+    bar, x = VGroup(), 0.0
+    for share, color in zip(shares, colors):
+        w = max(share * length, 1e-3)
+        seg = Rectangle(width=w, height=height, fill_color=color,
+                        fill_opacity=opacity, stroke_width=0)
+        seg.move_to(np.array([x + w / 2, 0, 0]))
+        bar.add(seg)
+        x += share * length
+    bar.segments = bar
+    return bar

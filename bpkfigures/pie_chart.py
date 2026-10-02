@@ -157,11 +157,12 @@ class PieChart(VGroup):
         self.sectors[i].become(self._sector(i, a, start))
 
     # ── animations (start at the top, sweep clockwise; default manim easing) ────
-    def fan_all(self, scene, run_time):
+    def fan_all(self, scene, run_time, extra=()):
         """ALL sectors grow SIMULTANEOUSLY from the top: the arc drawn so far is always
         split in the final proportions (a 39% sector is 39% of the swept arc throughout),
         expanding clockwise to the full pie. Each sector's start scales with the sweep so
-        the wedges stay contiguous. Labels fade in over the last third."""
+        the wedges stay contiguous. Labels fade in over the last third. `extra` plays
+        alongside (e.g. the chart's title fading in with it)."""
         if self not in scene.mobjects:
             scene.add(self)
         n = len(self.sectors)
@@ -173,7 +174,7 @@ class PieChart(VGroup):
             self.labels.set_opacity(max(0.0, (alpha - 0.7) / 0.3))
 
         self.labels.set_opacity(0)
-        scene.play(UpdateFromAlphaFunc(self, func), run_time=run_time)
+        scene.play(UpdateFromAlphaFunc(self, func), *extra, run_time=run_time)
         for i in range(n):
             self._redraw(i, self.arc[i])
         self.labels.set_opacity(1)
