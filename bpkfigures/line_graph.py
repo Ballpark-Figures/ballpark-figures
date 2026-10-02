@@ -17,6 +17,7 @@ def get_line_graph(
     y_max=None,
     y_ticks=5,
     x_tick_step=1,
+    x_tick_values=None,
     title=None,
     x_axis_label=None,
     y_axis_label=None,
@@ -24,6 +25,7 @@ def get_line_graph(
     show_dots=False,
     dot_radius=0.055,
     palette=ACCENT_PALETTE,
+    ink_color=BLACK,
 ):
     """A multi-series line graph on a shared x-domain (turn # vs avg points, …).
 
@@ -45,7 +47,14 @@ def get_line_graph(
 
     The per-series colour is also stored on each line as ``.series_color`` and the
     label as ``.series_label`` so legends / end-labels can be built afterwards
-    (see ``make_line_legend``)."""
+    (see ``make_line_legend``).
+
+    ``x_tick_values`` (optional) names exactly which x values get a tick, in place
+    of every ``x_tick_step``-th -- e.g. the powers of two on a 1..32 axis.
+
+    ``ink_color`` colours the axes, ticks, tick labels, axis labels and title --
+    BLACK (the default, unchanged) for the cream card, WHITE for a chart drawn
+    straight onto a dark background (wordle 16's, on navy)."""
     xmin, xmax = min(x_values), max(x_values)
     x_span = (xmax - xmin) or 1
 
@@ -66,8 +75,8 @@ def get_line_graph(
     # ── axes (an L at the plot box's bottom-left) ─────────────────────────────
     # z-index 2 keeps the axes ABOVE the lines (z 1), so a line's very first point
     # sitting on the y-axis (or a zero value on the x-axis) doesn't smudge over it.
-    x_axis = Line([-width / 2, 0, 0], [width / 2, 0, 0], color=BLACK)
-    y_axis = Line([-width / 2, 0, 0], [-width / 2, height, 0], color=BLACK)
+    x_axis = Line([-width / 2, 0, 0], [width / 2, 0, 0], color=ink_color)
+    y_axis = Line([-width / 2, 0, 0], [-width / 2, height, 0], color=ink_color)
     x_axis.set_z_index(2)
     y_axis.set_z_index(2)
     elements = VGroup(x_axis, y_axis)
@@ -75,11 +84,14 @@ def get_line_graph(
     # ── x ticks + labels (every x_tick_step-th value of the domain) ───────────
     x_ticks = VGroup()
     for xv in x_values:
-        if (xv - xmin) % x_tick_step != 0:
+        if x_tick_values is not None:
+            if xv not in x_tick_values:
+                continue
+        elif (xv - xmin) % x_tick_step != 0:
             continue
         x = x_of(xv)
-        tick = Line([x, -0.1, 0], [x, 0, 0], color=BLACK)
-        lab = crisp_text(str(xv), font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
+        tick = Line([x, -0.1, 0], [x, 0, 0], color=ink_color)
+        lab = crisp_text(str(xv), font=FONT, font_size=FONT_SIZE_SM, color=ink_color)
         lab.next_to(tick, DOWN, buff=0.12)
         x_ticks.add(VGroup(tick, lab))
     elements.add(x_ticks)
@@ -90,8 +102,8 @@ def get_line_graph(
         if tv < y_min or tv > y_max:
             continue
         y = y_of(tv)
-        tick = Line([-width / 2 - 0.1, y, 0], [-width / 2, y, 0], color=BLACK)
-        lab = crisp_text(f"{tv:g}", font=FONT, font_size=FONT_SIZE_SM, color=BLACK)
+        tick = Line([-width / 2 - 0.1, y, 0], [-width / 2, y, 0], color=ink_color)
+        lab = crisp_text(f"{tv:g}", font=FONT, font_size=FONT_SIZE_SM, color=ink_color)
         lab.next_to(tick, LEFT, buff=0.1)
         y_tick_grp.add(VGroup(tick, lab))
     elements.add(y_tick_grp)
@@ -128,7 +140,7 @@ def get_line_graph(
     x_axis_label_text = None
     if x_axis_label is not None:
         x_axis_label_text = crisp_text(x_axis_label, font=FONT,
-                                       font_size=FONT_SIZE_SM, color=BLACK)
+                                       font_size=FONT_SIZE_SM, color=ink_color)
         x_axis_label_text.next_to(x_ticks, DOWN, buff=0.25)
         x_axis_label_text.set_x(0)
         elements.add(x_axis_label_text)
@@ -136,7 +148,7 @@ def get_line_graph(
     y_axis_label_text = None
     if y_axis_label is not None:
         y_axis_label_text = crisp_text(y_axis_label, font=FONT,
-                                       font_size=FONT_SIZE_SM, color=BLACK)
+                                       font_size=FONT_SIZE_SM, color=ink_color)
         y_axis_label_text.rotate(PI / 2)
         y_axis_label_text.next_to(y_tick_grp, LEFT, buff=0.2)
         y_axis_label_text.set_y(height / 2)
@@ -145,7 +157,7 @@ def get_line_graph(
     title_text = None
     if title is not None:
         title_text = crisp_paragraph(title, alignment="center", font=FONT,
-                                     font_size=FONT_SIZE_LG, color=BLACK)
+                                     font_size=FONT_SIZE_LG, color=ink_color)
         title_text.next_to(elements, UP, buff=0.4)
         title_text.set_x(0)
         elements.add(title_text)
