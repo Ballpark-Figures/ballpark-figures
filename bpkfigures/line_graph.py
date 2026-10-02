@@ -196,6 +196,36 @@ def line_point(geom, x, y):
     return np.array([px, py, 0]) + geom["shift"]
 
 
+def spread_label_ys(items, min_gap=0.06, rounds=100):
+    """Vertical positions for end-of-line labels that would otherwise overlap.
+
+    ``items`` is a list of (natural_y, height): where each label would sit beside
+    its own line, and how tall it is. Returns a list of y values in the same order,
+    with neighbours at least half their heights plus ``min_gap`` apart, each label
+    moved as little as it can be: an overlapping pair is pushed apart equally, and
+    that repeats until nothing overlaps (so a cluster spreads from its middle).
+
+    Call it with ONLY the labels currently on screen and animate them to the
+    result, and a label sits level with its line until another arrives beside it
+    (wordle 16's chart: the 1-word label moves up when the improved one comes in).
+    """
+    ys = [float(y) for y, _ in items]
+    hs = [float(h) for _, h in items]
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    for _ in range(rounds):
+        moved = False
+        for a, b in zip(order, order[1:]):
+            need = hs[a] / 2 + hs[b] / 2 + min_gap
+            gap = ys[b] - ys[a]
+            if gap < need - 1e-9:
+                ys[a] -= (need - gap) / 2
+                ys[b] += (need - gap) / 2
+                moved = True
+        if not moved:
+            break
+    return ys
+
+
 def make_line_legend(plot, entries=None, font_size=FONT_SIZE_SM, anchor=None,
                      swatch_len=0.34):
     """Legend (a short colour dash + label per series) for a get_line_graph result,
