@@ -14,9 +14,23 @@ text is passed in (nothing is computed). Building blocks:
 
 The thumbnail is a grey play-button placeholder by default; pass `thumbnail=<path>`
 for a real still (NOTE: a real ImageMobject keeps SQUARE corners — YouTube's ~12px
-rounding needs a mask, a later refinement). A real playing CLIP is a DaVinci overlay
-dropped into the thumbnail rectangle in post, not manim.
+rounding needs a mask, a later refinement).
+
+A PLAYING CLIP on the watch page: `play_clip(page, path, start)` returns an Animation
+that plays the video file at `path` from `start` inside the page's player, at real
+speed for whatever run_time the caller gives it:
+
+    page = youtube_watch(...)
+    self.play(play_clip(page, "hangman.mov", "13:30"), run_time=10)   # 13:30-13:40
+
+Frames are STREAMED from ffmpeg as the animation runs (never held in memory or
+written to disk — 10s at 60fps is ~2 GB of RGBA), pre-scaled to the player's pixel
+size at this render's resolution, letterboxed like a real player. The video's
+SOUND is NOT played. The player keeps the clip's last frame afterwards, so a later
+fade starts from it. Like the thumbnail, the frame has square corners.
 """
+import os
+import subprocess
 import textwrap
 
 import numpy as np
@@ -214,7 +228,102 @@ def youtube_watch(title, channel, meta, *, subscribe=True, duration=None,
     stack.move_to(ORIGIN)
     if stack.height > frame_h - 0.6:
         stack.scale((frame_h - 0.6) / stack.height)
-    return Group(page, stack)
+    watch = Group(page, stack)
+    watch.player = player               # for play_clip
+    return watch
+
+
+def _seconds(t):
+    """`t` in seconds: a number, or "M:SS" / "H:MM:SS"."""
+    if isinstance(t, str):
+        secs = 0.0
+        for part in t.split(":"):
+            secs = secs * 60 + float(part)
+        return secs
+    return float(t)
+
+
+class _ClipPlayback(Animation):
+    """See `play_clip`."""
+
+    def __init__(self, watch, path, start, **kwargs):
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"play_clip: no video file at {path}")
+        self.watch, self.path, self.start = watch, path, _seconds(start)
+        self.box = watch.player[0]                  # the thumbnail's 16:9 base
+        self.screen = getattr(watch, "screen", None)
+        if self.screen is None:                     # first clip on this page
+            self.screen = ImageMobject(np.zeros((9, 16, 4), dtype=np.uint8))
+        kwargs.setdefault("rate_func", linear)      # real-speed playback
+        super().__init__(self.screen, **kwargs)
+
+    def begin(self):
+        self.px = max(2, round(self.box.width / config.frame_width * config.pixel_width))
+        self.py = max(2, round(self.px * self.box.height / self.box.width))
+        self.n = max(1, round(self.run_time * config.frame_rate))
+        self.proc, self.shown = None, -1
+        self.frame = np.zeros((self.py, self.px, 4), dtype=np.uint8)
+        self.frame[:, :, 3] = 255
+        self._show(self.frame)
+        self.screen.set_width(self.box.width).move_to(self.box)
+        if self.screen not in self.watch.player.submobjects:
+            self.watch.player.add(self.screen)       # on top of thumbnail + badge
+        self.watch.screen = self.screen
+        super().begin()
+
+    def _open(self):
+        vf = (f"fps={config.frame_rate},"
+              f"scale={self.px}:{self.py}:force_original_aspect_ratio=decrease,"
+              f"pad={self.px}:{self.py}:(ow-iw)/2:(oh-ih)/2:black")
+        self.proc = subprocess.Popen(
+            ["ffmpeg", "-loglevel", "error", "-ss", f"{self.start:.3f}", "-i", self.path,
+             "-an", "-vf", vf, "-frames:v", str(self.n), "-f", "rawvideo",
+             "-pix_fmt", "rgba", "-"],
+            stdout=subprocess.PIPE)
+        self.shown = -1
+
+    def _read_to(self, idx):
+        """Advance the stream to frame `idx` (frames come in order; a jump back,
+        never needed by a normal render, reopens the stream)."""
+        if self.proc is None or idx < self.shown:
+            self._close()
+            self._open()
+        size = self.px * self.py * 4
+        while self.shown < idx:
+            buf = self.proc.stdout.read(size)
+            if len(buf) < size:                     # clip ran out: hold the last frame
+                break
+            self.frame = np.frombuffer(buf, np.uint8).reshape(self.py, self.px, 4)
+            self.shown += 1
+
+    def _show(self, arr):
+        self.screen.pixel_array = arr.copy()
+        self.screen.orig_alpha_pixel_array = arr[:, :, 3].copy()
+
+    def _close(self):
+        if self.proc is not None:
+            self.proc.stdout.close()
+            self.proc.kill()
+            self.proc.wait()
+            self.proc = None
+
+    def interpolate_mobject(self, alpha):
+        self._read_to(min(self.n - 1, int(self.rate_func(alpha) * self.n)))
+        self._show(self.frame)
+
+    def finish(self):
+        self._read_to(self.n - 1)
+        super().finish()
+        self._show(self.frame)
+        self._close()
+
+
+def play_clip(watch, path, start=0, **kwargs):
+    """Play the video file at `path` from `start` (seconds, or "M:SS") inside the
+    player of `watch`, a `youtube_watch` page, at real speed for the run_time the
+    caller passes (so `run_time=10` shows 10 seconds of video). See the module
+    docstring."""
+    return _ClipPlayback(watch, path, start, **kwargs)
 
 
 def youtube_poll(channel, age, question, votes, options, *, avatar=None, likes=None,
