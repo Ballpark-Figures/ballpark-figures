@@ -889,39 +889,6 @@ Two moves are almost never right, and both destroyed real work in one session:
   and actually clobbered a live one. Before any command that kills or overwrites, say
   out loud what would happen if the user happened to be running the same tool right now.
 
-## END EVERY UPDATE WITH A SHORT "WHERE WE ARE" BLOCK (agent)
-
-**The user asked for this on 2026-10-01, in these words: "At the end of your updates, could
-you give a quicker summary of what's going on? I feel like I'm losing track of where we are."**
-
-A long, thorough update is not the same as a legible one. On a multi-session project the user
-is tracking a goal, not a diff, and a reply that reports six findings in full detail can leave
-them less oriented than one that reports four lines. So every substantive update CLOSES with a
-short block, and short means short — roughly:
-
-- **the goal**, one line, restated rather than assumed;
-- **what changed**, one line each, no more than about five;
-- **where trust stands**, one line — the number that says whether the data can be used;
-- **what is waiting on the user**, named explicitly, or "nothing";
-- **next steps** — what the agent would do next, in priority order, two or three at most.
-
-**`waiting on you` and `next steps` are DIFFERENT LINES and must not be merged.** The first is
-a decision only the user can make; the second is work the agent would get on with. Collapsing
-them either hands the user a to-do list they did not ask for, or buries a real decision inside
-a plan and lets the agent proceed as though it were settled. "Nothing is waiting on you, and
-next I would do X" is the common and useful case.
-
-Rules for it:
-- **It goes at the END**, after the detail, not instead of it. The detail is still owed; the
-  block is what makes it navigable.
-- **It is not a changelog.** "Fixed the normaliser" means nothing to someone tracking a goal;
-  "the regex no longer decides which rounds exist" does.
-- **Numbers over adjectives**, and a number that moved gets its before-and-after.
-- **If nothing is waiting on the user, say so.** A missing "waiting on you" line reads as an
-  implicit ask and is the thing that makes a long thread feel unbounded.
-- The tell that it is needed: the reply has more than about three sections, or the work spanned
-  several independent threads.
-
 ## A measurement is only evidence of what it actually measured (agent)
 Before reporting a number, name the QUESTION it answers and check that it is the
 question you asked. Three failures in one session, each of which produced a confident,
