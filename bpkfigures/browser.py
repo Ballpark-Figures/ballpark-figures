@@ -22,7 +22,8 @@ TWO KNOWN SIMPLIFICATIONS. The window's bottom corners are rounded but the page 
 inside is square, so at a large corner radius its corners would poke out; the radius
 here is small enough that they sit under the window's stroke. And there is no real
 clipping (manim has none): a page taller than the viewport would draw past it. A
-static screenshot never is, so it does not arise yet; scrolling would need it.
+static screenshot never is. Sideways navigation between pages (`swipe_to`) gets
+round it by cropping pixels instead of moving mobjects.
 
 SHARPNESS: the screenshot is pre-shrunk to the pixel width it is built at
 (`youtube_card._image`). Building a window big and then scaling it down a lot brings
@@ -54,6 +55,7 @@ class BrowserWindow(Group):
         super().__init__()
         C = _DARK if dark else _LIGHT
         self.C, self.W = C, width
+        self.image = image                 # the page's file, for `swipe_to`
         tab_h, bar_h = TAB_STRIP * width, TOOLBAR * width
         if aspect is None:                 # height / width of the page area
             if image is not None:
@@ -97,8 +99,8 @@ class BrowserWindow(Group):
         tab_foot = Rectangle(width=tab_w, height=tab_h * 0.2, stroke_width=0,
                              fill_color=C["tab"], fill_opacity=1.0)
         tab_foot.align_to(tab, DOWN).set_x(tab.get_x())
-        self.title = self._text(title, tab_h * 0.30, C["text"])
-        self.title.move_to(tab).align_to(tab, LEFT).shift(RIGHT * tab_h * 0.45)
+        self.tab = tab
+        self.title = self._title(title)
 
         toolbar = Rectangle(width=width, height=bar_h, stroke_width=0,
                             fill_color=C["toolbar"], fill_opacity=1.0)
@@ -120,6 +122,18 @@ class BrowserWindow(Group):
         # size by a reference glyph so every label shares one cap height
         return t.scale(h / crisp_text("H", font_size=24).height)
 
+    def _title(self, s):
+        """The tab's label, left-aligned in the tab. A title too long for the tab is
+        cut and ends in an ellipsis, as Chrome shows it (a short one is unchanged)."""
+        tab_h = TAB_STRIP * self.W
+        room = self.tab.width - tab_h * 0.9
+        t = self._text(s, tab_h * 0.30, self.C["text"])
+        n = len(s)
+        while t.width > room and n > 1:
+            n -= 1
+            t = self._text(s[:n].rstrip() + "\u2026", tab_h * 0.30, self.C["text"])
+        return t.move_to(self.tab).align_to(self.tab, LEFT).shift(RIGHT * tab_h * 0.45)
+
     def _url(self, s):
         bar_h = TOOLBAR * self.W
         t = self._text(s, bar_h * 0.27, self.C["text"]) if s else VGroup()
@@ -139,6 +153,71 @@ class BrowserWindow(Group):
         self.remove(old)
         self.add(new)
         self.url = new
+
+    def swipe_to(self, image, url, title):
+        """An Animation: the page slides off to the LEFT and the next one (`image`)
+        comes in from the right, INSIDE the viewport only -- the window stays put.
+        The address and tab title cross-fade to `url` / `title` (old out over the
+        first half, new in over the second). Play it with the caller's run_time:
+
+            self.play(win.swipe_to("b.png", "site.org/b", "B"), run_time=1.0)
+
+        manim has no clipping, so the slide is done in PIXELS: each frame shows a
+        viewport-wide crop of the two screenshots side by side. That needs the two
+        to be the same pixel size, i.e. the same capture size and a window that has
+        not been rescaled since it was built (it raises otherwise)."""
+        return _PageSwipe(self, image, url, title)
+
+
+class _PageSwipe(Animation):
+    """See `BrowserWindow.swipe_to`."""
+
+    def __init__(self, win, image, url, title, **kwargs):
+        self.win = win
+        new = _image(image, win.W)
+        if win.image is None:
+            raise ValueError("swipe_to needs a window whose page is a screenshot")
+        # the shown page REBUILT from its file at this render's resolution, not its
+        # current pixels: a snapshot made at another quality carries those
+        old = _image(win.image, win.W).pixel_array
+        if new.pixel_array.shape != old.shape:
+            raise ValueError(f"swipe_to needs a page the same pixel size as the one "
+                             f"shown: {new.pixel_array.shape} vs {old.shape} (same "
+                             f"screenshot size, and a window not rescaled since built)")
+        self.image = image
+        self.new_array = new.pixel_array
+        self.strip = np.concatenate([old, new.pixel_array], axis=1)
+        self.px = old.shape[1]
+        self.old_text = (win.url, win.title)
+        self.new_text = (win._url(url), win._title(title))
+        super().__init__(win.page, **kwargs)
+
+    def begin(self):
+        for t in self.new_text:
+            t.set_opacity(0.0)
+        self.win.add(*self.new_text)
+        super().begin()
+
+    def interpolate_mobject(self, alpha):
+        a = self.rate_func(alpha)
+        off = round(a * self.px)
+        self.mobject.pixel_array = np.ascontiguousarray(self.strip[:, off:off + self.px])
+        # the old address and tab title fade out over the first half, the new ones
+        # in over the second
+        for t in self.old_text:
+            t.set_opacity(max(0.0, 1 - 2 * a))
+        for t in self.new_text:
+            t.set_opacity(max(0.0, 2 * a - 1))
+
+    def finish(self):
+        super().finish()
+        self.mobject.pixel_array = self.new_array.copy()
+        self.mobject.orig_alpha_pixel_array = self.new_array[:, :, 3].copy()
+        self.win.remove(*self.old_text)
+        for t in self.new_text:
+            t.set_opacity(1.0)
+        self.win.url, self.win.title = self.new_text
+        self.win.image = self.image
 
 
 def browser_window(url, title, **kwargs):
