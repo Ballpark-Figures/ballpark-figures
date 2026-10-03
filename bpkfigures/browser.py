@@ -9,10 +9,16 @@ string is passed in; nothing is computed.
     win.page        # the page: an ImageMobject, a Mobject you passed, or a blank fill
     win.viewport    # the page's rectangle, for placing things inside it
     win.type_url(scene, "duotrigordle.com", run_time=1.0)   # caret + letters
+    self.play(win.swipe_to("b.png", "site.org/b", "B"), run_time=1.0)  # next page
+    self.play(win.scroll_by(1.0), run_time=1.5)            # down one screen
 
 THE PAGE FILLS THE VIEWPORT, AND THE VIEWPORT TAKES THE SCREENSHOT'S SHAPE (or
 `aspect`, height over width; 16:9 when there is no image). So a 1920x1080 capture
 makes a 16:9 window and a 1920x1490 one a taller window, with no cropping.
+
+A SCROLLING PAGE is a screenshot TALLER than the viewport, e.g. a full-page
+capture, with `aspect` given: the window shows its top, and `scroll_by` moves down
+it.
 
 DARK MODE IS CHROME'S, in the sizes of a 1920px-wide Chrome window: the tab strip and
 toolbar together are ~4.5% of the window's width. Light mode exists for symmetry with
@@ -21,9 +27,9 @@ toolbar together are ~4.5% of the window's width. Light mode exists for symmetry
 TWO KNOWN SIMPLIFICATIONS. The window's bottom corners are rounded but the page image
 inside is square, so at a large corner radius its corners would poke out; the radius
 here is small enough that they sit under the window's stroke. And there is no real
-clipping (manim has none): a page taller than the viewport would draw past it. A
-static screenshot never is. Sideways navigation between pages (`swipe_to`) gets
-round it by cropping pixels instead of moving mobjects.
+clipping (manim has none), so nothing that moves the page moves a mobject:
+`swipe_to` and `scroll_by` both work in PIXELS, showing a viewport-sized crop of
+the screenshot(s) each frame.
 
 SHARPNESS: the screenshot is pre-shrunk to the pixel width it is built at
 (`youtube_card._image`). Building a window big and then scaling it down a lot brings
@@ -55,7 +61,8 @@ class BrowserWindow(Group):
         super().__init__()
         C = _DARK if dark else _LIGHT
         self.C, self.W = C, width
-        self.image = image                 # the page's file, for `swipe_to`
+        self.image = image          # the page's file, for `swipe_to` / `scroll_by`
+        self.scroll = 0.0           # how far down the page, in viewport heights
         tab_h, bar_h = TAB_STRIP * width, TOOLBAR * width
         if aspect is None:                 # height / width of the page area
             if image is not None:
@@ -63,6 +70,7 @@ class BrowserWindow(Group):
                     aspect = im.height / im.width
             else:
                 aspect = 9 / 16
+        self.aspect = aspect
         view_h = width * aspect
         total_h = tab_h + bar_h + view_h
 
@@ -71,7 +79,10 @@ class BrowserWindow(Group):
         view_c = np.array([0.0, top - tab_h - bar_h - view_h / 2, 0.0])
         self.viewport = Rectangle(width=width, height=view_h, stroke_width=0,
                                   fill_color=C["page"], fill_opacity=1.0).move_to(view_c)
-        if image is not None:
+        if image is not None and _taller(image, aspect):
+            self.page = ImageMobject(_view_pixels(image, width, aspect, 0.0)) \
+                .set_width(width).move_to(view_c)
+        elif image is not None:
             self.page = _image(image, width).move_to(view_c)
         elif page is not None:
             self.page = page.scale_to_fit_width(width).move_to(view_c)
@@ -168,25 +179,89 @@ class BrowserWindow(Group):
         not been rescaled since it was built (it raises otherwise)."""
         return _PageSwipe(self, image, url, title)
 
+    def scroll_by(self, screens):
+        """An Animation: the page scrolls DOWN `screens` viewport heights (negative
+        scrolls up), stopping at the bottom of the screenshot. The window stays put;
+        only the page inside it moves. Needs a screenshot taller than the viewport
+        (a full-page capture and an `aspect`). Play it with the caller's run_time:
+
+            self.play(win.scroll_by(1.0), run_time=1.5)"""
+        return _PageScroll(self, screens)
+
+
+def _taller(path, aspect):
+    """Whether the screenshot at `path` is taller than a viewport of `aspect`."""
+    with Image.open(path) as im:
+        return im.height / im.width > aspect + 1e-3
+
+
+def _view_pixels(path, width, aspect, scroll):
+    """The viewport's pixels: the screenshot pre-shrunk for `width` (`_image`), cut
+    to a viewport of `aspect`, `scroll` viewport heights down (clamped to the
+    bottom). A screenshot no taller than the viewport is returned whole."""
+    full = _image(path, width).pixel_array
+    rows = round(full.shape[1] * aspect)
+    if full.shape[0] <= rows:
+        return full
+    off = min(round(scroll * rows), full.shape[0] - rows)
+    return np.ascontiguousarray(full[off:off + rows])
+
+
+def _set_page(page, arr):
+    """Show `arr` in the page ImageMobject, as its resting pixels (so a later fade
+    starts from them)."""
+    page.pixel_array = arr.copy()
+    page.orig_alpha_pixel_array = arr[:, :, 3].copy()
+
+
+class _PageScroll(Animation):
+    """See `BrowserWindow.scroll_by`."""
+
+    def __init__(self, win, screens, **kwargs):
+        if win.image is None or not _taller(win.image, win.aspect):
+            raise ValueError("scroll_by needs a screenshot taller than the viewport "
+                             "(a full-page capture, and the window's `aspect`)")
+        self.win = win
+        self.full = _image(win.image, win.W).pixel_array
+        self.rows = round(self.full.shape[1] * win.aspect)
+        bottom = self.full.shape[0] - self.rows
+        self.y0 = min(round(win.scroll * self.rows), bottom)
+        self.y1 = max(0, min(round((win.scroll + screens) * self.rows), bottom))
+        super().__init__(win.page, **kwargs)
+
+    def _crop(self, y):
+        return np.ascontiguousarray(self.full[y:y + self.rows])
+
+    def interpolate_mobject(self, alpha):
+        a = self.rate_func(alpha)
+        self.mobject.pixel_array = self._crop(round(self.y0 + a * (self.y1 - self.y0)))
+
+    def finish(self):
+        super().finish()
+        _set_page(self.mobject, self._crop(self.y1))
+        self.win.scroll = self.y1 / self.rows
+
 
 class _PageSwipe(Animation):
     """See `BrowserWindow.swipe_to`."""
 
     def __init__(self, win, image, url, title, **kwargs):
         self.win = win
-        new = _image(image, win.W)
         if win.image is None:
             raise ValueError("swipe_to needs a window whose page is a screenshot")
         # the shown page REBUILT from its file at this render's resolution, not its
-        # current pixels: a snapshot made at another quality carries those
-        old = _image(win.image, win.W).pixel_array
-        if new.pixel_array.shape != old.shape:
+        # current pixels: a snapshot made at another quality carries those. Both
+        # pages are cut to the viewport: the old one where it is scrolled to, the
+        # new one at its top.
+        old = _view_pixels(win.image, win.W, win.aspect, win.scroll)
+        new = _view_pixels(image, win.W, win.aspect, 0.0)
+        if new.shape != old.shape:
             raise ValueError(f"swipe_to needs a page the same pixel size as the one "
-                             f"shown: {new.pixel_array.shape} vs {old.shape} (same "
-                             f"screenshot size, and a window not rescaled since built)")
+                             f"shown: {new.shape} vs {old.shape} (same screenshot "
+                             f"size, and a window not rescaled since built)")
         self.image = image
-        self.new_array = new.pixel_array
-        self.strip = np.concatenate([old, new.pixel_array], axis=1)
+        self.new_array = new
+        self.strip = np.concatenate([old, new], axis=1)
         self.px = old.shape[1]
         self.old_text = (win.url, win.title)
         self.new_text = (win._url(url), win._title(title))
@@ -211,13 +286,13 @@ class _PageSwipe(Animation):
 
     def finish(self):
         super().finish()
-        self.mobject.pixel_array = self.new_array.copy()
-        self.mobject.orig_alpha_pixel_array = self.new_array[:, :, 3].copy()
+        _set_page(self.mobject, self.new_array)
         self.win.remove(*self.old_text)
         for t in self.new_text:
             t.set_opacity(1.0)
         self.win.url, self.win.title = self.new_text
         self.win.image = self.image
+        self.win.scroll = 0.0
 
 
 def browser_window(url, title, **kwargs):
