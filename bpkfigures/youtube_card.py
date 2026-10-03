@@ -251,24 +251,33 @@ class _ClipPlayback(Animation):
             raise FileNotFoundError(f"play_clip: no video file at {path}")
         self.watch, self.path, self.start = watch, path, _seconds(start)
         self.box = watch.player[0]                  # the thumbnail's 16:9 base
+        self.px = max(2, round(self.box.width / config.frame_width * config.pixel_width))
+        self.py = max(2, round(self.px * self.box.height / self.box.width))
         self.screen = getattr(watch, "screen", None)
         if self.screen is None:                     # first clip on this page
-            self.screen = ImageMobject(np.zeros((9, 16, 4), dtype=np.uint8))
+            # attached to the player NOW, not in begin(): Scene.play adds an
+            # animation's mobject to the scene top-level unless it is already in
+            # the family, and a top-level copy would survive a later FadeOut of
+            # the page. Transparent until the clip starts.
+            self.screen = ImageMobject(np.zeros((self.py, self.px, 4), dtype=np.uint8))
+            self.screen.set_width(self.box.width).move_to(self.box)
+            watch.player.add(self.screen)            # on top of thumbnail + badge
+            watch.screen = self.screen
         kwargs.setdefault("rate_func", linear)      # real-speed playback
         super().__init__(self.screen, **kwargs)
 
     def begin(self):
-        self.px = max(2, round(self.box.width / config.frame_width * config.pixel_width))
-        self.py = max(2, round(self.px * self.box.height / self.box.width))
         self.n = max(1, round(self.run_time * config.frame_rate))
         self.proc, self.shown = None, -1
         self.frame = np.zeros((self.py, self.px, 4), dtype=np.uint8)
         self.frame[:, :, 3] = 255
         self._show(self.frame)
         self.screen.set_width(self.box.width).move_to(self.box)
-        if self.screen not in self.watch.player.submobjects:
-            self.watch.player.add(self.screen)       # on top of thumbnail + badge
-        self.watch.screen = self.screen
+        # the clip covers the thumbnail and its badge; hide them, or they show
+        # through the clip when the page later fades
+        for m in self.watch.player.submobjects:
+            if m is not self.screen:
+                m.set_opacity(0.0)
         super().begin()
 
     def _open(self):

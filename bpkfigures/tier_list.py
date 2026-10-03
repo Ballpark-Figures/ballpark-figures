@@ -461,3 +461,27 @@ def emphasize(tl, tiers):
 def reset(tl):
     """Animations returning every tier to the full (un-dimmed) resting state."""
     return [row.animate.set_opacity(1.0) for row in tl.rows]
+
+
+def emphasize_letters(lists, letters):
+    """Animations that emphasise individual LETTERS across one or more filled lists:
+    the tiles of `letters` stay full and every other tile dims to `DIM_OPACITY`
+    (the tier cells and panels are untouched). `lists` is an iterable of
+    (tier_list, the letters it was filled with) pairs, so one call spotlights a
+    letter on a before AND after list at once. Passing "" (or `reset_letters`)
+    clears it. Returns a flat list — `self.play(*emphasize_letters(...))`.
+    Promoted from hangman 17's `_emphasize`."""
+    want = {ch.upper() for ch in letters}
+    anims = []
+    for lst, filled in lists:
+        targets = {id(t) for ch, t in tile_map(lst, filled).items() if ch in want}
+        for cont in lst.contents:
+            for tile in cont:
+                anims.append(tile.animate.set_opacity(
+                    1.0 if (not want or id(tile) in targets) else DIM_OPACITY))
+    return anims
+
+
+def reset_letters(lists):
+    """Animations returning every tile of `lists` (as `emphasize_letters`) to full."""
+    return emphasize_letters(lists, "")
