@@ -356,6 +356,46 @@ def _repo_root():
     return os.path.abspath(os.getcwd())
 
 
+def _tree_name():
+    """The name of the animations TREE this render runs in: the folder above the
+    `scenes/` dir (render runs from scenes/). `animations` for a video's main tree;
+    anything else (e.g. `bonus`) is a separate tree with its own staging dir and bin."""
+    return os.path.basename(os.path.abspath(os.path.join(os.getcwd(), "..")))
+
+
+def _edit_dir():
+    """The --stills staging dir for this tree: `<repo>/edit_clips/` for the main
+    `animations/` tree (unchanged), `<repo>/edit_clips_<tree>/` for any other, so a
+    bonus 01a can never overwrite, clean, or swap the main video's 01a."""
+    tree = _tree_name()
+    name = "edit_clips" if tree == "animations" else f"edit_clips_{tree}"
+    return os.path.join(_repo_root(), name)
+
+
+def _bin_name(scene_module):
+    """DaVinci Media Pool bin: per scene for the main tree (unchanged), one bin named
+    after the tree (`Bonus`) for any other."""
+    tree = _tree_name()
+    return scene_module if tree == "animations" else tree.capitalize()
+
+
+def _stage_image(letter, output, png, scene_module):
+    """--stills for a @still subscene: copy its PNG into the staging dir as
+    `NN<letter>_<method>.png` and ingest it into DaVinci, imported if new and
+    refreshed in place (timeline instances included) if already there. A whole-scene
+    target is skipped, as for video clips."""
+    if not letter:
+        print(f"[stills] skipping {output}: whole-scene files are not staged, "
+              f"only subscenes")
+        return
+    edit_dir = _edit_dir()
+    os.makedirs(edit_dir, exist_ok=True)
+    name = f"{output}.png"
+    shutil.copy2(png, os.path.join(edit_dir, name))
+    status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module))
+    print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
+
+
 def _extract_one_frame(mp4, t, out):
     """Write ONE frame (t<0 = seconds-from-end, like ffmpeg -sseof) to `out`.
     Returns True on success. Used for the held first/last frames (the stills)."""
@@ -383,7 +423,7 @@ def _stills(prefix, letter, output, mp4, scene_module):
         print(f"[stills] skipping {output}: whole-scene files are not staged, "
               f"only subscenes")
         return
-    edit_dir = os.path.join(_repo_root(), "edit_clips")
+    edit_dir = _edit_dir()
     os.makedirs(edit_dir, exist_ok=True)
     staged = []
     anim = f"{output}.mp4"                       # NN<letter>_<method>.mp4 — stable import name
@@ -397,11 +437,13 @@ def _stills(prefix, letter, output, mp4, scene_module):
         if _extract_one_frame(mp4, 0.05, os.path.join(edit_dir, lead)):
             staged.append(lead)
     for name in staged:
-        print(f"[stills] edit_clips/{name}: {davinci.ingest(edit_dir, name, bin_name=scene_module)}")
+        status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module))
+        print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
     try:
-        orphans = davinci.orphan_clips(prefix, resolve.subscene_methods(prefix))
+        orphans = davinci.orphan_clips(prefix, resolve.subscene_methods(prefix),
+                                       scope=os.path.basename(edit_dir))
     except Exception:
         orphans = []
     for p in orphans:
@@ -1060,6 +1102,22 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         if frames_spec is None and padded is None and not stills:
             print("--extract needs --frames, --padded, or --stills", file=sys.stderr)
             return 2
+        if image:
+            # a @still: re-stage the ALREADY-rendered PNG (no re-render). Prefer the
+            # full-quality one; a --fast PNG is used only if nothing better exists.
+            if not stills:
+                print("--extract on a @still only supports --stills", file=sys.stderr)
+                return 2
+            hits = glob.glob(os.path.join("media", "images", "**", f"{output}.png"),
+                             recursive=True)
+            hits.sort(key=lambda h: (_QTAG_DIR["hq"] not in h, -os.path.getmtime(h)))
+            if not hits:
+                print(f"[render] no existing PNG for {output} — render it first",
+                      file=sys.stderr)
+                return 1
+            _stage_image(letter, output, hits[0],
+                         os.path.splitext(os.path.basename(path))[0])
+            return 0
         mp4 = _output_mp4(output)
         if not mp4:
             print(f"[render] no existing mp4 for {output} — render it first",
@@ -1078,7 +1136,7 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         return 0
 
     # clean stale outputs for this slot (also the flat edit_clips/ dir when --stills)
-    _edit = os.path.join(_repo_root(), "edit_clips") if stills else None
+    _edit = _edit_dir() if stills else None
     for f in resolve.clean_stale(classname, target[:2], letter, output, edit_dir=_edit):
         print(f"[render] removed stale {f}", file=sys.stderr)
     # ...and sweep whole slots past the current last subscene (removed subscenes)
@@ -1138,6 +1196,9 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
             for f in _clean_stale_thumb(path, target[:2], letter, output):
                 print(f"[render] removed stale {f}", file=sys.stderr)
             print(dest)
+            if stills:
+                _stage_image(letter, output, dest,
+                             os.path.splitext(os.path.basename(path))[0])
         else:
             print(f"[render] rendered but couldn't find output PNG for {output} "
                   f"under media/images/", file=sys.stderr)

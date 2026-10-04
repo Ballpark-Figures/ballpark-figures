@@ -567,6 +567,10 @@ the "where do I look" map.
   04's avg-misses-by-length, or a sorted letter-frequency chart with written-font
   labels + a morphing mode) is a DIFFERENT asset. Don't force-fit one into the
   other — improve/extend the right shared helper (or build it if missing).
+- **A table of data** → `bpkfigures.table.get_table(headers, rows, title=…)`: baseline-
+  aligned `crisp_text` cells on a card, numeric columns right-aligned by default, zebra
+  stripes, fitted to the frame; role handles `.header`/`.rows`/`.cells[r][c]`. Cells are
+  shown as given, so formatting is the caller's and the values are SOURCED.
 - **A number line or timeline** → `bpkfigures.number_line.ZoomLine`: `zoom(lo, hi)` rescales
   it with ticks and labels re-thinning smoothly (nested 1/5 step ladder, each level fading by its
   on-screen spacing); `add_marker` + `marker_in` pin labelled points that ride the zoom;
@@ -1435,6 +1439,31 @@ calls for; no titles/labels/narration that weren't asked for.
   approximate positions. For NUMBERS, the bar is even higher: don't guess AND don't
   compute them yourself — SOURCE every displayed value from the user's pipeline, or
   stub-and-flag it. See "The numbers are the product — never invent a calculation".
+
+## Bonus graphics (`<video>/bonus/`) — one-off stills, no script
+Each video has a second, scriptless animations tree for its lower-production BONUS
+video. The user asks in chat ("make a graphic of a table of X") and the graphic goes
+straight into DaVinci.
+- **One graphic = one `@still` method in `bonus/scenes/01bonus.py`**, appended as
+  the next letter with a beat-map line in the docstring. A graphic that genuinely
+  needs motion is a normal `@subscene` in the same file. There is no `Script.md`, so
+  the column-2 rules do not apply; the request in chat is the spec.
+- **Render it from `bonus/scenes/` with `render 01<letter> --stills --no-sound`.**
+  `--stills` on a `@still` copies the PNG to `<repo>/edit_clips_bonus/` and imports it
+  into the **`Bonus`** bin of the open DaVinci project; a re-render refreshes it in
+  place, timeline copies included. That re-render is the deliverable, so the agent
+  runs it (it is a render, not a computation).
+- **The bonus tree never touches the main video's staging.** `render` derives the
+  staging dir and bin from the tree it runs in (`animations/` keeps `edit_clips/` and
+  per-scene bins), and DaVinci clip matching is scoped to the staging dir, so a bonus
+  `01a` and the main `01a` are never confused.
+- **`bonus/config.py` re-exports the main `animations/config.py`** and puts
+  `animations/` on the path, so main colours, base scenes and `assets/` all work;
+  it also exports `get_table`.
+- **The numbers rule applies in full**: every value is read from the pipeline's
+  committed files, never typed in.
+- New videos get the tree from `/new-video`; an older one gets it from
+  `dotclaude/add-bonus.sh <video-dir>` (idempotent, never overwrites).
 
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
 - **Render with `bpkfigures/render`, NOT hand-rolled `manim`.** Single render path for

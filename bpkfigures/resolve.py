@@ -131,7 +131,8 @@ def clean_stale(classname, prefix, letter, keep_output, edit_dir=None):
     # leftovers (e.g. old 01b_all_outcomes.mp4 + _still.png when 01b is now 01b_pairs).
     # The leading still (NN_lead_still.png, no letter) never matches the slot glob.
     if edit_dir and letter:
-        keep = {f"{keep_output}.mp4", f"{keep_output}_still.png"}
+        keep = {f"{keep_output}.mp4", f"{keep_output}_still.png",
+                f"{keep_output}.png"}             # a @still subscene stages its PNG
         for f in glob.glob(os.path.join(edit_dir, f"{slot}*")):
             if os.path.isfile(f) and os.path.basename(f) not in keep:
                 try:

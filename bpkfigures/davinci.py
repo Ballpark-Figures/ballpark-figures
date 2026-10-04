@@ -138,13 +138,25 @@ def _walk_folders(folder):
         yield from _walk_folders(sub)
 
 
-def _find_pool_item(mp, identity):
+def _staging_name(path):
+    """The name of the staging dir a clip path lives in (`edit_clips`,
+    `edit_clips_bonus`, ...), looking through a `.swap/` subdir."""
+    d = os.path.dirname(os.path.abspath(path))
+    if os.path.basename(d) == ".swap":
+        d = os.path.dirname(d)
+    return os.path.basename(d)
+
+
+def _find_pool_item(mp, identity, scope=None):
     """The MediaPoolItem ANYWHERE in the pool matching this (scene, method, ext)
-    identity, or None. Letter-agnostic, so a re-lettered clip is still found."""
+    identity, or None. Letter-agnostic, so a re-lettered clip is still found.
+    `scope` (a staging-dir name) restricts the match to clips staged from that dir,
+    so the main video's 01a and a bonus 01a are never mistaken for each other."""
     for folder in _walk_folders(mp.GetRootFolder()):
         for c in folder.GetClipList() or []:
             p = _clip_path(c)
-            if p and _identity(p) == identity:
+            if p and _identity(p) == identity and \
+                    (scope is None or _staging_name(p) == scope):
                 return c
     return None
 
@@ -230,7 +242,7 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None):
         return "skipped: unrecognized name"
     src = os.path.join(edit_dir, import_name)
 
-    item = _find_pool_item(mp, ident)
+    item = _find_pool_item(mp, ident, scope=os.path.basename(os.path.abspath(edit_dir)))
     if item is None:                                 # NEW -> import into the scene bin
         prev = mp.GetCurrentFolder()
         mp.SetCurrentFolder(_get_or_make_bin(mp, bin_name))
@@ -253,7 +265,7 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None):
     return "refreshed in pool"
 
 
-def orphan_clips(prefix, current_methods, resolve=None):
+def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips"):
     """Media paths of video clips ON the open timeline for scene `prefix` whose
     @subscene METHOD no longer exists (the merge/remove case). Read-only — deleting
     a placed clip is the user's call, so this only REPORTS. `current_methods` is the
@@ -270,7 +282,7 @@ def orphan_clips(prefix, current_methods, resolve=None):
         mpi = ti.GetMediaPoolItem()
         p = _clip_path(mpi) if mpi else None
         ident = _identity(p) if p else None
-        if not ident or ident[0] != prefix:
+        if not ident or ident[0] != prefix or _staging_name(p) != scope:
             continue
         method = ident[1]
         base = method[:-6] if method.endswith("_still") else method   # strip trailing still

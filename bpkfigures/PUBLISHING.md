@@ -206,6 +206,14 @@ stretchable stills remove the need to trim.
 - Runs the swap only where Resolve is reachable (the Mac); with Resolve closed / on the
   desktop it just writes the files. Powered by `bpkfigures/davinci.py`.
 
+### Bonus video graphics — `edit_clips_bonus/` and the `Bonus` bin
+Bonus graphics (see `CLAUDE.md` § Bonus graphics) are `@still` PNGs rendered from
+`<video>/bonus/scenes/` with `render 01<letter> --stills`. They stage into
+`edit_clips_bonus/` and land in a single **`Bonus`** Media Pool bin of whichever
+project is open, refreshed in place on re-render, exactly like the main clips. Open
+the bonus video's DaVinci project before rendering one, or it lands in the main
+video's project instead.
+
 ### Sound effects — baked into the clip, not a separate file
 
 A scene calls `self.sfx("name")` beside the animation it belongs to, and the effect is
