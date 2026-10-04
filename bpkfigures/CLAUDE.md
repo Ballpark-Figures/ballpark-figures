@@ -1453,6 +1453,15 @@ straight into DaVinci.
   into the **`Bonus`** bin of the open DaVinci project; a re-render refreshes it in
   place, timeline copies included. That re-render is the deliverable, so the agent
   runs it (it is a render, not a computation).
+- **A clip only ever goes into ITS OWN DaVinci project.** `render` knows which
+  project each tree belongs in — the repo name in PascalCase (`Wordle`), plus
+  ` Bonus` for the bonus tree (`Wordle Bonus`), or the name in `<tree>/davinci_project`
+  if that file exists. If another project is open, the file is staged but NOT
+  imported, and the render says which project is open and which it wanted; open the
+  right one and re-stage (`render 01a --stills --extract`). This applies to the main
+  video too. `/new-video` creates both projects; `dotclaude/resolve/new_project.py
+  "<Name> Bonus" <repo> 60 --return` creates one for an existing video, saving and
+  reopening whatever was open.
 - **The bonus tree never touches the main video's staging.** `render` derives the
   staging dir and bin from the tree it runs in (`animations/` keeps `edit_clips/` and
   per-scene bins), and DaVinci clip matching is scoped to the staging dir, so a bonus

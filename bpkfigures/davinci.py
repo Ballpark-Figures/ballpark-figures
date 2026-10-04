@@ -222,20 +222,27 @@ def _swap_refresh(item, src, edit_dir, ident, referenced):
     return True
 
 
-def ingest(edit_dir, import_name, bin_name=None, resolve=None):
+def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None):
     """Ensure `edit_dir/import_name` is in the DaVinci **Media Pool** so it shows up in
     the left-side master list, ready to drag:
       * NEW      -> ImportMedia into the per-scene bin `bin_name` (created if needed).
       * EXISTING -> refresh in place (the .swap trick), which also updates any timeline
                     instances, then restore the clean list name.
     Matched by letter-agnostic identity, so re-lettering is handled. Returns a short
-    status; a 'skipped: …' when Resolve is unreachable (caller degrades to files-only)."""
+    status; a 'skipped: …' when Resolve is unreachable (caller degrades to files-only).
+
+    `project`: the DaVinci project this file belongs in. If a different project is
+    open, nothing is imported or refreshed — the file stays staged and the status
+    names both projects, so a clip can never land in another video's edit."""
     r = resolve or get_resolve()
     if r is None:
         return "skipped: resolve not reachable"
     proj = r.GetProjectManager().GetCurrentProject()
     if proj is None:
         return "skipped: no project"
+    if project and proj.GetName() != project:
+        return (f"NOT IMPORTED: open project is {proj.GetName()!r}, this belongs in "
+                f"{project!r} — open it and re-stage")
     mp = proj.GetMediaPool()
     ident = _identity(import_name)
     if ident is None:
@@ -265,7 +272,8 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None):
     return "refreshed in pool"
 
 
-def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips"):
+def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips",
+                 project=None):
     """Media paths of video clips ON the open timeline for scene `prefix` whose
     @subscene METHOD no longer exists (the merge/remove case). Read-only — deleting
     a placed clip is the user's call, so this only REPORTS. `current_methods` is the
@@ -274,7 +282,7 @@ def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips"):
     if r is None:
         return []
     _p, tl = current_timeline(r)
-    if tl is None:
+    if tl is None or (project and _p.GetName() != project):
         return []
     keep = set(current_methods)
     orphans = []

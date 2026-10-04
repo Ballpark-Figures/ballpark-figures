@@ -379,6 +379,24 @@ def _bin_name(scene_module):
     return scene_module if tree == "animations" else tree.capitalize()
 
 
+def _project_name():
+    """The DaVinci project this tree's clips belong in. An explicit name in
+    `<tree>/davinci_project` wins; otherwise it is derived the way new-video names
+    the project — the repo name in PascalCase (`wheel-of-fortune` -> `WheelOfFortune`)
+    — plus ` Bonus` (the tree name) for any tree other than `animations/`. ingest()
+    refuses to import into any other open project."""
+    override = os.path.join(os.getcwd(), "..", "davinci_project")
+    if os.path.isfile(override):
+        with open(override, encoding="utf-8") as f:
+            name = f.read().strip()
+        if name:
+            return name
+    repo = os.path.basename(_repo_root())
+    name = "".join(w[:1].upper() + w[1:] for w in repo.split("-"))
+    tree = _tree_name()
+    return name if tree == "animations" else f"{name} {tree.capitalize()}"
+
+
 def _stage_image(letter, output, png, scene_module):
     """--stills for a @still subscene: copy its PNG into the staging dir as
     `NN<letter>_<method>.png` and ingest it into DaVinci, imported if new and
@@ -392,7 +410,8 @@ def _stage_image(letter, output, png, scene_module):
     os.makedirs(edit_dir, exist_ok=True)
     name = f"{output}.png"
     shutil.copy2(png, os.path.join(edit_dir, name))
-    status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module))
+    status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module),
+                            project=_project_name())
     print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
 
 
@@ -437,13 +456,15 @@ def _stills(prefix, letter, output, mp4, scene_module):
         if _extract_one_frame(mp4, 0.05, os.path.join(edit_dir, lead)):
             staged.append(lead)
     for name in staged:
-        status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module))
+        status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module),
+                            project=_project_name())
         print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
     try:
         orphans = davinci.orphan_clips(prefix, resolve.subscene_methods(prefix),
-                                       scope=os.path.basename(edit_dir))
+                                       scope=os.path.basename(edit_dir),
+                                       project=_project_name())
     except Exception:
         orphans = []
     for p in orphans:

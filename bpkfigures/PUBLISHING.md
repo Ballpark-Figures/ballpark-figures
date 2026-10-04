@@ -210,9 +210,13 @@ stretchable stills remove the need to trim.
 Bonus graphics (see `CLAUDE.md` § Bonus graphics) are `@still` PNGs rendered from
 `<video>/bonus/scenes/` with `render 01<letter> --stills`. They stage into
 `edit_clips_bonus/` and land in a single **`Bonus`** Media Pool bin of whichever
-project is open, refreshed in place on re-render, exactly like the main clips. Open
-the bonus video's DaVinci project before rendering one, or it lands in the main
-video's project instead.
+project is open, refreshed in place on re-render, exactly like the main clips.
+
+**Every clip is checked against the open project.** Main-tree clips import only into
+`<Video>` (e.g. `Wordle`) and bonus clips only into `<Video> Bonus`; with any other
+project open the file is staged but not imported, and the render says so. Open the
+right project and re-stage with `render NNx --stills --extract`. A project with a
+non-standard name is declared in `<tree>/davinci_project`.
 
 ### Sound effects — baked into the clip, not a separate file
 
