@@ -49,3 +49,6 @@ bpkfigures/CLAUDE.private.md
 
 # OS / editor junk
 .DS_Store
+
+# JupyterLab Desktop window/tab state, per machine
+.jupyter/
