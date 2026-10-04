@@ -9,11 +9,12 @@ hot spot, the pixel a real click lands on), never its centre:
     self.sfx("click")                           # the press is the click's first frame
     self.play(cur.click(), run_time=0.35)
 
-or the whole gesture in one play, with the sound placed on the press:
+or the whole gesture in one play, with the sound placed on the press. Give EACH part
+its run_time: a Succession otherwise splits the time EQUALLY between them, which
+puts the press nowhere near where `at` says:
 
-    self.sfx("click", at=0.8)                   # = the glide's share of the run_time
-    self.play(Succession(cur.glide_to(p), cur.click(), lag_ratio=1.0),
-              run_time=1.15)
+    self.sfx("click", at=0.8)                   # = the glide's run_time
+    self.play(Succession(cur.glide_to(p, run_time=0.8), cur.click(run_time=0.35)))
 
 THE CLICK is a press (the arrow dips to 85% about its tip and back) plus a ripple
 ring spreading from the tip and fading, which is what reads as "clicked" in a video
@@ -58,18 +59,21 @@ class Cursor(VMobject):
         """Move the arrow (no animation) so its tip sits on `point`."""
         return self.shift(np.asarray(point, dtype=float) - self.tip())
 
-    def glide_to(self, point, arc=0.25):
-        """An Animation: the tip travels to `point` along a slight arc."""
-        return _Glide(self, point, arc)
+    def glide_to(self, point, arc=0.25, **kwargs):
+        """An Animation: the tip travels to `point` along a slight arc. `kwargs`
+        (run_time, rate_func) go to the Animation."""
+        return _Glide(self, point, arc, **kwargs)
 
-    def click(self, ripple=True, ripple_color=ACCENT_GOLD):
+    def click(self, ripple=True, ripple_color=ACCENT_GOLD, **kwargs):
         """An Animation: one click at the tip -- a press and, unless `ripple` is
         False, a ring spreading from the tip. Put the click's sound on its first
-        frame (`self.sfx(...)` just before the play)."""
+        frame (`self.sfx(...)` just before the play). `kwargs` (run_time) go to the
+        AnimationGroup."""
         press = _Press(self)
         if not ripple:
-            return press
-        return AnimationGroup(press, _ripple(self.tip(), self.arrow_h, ripple_color))
+            return AnimationGroup(press, **kwargs)
+        return AnimationGroup(press, _ripple(self.tip(), self.arrow_h, ripple_color),
+                              **kwargs)
 
 
 class _Glide(Animation):
