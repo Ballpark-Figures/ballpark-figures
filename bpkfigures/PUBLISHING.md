@@ -126,22 +126,19 @@ Each recording session:
    records onto the armed track at the playhead.
 7. **Disarm** (click **R** off) when finished so a stray Record can't overwrite.
 
-**Mic + monitoring (Shure MV7+) — the STABLE-device setup that avoids dropouts:**
-- The mic is a **Shure MV7+** (USB). It's both an input AND an output (headphone
-  jack on the mic), so use it as BOTH: **System Settings → Sound → Input = Shure
-  MV7+ AND Output = Shure MV7+**, and **plug headphones into the mic's own
-  headphone jack** (not the Mac). DaVinci playback returns over USB to the mic →
-  your headphones, so you hear playback AND monitor your voice.
-- **Why this matters:** DaVinci binds its audio device **at launch** and **drops
-  the mic input whenever the macOS device set changes** — plugging headphones into
-  the *Mac*, a mute/unmute, or replugging USB all trigger it (symptoms: meter
-  freezes, or a rhythmic **click ~once/sec**). With input+output on the SAME single
-  device (the MV7+) and headphones in the mic, nothing changes mid-session, so it
-  holds. **Set the audio config FIRST, launch DaVinci LAST, then don't touch the
-  hardware.** If it does drop: re-patch the input (step 2), or quit+relaunch DaVinci.
+**Mic + monitoring (Shure MV7+) — the house setup (the user's call, 2026-10-04):**
+- The mic is a **Shure MV7+** (USB), used as the INPUT only: **System Settings →
+  Sound → Input = Shure MV7+**. **Headphones plug into the COMPUTER**, and the Output
+  is those headphones. Do NOT route output through the mic's own headphone jack —
+  an earlier version of this doc prescribed that, and it is not the setup.
+- **Why the order matters:** DaVinci binds its audio devices **at launch** and can
+  **drop the mic input when the macOS device set changes mid-session** — plugging or
+  unplugging headphones, a mute/unmute, or replugging USB (symptoms: meter freezes,
+  or a rhythmic **click ~once/sec**). So **plug in the mic AND the headphones and set
+  Input first, launch DaVinci LAST, then don't touch the hardware.** If it does drop:
+  re-patch the input (step 2), or quit+relaunch DaVinci.
 - **MV7+ red LED = MUTED** (easy to hit the touch panel by accident); tap the mute
-  icon to clear it. The touch panel also controls mic gain / headphone volume /
-  monitor mix — lock it in the **Shure MOTIV** app to avoid accidental taps.
+  icon to clear it. The touch panel also controls mic gain — lock it in the **Shure MOTIV** app to avoid accidental taps.
   Match sample rates (Audio MIDI Setup device = DaVinci Fairlight rate = **48 kHz**).
 
 **Noise gate (removes low-level room noise) — per-track, non-destructive:**
