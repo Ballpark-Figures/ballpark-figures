@@ -226,8 +226,11 @@ and a re-render swaps the new audio in with the video.
 - **Give sfx their own audio track, and set the track targeting before the first
   sounded clip lands.** A clip with audio drags it onto an audio track, and the three
   MONO tracks are already spoken for by VO and music. The shared Resolve template
-  (`dotclaude/resolve/TEMPLATE-60fps.drp`) carries a **stereo `SFX` track** for this
-  since 2026-10-04 — the rendered clips' audio is stereo.
+  (`dotclaude/resolve/TEMPLATE-60fps.drp`, 2026-10-04) lays this out so a plain drag
+  routes itself: **talking heads go on V1, and their audio drops onto A1 Voice; manim
+  clips go on V2, and their sound effects drop onto A2 `SFX` (stereo)**; A3/A4 are
+  Music. Dropping a manim clip on V1 puts its effects on Voice, where the gate chops
+  their tails.
 - **A sound over a DWELL cannot come from manim.** Dwell is a stretched still whose
   length does not exist until you set it in the edit, so anything playing across a hold
   is a DaVinci-track effect. manim owns sound INSIDE an animation clip only.
