@@ -584,6 +584,10 @@ the "where do I look" map.
   ValueTracker so it never jitters/resizes, with the number flashing green-up/crimson-down
   (`.count(scene, value, run_time, flash=…)`). Don't hand-roll it (scenes 05 & 18 each did,
   and re-broke the rolling-counter resize). See § Shared visual vocabulary.
+- **A mouse cursor / a click on something** → `bpkfigures.cursor.Cursor`: `point_to`
+  places its TIP, `glide_to(p)` and `click()` are animations (press + ripple ring);
+  the click's sound is a `self.sfx(...)` on the press. A browser page that moves →
+  `browser.py`'s `swipe_to` / `scroll_by` (pixel crops; manim cannot clip).
 - **A sound effect** → `self.sfx("name")` (scene.py), never `self.add_sound`. The
   library is `music-library/sfx/`. (§ Sound effects.)
 - **Every `run_time`** → an inlined literal at the call site (named local only for a
