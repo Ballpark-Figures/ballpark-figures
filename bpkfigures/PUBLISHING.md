@@ -220,8 +220,10 @@ and a re-render swaps the new audio in with the video.
   hazard below). The few effects that still sit wrong take a `gain=` in dB at the call
   site, which is a better division than making one algorithm handle every effect.
 - **Give sfx their own audio track, and set the track targeting before the first
-  sounded clip lands.** A clip with audio drags it onto an audio track, and the
-  timeline spec above is three MONO tracks already spoken for by VO, music and footage.
+  sounded clip lands.** A clip with audio drags it onto an audio track, and the three
+  MONO tracks are already spoken for by VO and music. The shared Resolve template
+  (`dotclaude/resolve/TEMPLATE-60fps.drp`) carries a **stereo `SFX` track** for this
+  since 2026-10-04 — the rendered clips' audio is stereo.
 - **A sound over a DWELL cannot come from manim.** Dwell is a stretched still whose
   length does not exist until you set it in the edit, so anything playing across a hold
   is a DaVinci-track effect. manim owns sound INSIDE an animation clip only.
