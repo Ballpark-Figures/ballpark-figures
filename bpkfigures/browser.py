@@ -11,6 +11,8 @@ string is passed in; nothing is computed.
     win.type_url(scene, "duotrigordle.com", run_time=1.0)   # caret + letters
     self.play(win.swipe_to("b.png", "site.org/b", "B"), run_time=1.0)  # next page
     self.play(win.scroll_by(1.0), run_time=1.5)            # down one screen
+    self.play(win.fade_to("b_open.png"), run_time=0.2)     # same page, new state
+    win.page_point(1560, 42)    # a screenshot pixel, as a scene point (cursor target)
 
 THE PAGE FILLS THE VIEWPORT, AND THE VIEWPORT TAKES THE SCREENSHOT'S SHAPE (or
 `aspect`, height over width; 16:9 when there is no image). So a 1920x1080 capture
@@ -188,6 +190,25 @@ class BrowserWindow(Group):
             self.play(win.scroll_by(1.0), run_time=1.5)"""
         return _PageScroll(self, screens)
 
+    def fade_to(self, image):
+        """An Animation: the page cross-fades to `image` where it is -- a new STATE
+        of the same page (a panel opening, a switch flipping), so the address, the
+        title and the scroll position all stay. Same pixel-size rule as
+        `swipe_to`."""
+        return _PageFade(self, image)
+
+    def page_point(self, x, y):
+        """The scene point showing pixel (x, y) of the current SCREENSHOT (in its
+        own pixels, as a browser reports an element's box at that capture's zoom),
+        wherever the window now is and however it is scaled, scroll included."""
+        with Image.open(self.image) as im:
+            w = im.width
+        rows = w * self.aspect                     # screenshot rows the viewport shows
+        y -= self.scroll * rows
+        ul = self.viewport.get_corner(UL)
+        return ul + np.array([x / w * self.viewport.width,
+                              -y / rows * self.viewport.height, 0.0])
+
 
 def _taller(path, aspect):
     """Whether the screenshot at `path` is taller than a viewport of `aspect`."""
@@ -293,6 +314,32 @@ class _PageSwipe(Animation):
         self.win.url, self.win.title = self.new_text
         self.win.image = self.image
         self.win.scroll = 0.0
+
+
+class _PageFade(Animation):
+    """See `BrowserWindow.fade_to`."""
+
+    def __init__(self, win, image, **kwargs):
+        if win.image is None:
+            raise ValueError("fade_to needs a window whose page is a screenshot")
+        self.win, self.image = win, image
+        self.old = _view_pixels(win.image, win.W, win.aspect, win.scroll).astype(np.float32)
+        new = _view_pixels(image, win.W, win.aspect, win.scroll)
+        if new.shape != self.old.shape:
+            raise ValueError(f"fade_to needs a page the same pixel size as the one "
+                             f"shown: {new.shape} vs {self.old.shape}")
+        self.new = new
+        super().__init__(win.page, **kwargs)
+
+    def interpolate_mobject(self, alpha):
+        a = self.rate_func(alpha)
+        mix = self.old + (self.new.astype(np.float32) - self.old) * a
+        self.mobject.pixel_array = mix.round().astype(np.uint8)
+
+    def finish(self):
+        super().finish()
+        _set_page(self.mobject, self.new)
+        self.win.image = self.image
 
 
 def browser_window(url, title, **kwargs):
