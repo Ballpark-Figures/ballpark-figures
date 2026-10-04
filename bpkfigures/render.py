@@ -374,7 +374,15 @@ def _stills(prefix, letter, output, mp4, scene_module):
     (a per-scene bin named `scene_module`): new files are imported so they appear in
     the left-side master list, already-imported ones are refreshed in place (which
     also updates any timeline instances). Matched by letter-agnostic identity, so
-    re-lettering is handled. Prints each staged file + its pool status."""
+    re-lettering is handled. Prints each staged file + its pool status.
+
+    A WHOLE-SCENE target (no letter) is never staged: the edit is built from the
+    subscene clips and their stills, so `render NN all --stills [--extract]` sends
+    exactly those and skips the full-scene mp4 (the user's call, 2026-10-04)."""
+    if not letter:
+        print(f"[stills] skipping {output}: whole-scene files are not staged, "
+              f"only subscenes")
+        return
     edit_dir = os.path.join(_repo_root(), "edit_clips")
     os.makedirs(edit_dir, exist_ok=True)
     staged = []

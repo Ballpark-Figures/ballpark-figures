@@ -178,6 +178,10 @@ stretchable stills remove the need to trim.
   - a **trailing still** PNG of its last held frame (`NN<label>_<method>_still.png`);
   - and for subscene **a**, a **leading still** (`NN_lead_still.png`) — the scene's
     opening hold.
+- **Only SUBSCENES are staged, never the whole-scene file** — so
+  `render NN all --stills` (and `--stills --extract`) sends exactly the subscene clips
+  plus the stills before, after and between them, and prints a `skipping` line for the
+  full scene.
 - **Names sort into timeline order:** `NN_lead_still`, `NNa_<m>`, `NNa_<m>_still`,
   `NNb_<m>`, … Set the media pool to **sort by Name**, select all → they lay in order
   as `[anim a][still a][anim b][still b]…`.
