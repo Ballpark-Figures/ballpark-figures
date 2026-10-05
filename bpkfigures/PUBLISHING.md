@@ -141,6 +141,28 @@ Each recording session:
   icon to clear it. The touch panel also controls mic gain — lock it in the **Shure MOTIV** app to avoid accidental taps.
   Match sample rates (Audio MIDI Setup device = DaVinci Fairlight rate = **48 kHz**).
 
+**Talking heads (RØDE Wireless GO + iPhone + RØDE Capture) — the house setup
+(recorded 2026-10-04 from the user's own screenshots):**
+- **Kit:** a RØDE **Wireless GO** receiver (RX) with **two transmitters** (TX 1, TX 2),
+  all on firmware **2.0.8**. Recorded on the **iPhone** in the **RØDE Capture** app,
+  **held horizontally**, then **AirDropped** to the laptop.
+- **The GO's settings live ON THE DEVICES**, changed in **RODE Central on the iPhone**
+  (not on any computer), so a new laptop needs nothing for them. RODE Central on a
+  computer is only needed to copy the transmitters' on-board backup recordings off over
+  USB — not done yet.
+- **Receiver (RX):** Channel Routing **Merged** (both transmitters into one track; no
+  Safety channel) · Output Gain Mode **Manual, −12 dB** · Ø button **Record** (starts and
+  stops on-board recording on the transmitters) · Auto-dim **off** · Plug-in Detect **on**.
+- **Each transmitter (TX 1 and TX 2, identical):** On-board Recording **Always** (a backup
+  copy whenever it is on) · High-pass Filter **on, 75 Hz** · GainAssist **Auto** · Ø button
+  **Mute** · LEDs **Bright** · Timeout (auto power-off) **on**.
+- **RØDE Capture:** **FHD**, **60 fps** (matches the 60 fps timelines), lens **1x**;
+  Flash, Selfie Light, Countdown and NDI Cast **off**; **Video Combined** on.
+- **OPEN: how the GO reaches the phone** (receiver cabled to the iPhone, or Capture's
+  "Direct Connect to TX"). Capture's audio input showed **iPhone Microphone** when the
+  screenshots were taken — **check the mic icon shows the GO before every take**, or the
+  phone's built-in mic is what gets recorded.
+
 **Noise gate (removes low-level room noise) — per-track, non-destructive:**
 - On the VO track's Mixer strip, double-click the **Dynamics** graph → the
   **Dynamics** window (Expander/Gate · Compressor · Limiter). It's **per-track** (so
