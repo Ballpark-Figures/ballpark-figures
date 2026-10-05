@@ -1539,6 +1539,23 @@ straight into DaVinci.
   asset; **change-detection on `render 99 all`** — only thumbnails whose code/reachable
   helpers changed re-render (keyed in a gitignored `.render_keys.json`; `--recompute` forces
   a rebuild).
+- **An UNCHANGED video subscene is SKIPPED, not re-rendered** (added 2026-10-05; until then
+  only thumbnails skipped, so `render 01 … 24 sub --stills` re-rendered the whole video every
+  time). Each clip's key, in `media/videos/<scene>/.render_keys.json`, is the snapshot
+  prefix-key's terms for subscenes `a..itself` (the project code the scene imports + the
+  scene digest), plus the quality, `--no-sfx`, and a CONTENT hash of every non-.py file
+  under the tree's `assets/` and every sound-effect `.wav`. A match whose recorded mp4 is
+  still there prints `unchanged — skipped`; with `--stills` it is re-staged only if
+  `edit_clips/` is stale and imported only if the pool lacks it (never refreshed — the bytes
+  did not change). `NN all` also skips the stitch when no subscene re-rendered.
+  - **Same blind spots as the snapshot cache, plus one:** a CLASS attribute read via
+    `self.X`, and a scene that opens a file OUTSIDE `assets/` directly (e.g. a CSV under
+    `math/`). After changing either, use `--recompute`, which renders regardless and still
+    records the new key.
+  - **Regenerating ANY asset cache re-renders every scene of that tree once** — the
+    non-code hash is deliberately coarse, erring toward re-rendering.
+  - **The first run after the change renders everything** (no keys recorded yet). `@still`
+    images other than thumbnails are not covered; they are cheap.
 - **manim's audio leftovers are deleted after each render.** `combine_to_movie` writes
   `<clip>.wav` and `<clip>.aac` beside the mp4, muxes them in, and leaves them there —
   254 KB each, often bigger than the clip. Since `media/videos/<scene>/<res>/` is the

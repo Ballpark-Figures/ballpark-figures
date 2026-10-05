@@ -31,7 +31,11 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01b-                      # subscene b through the end
     render 01-f                      # the beginning through subscene f
     render 06za                      # a multi-char subscene label (a..z, then za..zz, ...)
-    render 01g --recompute           # ignore the snapshot cache
+    render 01g --recompute           # ignore the snapshot cache AND re-render even
+                                     # an unchanged subscene (see below)
+    (any subscene whose code, imports, assets/ files and sound effects are unchanged
+     since its last render at this quality is SKIPPED — "unchanged — skipped" — and
+     with --stills is re-staged/imported only if edit_clips/ or the pool lacks it)
     render 01g --frames "1.0,2.0,-0.3"   # render then extract those frames
     render 01g --frames 5            # 5 evenly-spaced frames
     render 01g --frames "1.0,-0.3" --extract  # extract from the EXISTING mp4
@@ -428,7 +432,7 @@ def _print_flushed(edit_dir, results):
         print(f"[stills] pending {os.path.basename(edit_dir)}/{name}: {status}")
 
 
-def _ingest_staged(edit_dir, names, scene_module, then=None):
+def _ingest_staged(edit_dir, names, scene_module, then=None, refresh=True):
     """THE one route from a staging dir into DaVinci, for clips and stills alike.
     Imports `names` into this tree's project. With that project open: first imports
     anything QUEUED for it earlier, then `names`. With another project open: queues
@@ -440,7 +444,8 @@ def _ingest_staged(edit_dir, names, scene_module, then=None):
     def work():
         _print_flushed(edit_dir, davinci.flush_pending(edit_dir))
         for name in names:
-            status = davinci.ingest(edit_dir, name, bin_name=bin_name, project=project)
+            status = davinci.ingest(edit_dir, name, bin_name=bin_name, project=project,
+                                    refresh=refresh)
             print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
         if then:
             then()
@@ -775,6 +780,177 @@ def _thumb_change_plan(targets, qtag):
         return empty
 
 
+# ── video change-detection (skip re-rendering unchanged subscenes) ─────────────
+# A subscene's clip is a function of the code that builds its END STATE and its
+# own animation — setup_scene plus subscenes a..itself, and whatever project code
+# the scene imports — plus the non-code files it reads. So each rendered clip gets
+# a key over exactly those, recorded in media/videos/<module>/.render_keys.json
+# (gitignored, machine-local), and a later run whose key matches and whose mp4 is
+# still the one recorded SKIPS the manim run. Until 2026-10-05 only thumbnails did
+# this, so `render 01 ... 24 sub --stills` re-rendered the whole video every time.
+#
+# The code terms are the snapshot cache's own (bpkfigures.scene `_prefix_key`), so
+# a skip is exactly as trustworthy as a snapshot hit, with the same blind spot: a
+# CLASS attribute read via `self.X`. Non-code inputs are covered COARSELY — every
+# non-.py file under this tree's assets/ (the render caches, images) and every sound
+# effect file — so regenerating any cache re-renders every scene once, which errs
+# the safe way. A scene that opens a file anywhere else is not tracked: use
+# --recompute after changing one.
+_VIDEO_KEYS = ".render_keys.json"
+
+
+def _video_manifest_path(scene_path):
+    return os.path.join("media", "videos", _thumb_scene_module_name(scene_path),
+                        _VIDEO_KEYS)
+
+
+def _content_hash(paths):
+    h = hashlib.md5()
+    for p in sorted(paths):
+        try:
+            with open(p, "rb") as f:
+                h.update(p.encode())
+                h.update(f.read())
+        except OSError:
+            pass
+    return h.hexdigest()
+
+
+def _non_code_inputs_hash():
+    """Content hash of every non-code file a scene can read at render time: this
+    tree's assets/ (caches, images) and the sound-effect library."""
+    paths = []
+    assets = os.path.realpath(os.path.join(os.getcwd(), "..", "assets"))
+    for dirpath, dirnames, filenames in os.walk(assets):
+        dirnames[:] = [d for d in dirnames if d != "__pycache__"]
+        paths += [os.path.join(dirpath, f) for f in filenames
+                  if not f.endswith((".py", ".pyc"))]
+    try:
+        from bpkfigures.sfx import sfx_roots
+        for root in sfx_roots():
+            if os.path.isdir(root):
+                paths += [os.path.join(root, f) for f in os.listdir(root)
+                          if f.endswith(".wav")]
+    except Exception:
+        pass
+    return _content_hash(paths)
+
+
+def _video_key(cls, scene_path, names, idx, qtag, no_sfx, inputs_hash):
+    """The change-key for video subscene `names[idx]`: the snapshot prefix-key's
+    terms for 0..idx (version, the project code the scene imports minus every scene
+    file and the CLI tooling, the scene digest of setup_scene + subscenes 0..idx),
+    plus the quality, whether sound effects are baked in, and the non-code inputs."""
+    from bpkfigures import scene as S
+    bpk = S._BPK_DIR
+    scene_path = os.path.realpath(scene_path)
+    project_root = os.path.dirname(os.path.dirname(scene_path))
+    scene_dir = os.path.dirname(scene_path)
+    tooling = {os.path.realpath(os.path.join(bpk, f)) for f in ("render.py", "resolve.py")}
+    siblings = {os.path.realpath(os.path.join(scene_dir, f))
+                for f in os.listdir(scene_dir) if f.endswith(".py")}
+    deps = S._import_closure(scene_path, [bpk, project_root],
+                             [project_root, os.path.dirname(bpk)])
+    srcs = [
+        f"v{S.SNAPSHOT_VERSION}",
+        f"q:{qtag}",
+        f"sfx:{0 if no_sfx else 1}",
+        S._files_hash(deps - siblings - tooling),
+        S._scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])),
+        inputs_hash,
+    ]
+    return hashlib.md5("".join(srcs).encode()).hexdigest()
+
+
+def _video_change_plan(targets, qtag, no_sfx):
+    """For the video SUBSCENE targets (not thumbnails, not @still images, not whole
+    scenes), decide which are up to date. Returns (skip:{target: mp4},
+    record:{target: (manifest_path, manifest_key, key)}). Per scene, any failure
+    renders that scene in full and says why; it never blocks a render."""
+    skip, record = {}, {}
+    by_prefix = {}
+    for t in targets:
+        if len(t) > 2 and not _is_thumb_prefix(t[:2]):
+            by_prefix.setdefault(t[:2], []).append(t)
+    if not by_prefix:
+        return skip, record
+    inputs_hash = _non_code_inputs_hash()
+    for prefix, tt in by_prefix.items():
+        try:
+            path, classname, _o, _l = resolve.resolve(tt[0])
+            cls = _load_scene_class(path, classname)
+            _cn, subs, _st = resolve._parse(path)
+            manifest_path = _video_manifest_path(path)
+            manifest = _load_manifest(manifest_path)
+            for t in tt:
+                if resolve.is_still(t):
+                    continue
+                _p, _c, output, letter = resolve.resolve(t)
+                idx = resolve.label_to_index(letter)
+                key = _video_key(cls, path, subs, idx, qtag, no_sfx, inputs_hash)
+                mkey = f"{qtag}/{output}"
+                record[t] = (manifest_path, mkey, key)
+                entry = manifest.get(mkey)
+                if isinstance(entry, dict) and entry.get("key") == key:
+                    mp4 = entry.get("mp4")
+                    if mp4 and os.path.exists(mp4) and \
+                            os.path.getmtime(mp4) == entry.get("mtime"):
+                        skip[t] = mp4
+        except Exception as e:
+            print(f"[render] change-check skipped for scene {prefix} — rendering it "
+                  f"all ({type(e).__name__}: {e})", file=sys.stderr)
+    return skip, record
+
+
+def _record_video_key(record_entry, output):
+    """After a successful render, note the clip's key, path and mtime."""
+    manifest_path, mkey, key = record_entry
+    mp4 = _output_mp4(output)
+    if not mp4:
+        return
+    manifest = _load_manifest(manifest_path)
+    manifest[mkey] = {"key": key, "mp4": mp4, "mtime": os.path.getmtime(mp4)}
+    _save_manifest(manifest_path, manifest)
+
+
+def _staged_current(prefix, letter, output, mp4):
+    """True if edit_clips/ already holds THIS mp4 (copy2 keeps size and mtime) and
+    its stills, so a skipped subscene need not be re-staged."""
+    edit_dir = _edit_dir()
+    staged = os.path.join(edit_dir, f"{output}.mp4")
+    try:
+        same = (os.path.getsize(staged) == os.path.getsize(mp4) and
+                os.path.getmtime(staged) == os.path.getmtime(mp4))
+    except OSError:
+        return False
+    needed = [f"{output}_still.png"] + ([f"{prefix}_lead_still.png"] if letter == "a" else [])
+    return same and all(os.path.exists(os.path.join(edit_dir, n)) for n in needed)
+
+
+def _skipped_outputs(target, mp4, frames_spec, padded, stills):
+    """A skipped subscene still honours --frames / --padded / --stills, from the
+    existing mp4. --stills re-stages only if edit_clips/ is stale, and otherwise
+    just makes sure each file is IN the DaVinci pool (imported if missing, never
+    refreshed — the bytes did not change)."""
+    path, _c, output, letter = resolve.resolve(target)
+    if frames_spec is not None:
+        for p in _extract_frames(mp4, _parse_frames(frames_spec, _duration(mp4))):
+            print(p)
+    if padded is not None:
+        p = _pad_video(mp4, padded)
+        if p:
+            print(p)
+    if stills:
+        module = os.path.splitext(os.path.basename(path))[0]
+        if _staged_current(target[:2], letter, output, mp4):
+            names = [f"{output}.mp4", f"{output}_still.png"]
+            if letter == "a":
+                names.append(f"{target[:2]}_lead_still.png")
+            _ingest_staged(_edit_dir(), names, module, refresh=False)
+        else:
+            _stills(target[:2], letter, output, mp4, module)
+
+
 # ── --state: peek at a subscene's starting mobjects (no render) ────────────────
 def _print_state(path, classname, letter):
     """Load the PRIOR subscene's snapshot and list the mobjects on screen at the
@@ -1081,6 +1257,14 @@ def main(argv=None):
     skip, thumb_keys, thumb_mkey, manifest_path, manifest = (
         (set(), {}, {}, None, {}) if (recompute or state or extract)
         else _thumb_change_plan(targets, qtag))
+    # ...and the same for ordinary video subscenes (see _video_change_plan).
+    # --recompute still RECORDS the keys of what it renders (so the next run skips it);
+    # it just never skips.
+    vskip, vrecord = (({}, {}) if (state or extract or check)
+                      else _video_change_plan(targets, qtag, no_sfx))
+    if recompute:
+        vskip = {}
+    rendered_prefixes = set()     # scenes with a subscene actually re-rendered this run
 
     # lock per scene for actual renders (not the read-only --state/--extract modes)
     locks = None
@@ -1094,6 +1278,16 @@ def main(argv=None):
             if target in skip:
                 print(f"[render] {target} up to date — skipped "
                       f"(use --recompute to force)", file=sys.stderr)
+                continue
+            if target in vskip:
+                print(f"[render] {target} unchanged — skipped "
+                      f"(use --recompute to force)", file=sys.stderr)
+                _skipped_outputs(target, vskip[target], frames_spec, padded, stills)
+                continue
+            if target in stitch_fulls and not state and not extract \
+                    and target[:2] not in rendered_prefixes and _stitch_current(target):
+                print(f"[render] {target} unchanged — skipped (no subscene "
+                      f"re-rendered)", file=sys.stderr)
                 continue
             # `all` mode's full scene: STITCH the just-rendered subscene clips instead
             # of a fresh full pass (reuses them wholesale; see _stitch_full). Only in a
@@ -1114,6 +1308,9 @@ def main(argv=None):
             worst_rc = worst_rc or rc
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
+                rendered_prefixes.add(target[:2])
+                if target in vrecord:                        # record the clip's key
+                    _record_video_key(vrecord[target], resolve.resolve(target)[2])
                 if target in thumb_keys and manifest_path:   # record the new key
                     manifest[thumb_mkey[target]] = thumb_keys[target]
                     _save_manifest(manifest_path, manifest)
@@ -1126,6 +1323,21 @@ def main(argv=None):
         return worst_rc
     finally:
         _release_locks(locks)
+
+
+def _stitch_current(target):
+    """True if the stitched full-scene mp4 exists and is newer than every one of its
+    subscene clips — nothing to re-stitch."""
+    try:
+        full = _output_mp4(resolve.resolve(target)[2])
+        if not full:
+            return False
+        clips = [_output_mp4(resolve.resolve(target + L)[2])
+                 for L in resolve.subscene_letters(target[:2])]
+        return all(clips) and all(os.path.getmtime(full) >= os.path.getmtime(c)
+                                  for c in clips)
+    except Exception:
+        return False
 
 
 def _stitch_one(target, frames_spec, padded):

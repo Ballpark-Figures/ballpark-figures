@@ -224,7 +224,8 @@ def _swap_refresh(item, src, edit_dir, ident, referenced):
     return True
 
 
-def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None):
+def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
+           refresh=True):
     """Ensure `edit_dir/import_name` is in the DaVinci **Media Pool** so it shows up in
     the left-side master list, ready to drag:
       * NEW      -> ImportMedia into the per-scene bin `bin_name` (created if needed).
@@ -235,7 +236,11 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None):
 
     `project`: the DaVinci project this file belongs in. If a different project is
     open, nothing is imported or refreshed — the file stays staged and the status
-    names both projects, so a clip can never land in another video's edit."""
+    names both projects, so a clip can never land in another video's edit.
+
+    `refresh=False`: an EXISTING item is left alone ("already in pool") — for a clip
+    whose bytes did not change (render skipped it as up to date), where a refresh
+    would only churn `.swap/` copies. A missing one is still imported."""
     r = resolve or get_resolve()
     if r is None:
         return "skipped: resolve not reachable"
@@ -262,6 +267,8 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None):
         if prev:
             mp.SetCurrentFolder(prev)
         return "imported to pool" if ok else "import failed"
+    if not refresh:
+        return "already in pool"
 
     # EXISTING -> refresh in place (updates the pool item + any timeline instances)
     tl = proj.GetCurrentTimeline()
