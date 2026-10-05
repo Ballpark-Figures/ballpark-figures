@@ -71,6 +71,9 @@ def get_table(headers, rows, *, title=None, align=None, font_size=FONT_SIZE_MD,
     # Line height from a probe holding an ascender and a descender.
     line_h = crisp_text("Hg", font_size=font_size).height
     pitch = line_h * row_pitch
+    # A row's visual middle is half the cap height above its baseline (capitals and
+    # digits span baseline to cap height), so the stripe is centred there.
+    mid_above_baseline = crisp_text("H", font_size=font_size).height / 2
 
     def cell(s, **kw):
         return crisp_text(s or " ", font_size=font_size, **kw)
@@ -110,7 +113,7 @@ def get_table(headers, rows, *, title=None, align=None, font_size=FONT_SIZE_MD,
             band = Rectangle(width=total_w + 0.3, height=pitch,
                              fill_color=stripe_color, fill_opacity=stripe_opacity,
                              stroke_width=0)
-            band.move_to([0, y + line_h * 0.12, 0])
+            band.move_to([0, y + mid_above_baseline, 0])
             stripe_list.append(band)
         y -= pitch
 
