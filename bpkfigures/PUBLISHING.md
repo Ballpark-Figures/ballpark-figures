@@ -158,10 +158,11 @@ Each recording session:
   **Mute** · LEDs **Bright** · Timeout (auto power-off) **on**.
 - **RØDE Capture:** **FHD**, **60 fps** (matches the 60 fps timelines), lens **1x**;
   Flash, Selfie Light, Countdown and NDI Cast **off**; **Video Combined** on.
-- **OPEN: how the GO reaches the phone** (receiver cabled to the iPhone, or Capture's
-  "Direct Connect to TX"). Capture's audio input showed **iPhone Microphone** when the
-  screenshots were taken — **check the mic icon shows the GO before every take**, or the
-  phone's built-in mic is what gets recorded.
+- **Connection:** the **receiver is plugged into the iPhone by cable**, and **one
+  transmitter**, with a **lav mic** plugged into it, is worn by the user (not Capture's
+  "Direct Connect to TX"). With the receiver unplugged, Capture falls back to **iPhone
+  Microphone** — so **check the mic icon shows the GO before every take**, or the phone's
+  built-in mic is what gets recorded.
 
 **Noise gate (removes low-level room noise) — per-track, non-destructive:**
 - On the VO track's Mixer strip, double-click the **Dynamics** graph → the
