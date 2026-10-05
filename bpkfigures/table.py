@@ -47,6 +47,30 @@ def _default_align(headers, rows):
     return out
 
 
+# Zebra stripes on a DARK background (navy, near-black): white this faint. Chosen by
+# the user on wordle's scenes/94table_test (2026-10-05) over 0.12.
+DARK_STRIPE_COLOR = WHITE
+DARK_STRIPE_OPACITY = 0.07
+
+
+def row_stripes(row_ys, left, right, height, *, color=DARK_STRIPE_COLOR,
+                opacity=DARK_STRIPE_OPACITY, first=1):
+    """Zebra bands for a table: one band behind every other row, starting at row
+    index ``first`` (so the first body row stays bare, as in ``get_table``).
+
+    ``row_ys`` are each body row's VISUAL MIDDLE, top row first: for a hand-laid table
+    whose cells are ``move_to``-ed onto the row's y, that y is already it. ``left`` /
+    ``right`` are the bands' x extent and ``height`` the row pitch, so neighbouring
+    bands meet. The defaults are the dark-background look; ``get_table`` passes its
+    own colour for the cream card. Returns a VGroup; put it BEHIND the cells."""
+    bands = VGroup()
+    for y in row_ys[first::2]:
+        bands.add(Rectangle(width=right - left, height=height, fill_color=color,
+                            fill_opacity=opacity, stroke_width=0)
+                  .move_to([(left + right) / 2, y, 0]))
+    return bands
+
+
 def get_table(headers, rows, *, title=None, align=None, font_size=FONT_SIZE_MD,
               title_size=FONT_SIZE_LG, ink=BLACK, header_color=None, title_color=None,
               col_gap=0.9, row_pitch=1.55, stripes=True, stripe_color=GREY_B,
@@ -105,19 +129,17 @@ def get_table(headers, rows, *, title=None, align=None, font_size=FONT_SIZE_MD,
                 color=ink, stroke_width=3)
     y -= pitch * 1.05
 
-    row_groups, stripe_list = [], []
+    row_groups, row_mids = [], []
     for r, mobs in enumerate(body_mobs):
         row_groups.append(VGroup(*[place(m, rows[r][c], c, y)
                                    for c, m in enumerate(mobs)]))
-        if stripes and r % 2 == 1:
-            band = Rectangle(width=total_w + 0.3, height=pitch,
-                             fill_color=stripe_color, fill_opacity=stripe_opacity,
-                             stroke_width=0)
-            band.move_to([0, y + mid_above_baseline, 0])
-            stripe_list.append(band)
+        row_mids.append(y + mid_above_baseline)
         y -= pitch
 
-    stripe_group = VGroup(*stripe_list)
+    half = total_w / 2 + 0.15
+    stripe_group = (row_stripes(row_mids, -half, half, pitch, color=stripe_color,
+                                opacity=stripe_opacity)
+                    if stripes else VGroup())
     content = VGroup(stripe_group, header, rule, *row_groups)
     title_mob = None
     if title:
