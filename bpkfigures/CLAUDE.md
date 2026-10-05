@@ -1456,10 +1456,13 @@ straight into DaVinci.
 - **A clip only ever goes into ITS OWN DaVinci project.** `render` knows which
   project each tree belongs in — the repo name in PascalCase (`Wordle`), plus
   ` Bonus` for the bonus tree (`Wordle Bonus`), or the name in `<tree>/davinci_project`
-  if that file exists. If another project is open, the file is staged but NOT
-  imported, and the render says which project is open and which it wanted; open the
-  right one and re-stage (`render 01a --stills --extract`). This applies to the main
-  video too. `/new-video` creates both projects; `dotclaude/resolve/new_project.py
+  if that file exists. If another project is open, the file is staged and QUEUED
+  (`<staging dir>/.pending.json`), not imported. The queue empties itself on the next
+  `--stills` render with that project open, or on `render --pending` (any dir in the
+  repo), which also lists what still waits. `--stills --switch` instead opens the
+  clip's project, imports, and reopens the original, SAVING both. Whether that
+  round-trip clears DaVinci's undo history is UNVERIFIED (the API cannot test it),
+  so `--switch` stays opt-in. This applies to the main video too. `/new-video` creates both projects; `dotclaude/resolve/new_project.py
   "<Name> Bonus" <repo> 60 --return` creates one for an existing video, saving and
   reopening whatever was open.
 - **The bonus tree never touches the main video's staging.** `render` derives the

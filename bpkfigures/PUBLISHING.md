@@ -214,8 +214,11 @@ project is open, refreshed in place on re-render, exactly like the main clips.
 
 **Every clip is checked against the open project.** Main-tree clips import only into
 `<Video>` (e.g. `Wordle`) and bonus clips only into `<Video> Bonus`; with any other
-project open the file is staged but not imported, and the render says so. Open the
-right project and re-stage with `render NNx --stills --extract`. A project with a
+project open the file is staged and QUEUED, and the render says so. Opening the right
+project and rendering anything from that tree, or running `render --pending`, imports
+the queue. `render NNx --stills --switch` imports right away by opening the clip's
+project and reopening yours afterwards (both are saved; undo history across the
+switch is untested). A project with a
 non-standard name is declared in `<tree>/davinci_project`.
 
 ### Sound effects — baked into the clip, not a separate file

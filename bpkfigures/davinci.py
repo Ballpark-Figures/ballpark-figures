@@ -21,6 +21,8 @@ clip at a DIFFERENT path forces a fresh read. So:
     `.swap` files that nothing references. The hidden dir keeps versions out of the
     import view.
 """
+import contextlib
+import json
 import os
 import shutil
 import sys
@@ -241,8 +243,11 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None):
     if proj is None:
         return "skipped: no project"
     if project and proj.GetName() != project:
-        return (f"NOT IMPORTED: open project is {proj.GetName()!r}, this belongs in "
-                f"{project!r} — open it and re-stage")
+        queue_pending(edit_dir, import_name, bin_name, project)
+        return (f"QUEUED for {project!r} (open project is {proj.GetName()!r}); it is "
+                f"imported the next time {project!r} is open and you render or run "
+                f"`render --pending`")
+    forget_pending(edit_dir, import_name)
     mp = proj.GetMediaPool()
     ident = _identity(import_name)
     if ident is None:
@@ -270,6 +275,128 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None):
     except Exception:
         pass
     return "refreshed in pool"
+
+
+# ── pending imports (clips staged while another project was open) ─────────────
+# `<edit_dir>/.pending.json` maps a staged file name to {"bin", "project"}. ingest()
+# adds an entry instead of importing into the wrong project, and flush_pending()
+# imports the entries belonging to whichever project is open now. The file on disk is
+# always the latest render, so an entry only remembers WHERE the file goes.
+def _pending_path(edit_dir):
+    return os.path.join(edit_dir, ".pending.json")
+
+
+def _read_pending(edit_dir):
+    try:
+        with open(_pending_path(edit_dir), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_pending(edit_dir, data):
+    path = _pending_path(edit_dir)
+    if not data:
+        if os.path.exists(path):
+            os.remove(path)
+        return
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=1, sort_keys=True)
+    os.replace(tmp, path)
+
+
+def queue_pending(edit_dir, import_name, bin_name, project):
+    data = _read_pending(edit_dir)
+    data[import_name] = {"bin": bin_name, "project": project}
+    _write_pending(edit_dir, data)
+
+
+def forget_pending(edit_dir, import_name):
+    data = _read_pending(edit_dir)
+    if data.pop(import_name, None) is not None:
+        _write_pending(edit_dir, data)
+
+
+def pending(edit_dir):
+    """{name: {"bin", "project"}} still waiting to be imported from `edit_dir`."""
+    return _read_pending(edit_dir)
+
+
+def flush_pending(edit_dir, resolve=None):
+    """Import every pending file from `edit_dir` that belongs in the OPEN project.
+    Entries for other projects stay queued; entries whose file has been removed (the
+    subscene was renamed or deleted) are dropped. Returns [(name, status)]."""
+    r = resolve or get_resolve()
+    data = _read_pending(edit_dir)
+    if r is None or not data:
+        return []
+    proj = r.GetProjectManager().GetCurrentProject()
+    open_name = proj.GetName() if proj else None
+    out = []
+    for name, entry in sorted(data.items()):
+        if not os.path.exists(os.path.join(edit_dir, name)):
+            forget_pending(edit_dir, name)
+            out.append((name, "dropped: file no longer staged"))
+        elif entry.get("project") == open_name:
+            out.append((name, ingest(edit_dir, name, bin_name=entry.get("bin"),
+                                     resolve=r, project=entry.get("project"))))
+    return out
+
+
+def open_project_name(resolve=None):
+    """Name of the open DaVinci project, or None (Resolve unreachable / none open)."""
+    r = resolve or get_resolve()
+    if r is None:
+        return None
+    p = r.GetProjectManager().GetCurrentProject()
+    return p.GetName() if p else None
+
+
+@contextlib.contextmanager
+def in_project(name, resolve=None):
+    """Temporarily open project `name`, then put back whatever was open.
+
+    Yields True when `name` is the open project inside the block, else False (Resolve
+    unreachable, no such project, or a save/load failed — then nothing was switched
+    and the caller should fall back to queueing). The ORIGINAL project is SAVED before
+    switching away, `name` is saved before switching back, and the original is
+    reopened even if the block raises. A no-op when `name` is already open."""
+    r = resolve or get_resolve()
+    if r is None:
+        yield False
+        return
+    pm = r.GetProjectManager()
+    cur = pm.GetCurrentProject()
+    original = cur.GetName() if cur else None
+    if original == name:
+        yield True
+        return
+    if name not in (pm.GetProjectListInCurrentFolder() or []):
+        print(f"[davinci] no project named {name!r} — not switching", file=sys.stderr)
+        yield False
+        return
+    if cur is not None and not pm.SaveProject():
+        print(f"[davinci] could not save {original!r} — not switching", file=sys.stderr)
+        yield False
+        return
+    if not pm.LoadProject(name):
+        print(f"[davinci] could not open {name!r} — not switching", file=sys.stderr)
+        if original:
+            pm.LoadProject(original)
+        yield False
+        return
+    print(f"[davinci] switched {original!r} -> {name!r}", file=sys.stderr)
+    try:
+        yield True
+    finally:
+        pm.SaveProject()
+        if original:
+            if pm.LoadProject(original):
+                print(f"[davinci] switched back to {original!r}", file=sys.stderr)
+            else:
+                print(f"[davinci] could NOT reopen {original!r} — open it by hand",
+                      file=sys.stderr)
 
 
 def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips",

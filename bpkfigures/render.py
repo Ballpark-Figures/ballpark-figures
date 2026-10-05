@@ -17,6 +17,11 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
                                      # and with DaVinci open, import it into the Media Pool
                                      # (per-scene bin) — or refresh it in place on a
                                      # re-render. Supersedes --padded. Ranges: 04d- --stills
+                                     # Only into the clip's OWN project (Wordle / Wordle
+                                     # Bonus); with another open it is QUEUED instead
+    render 01d --stills --switch     # ...or open the clip's project, import, and reopen
+                                     # the one you had (saving both)
+    render --pending                 # import everything queued for the open project
     render 01 all                    # all subscenes, then the full scene — the full
                                      # scene is STITCHED from the subscene clips (trim
                                      # one framework hold per seam + concat), NOT a
@@ -410,9 +415,64 @@ def _stage_image(letter, output, png, scene_module):
     os.makedirs(edit_dir, exist_ok=True)
     name = f"{output}.png"
     shutil.copy2(png, os.path.join(edit_dir, name))
-    status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module),
-                            project=_project_name())
-    print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
+    _ingest_staged(edit_dir, [name], scene_module)
+
+
+# --switch: when the clip's project is not the open one, open it, import, and
+# reopen the original (davinci.in_project) instead of queueing. Set by main().
+_SWITCH = False
+
+
+def _print_flushed(edit_dir, results):
+    for name, status in results:
+        print(f"[stills] pending {os.path.basename(edit_dir)}/{name}: {status}")
+
+
+def _ingest_staged(edit_dir, names, scene_module, then=None):
+    """THE one route from a staging dir into DaVinci, for clips and stills alike.
+    Imports `names` into this tree's project. With that project open: first imports
+    anything QUEUED for it earlier, then `names`. With another project open: queues
+    them (davinci.ingest does) — or, under --switch, opens the right project, does the
+    work there, and reopens the original. `then()` runs inside the right project
+    (the orphan report), and only when it is open."""
+    project, bin_name = _project_name(), _bin_name(scene_module)
+
+    def work():
+        _print_flushed(edit_dir, davinci.flush_pending(edit_dir))
+        for name in names:
+            status = davinci.ingest(edit_dir, name, bin_name=bin_name, project=project)
+            print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
+        if then:
+            then()
+
+    open_name = davinci.open_project_name()
+    if _SWITCH and open_name is not None and open_name != project:
+        with davinci.in_project(project) as ok:
+            if ok:
+                work()
+                return
+    work()
+
+
+def _flush_all_pending():
+    """`render --pending`: import everything queued in ANY of this repo's staging
+    dirs (edit_clips/, edit_clips_bonus/, ...) that belongs in the open project, and
+    list what is still waiting for another project. Returns an exit code."""
+    root = _repo_root()
+    dirs = sorted(d for d in glob.glob(os.path.join(root, "edit_clips*"))
+                  if os.path.isdir(d))
+    open_name = davinci.open_project_name()
+    print(f"[pending] open project: {open_name!r}")
+    waiting = 0
+    for d in dirs:
+        _print_flushed(d, davinci.flush_pending(d))
+        for name, entry in sorted(davinci.pending(d).items()):
+            waiting += 1
+            print(f"[pending] still waiting for {entry.get('project')!r}: "
+                  f"{os.path.basename(d)}/{name}")
+    if not waiting:
+        print("[pending] nothing waiting")
+    return 0
 
 
 def _extract_one_frame(mp4, t, out):
@@ -455,21 +515,20 @@ def _stills(prefix, letter, output, mp4, scene_module):
         lead = f"{prefix}_lead_still.png"
         if _extract_one_frame(mp4, 0.05, os.path.join(edit_dir, lead)):
             staged.append(lead)
-    for name in staged:
-        status = davinci.ingest(edit_dir, name, bin_name=_bin_name(scene_module),
-                            project=_project_name())
-        print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
-    try:
-        orphans = davinci.orphan_clips(prefix, resolve.subscene_methods(prefix),
-                                       scope=os.path.basename(edit_dir),
-                                       project=_project_name())
-    except Exception:
-        orphans = []
-    for p in orphans:
-        print(f"[stills] ORPHAN on timeline: {os.path.basename(p)} — its subscene no "
-              f"longer exists; delete this clip in DaVinci")
+    def report_orphans():
+        try:
+            orphans = davinci.orphan_clips(prefix, resolve.subscene_methods(prefix),
+                                           scope=os.path.basename(edit_dir),
+                                           project=_project_name())
+        except Exception:
+            orphans = []
+        for p in orphans:
+            print(f"[stills] ORPHAN on timeline: {os.path.basename(p)} — its subscene "
+                  f"no longer exists; delete this clip in DaVinci")
+
+    _ingest_staged(edit_dir, staged, scene_module, then=report_orphans)
 
 
 def _output_mp4(output):
@@ -953,6 +1012,14 @@ def main(argv=None):
     frames_spec = None
     padded = None                # --padded [N]: also write a first/last-frame-padded copy
     stills = "--stills" in argv  # --stills: stage anim+stills into edit_clips/ + swap-if-live
+    # --switch: a staged clip whose project is not the open one gets imported by
+    # opening that project and reopening yours afterwards, instead of being queued.
+    global _SWITCH
+    _SWITCH = "--switch" in argv
+    # --pending: import everything queued for the open project, from every staging
+    # dir in this repo, and list what still waits for another one. No targets.
+    if "--pending" in argv:
+        return _flush_all_pending()
     tail = None                  # --tail N: capture manim output, emit only its last N lines
     rest = []
     i = 0
@@ -960,7 +1027,7 @@ def main(argv=None):
         a = argv[i]
         if a in ("--recompute", "--hq", "--state", "--fast", "--very-fast", "-ql",
                  "--quiet", "--check", "--extract", "--thumb", "--thumbnail", "--no-sound",
-                 "--no-sfx", "--play", "--stills"):
+                 "--no-sfx", "--play", "--stills", "--switch"):
             pass
         elif a == "--frames":
             i += 1
@@ -999,7 +1066,7 @@ def main(argv=None):
     if not targets:
         print("usage: render NN[label] [NN[label] ...] [NN all|sub] [NNa-c|NNb-|NN-f] "
               "[--recompute] [--fast] [--quiet] [--tail N] [--frames T|N] [--padded [N]] "
-              "[--stills] [--thumb] [--state] [--check] [--play] [--no-sound] "
+              "[--stills [--switch]] [--pending] [--thumb] [--state] [--check] [--play] [--no-sound] "
               "[--no-sfx]")
         return 2
 
