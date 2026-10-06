@@ -213,7 +213,8 @@ stretchable stills remove the need to trim.
   This relies on DaVinci sorting `_` before `.` (observed 2026-10-06). Until then each
   subscene staged a TRAILING still under the same name, plus `NN_lead_still.png`, which
   sorted a still BEFORE its own clip; a re-stage replaces the old files (the
-  `.stills_scheme` stamp in the staging dir forces it even for unchanged subscenes).
+  `.stills_scheme.json` file in the staging dir records which subscenes are staged under
+  the current scheme, so an unchanged subscene staged under the old one is re-staged).
 - **Stills are the pacing:** stretch a still to hold as long as the VO needs.
   Animation SPEED still lives in manim (`run_time`s → re-render); DWELL/pacing lives
   in the stretched stills.
