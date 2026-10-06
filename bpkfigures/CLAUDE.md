@@ -1516,9 +1516,11 @@ straight into DaVinci.
 - **`render 01d --stills` is THE way a subscene reaches the edit — it SUPERSEDES
   `--padded`, which is legacy and should not be offered as the editing aid.** It stages
   into a flat gitignored `edit_clips/` at the repo root: the subscene's animation clip (a
-  **byte-copy** of the render, no re-encode) + a **trailing still** PNG of its last held
-  frame, plus a **leading still** for subscene `a`. Names sort into timeline order
-  (`NN_lead_still`, `NNa_<m>`, `NNa_<m>_still`, `NNb_<m>`, …). Same targeting as any other
+  **byte-copy** of the render, no re-encode) + a **leading still** PNG of its first held
+  frame, and for the scene's LAST subscene a **closing still** under the next letter.
+  Names sort into timeline order in DaVinci, which puts `_` before `.`
+  (`NNa_<m>_still`, `NNa_<m>`, `NNb_<m>_still`, `NNb_<m>`, …, `NN<next>_scene_end_still`);
+  `render._still_files` is the one place the scheme is stated. Same targeting as any other
   render, ranges included (`render 04d- --stills`), and it composes with `--extract` (stage
   an already-rendered mp4, no re-render). **With Resolve open it also INGESTS each file
   into the Media Pool** (per-scene bin), importing a new one and **refreshing an existing

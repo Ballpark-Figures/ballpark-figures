@@ -129,7 +129,8 @@ def clean_stale(classname, prefix, letter, keep_output, edit_dir=None):
     # ...and the flat edit_clips/ staging dir (render --stills) — a LETTER slot only.
     # Keeps the current subscene's anim AND its trailing still; drops a renamed beat's
     # leftovers (e.g. old 01b_all_outcomes.mp4 + _still.png when 01b is now 01b_pairs).
-    # The leading still (NN_lead_still.png, no letter) never matches the slot glob.
+    # Each subscene's own still is `<keep_output>_still.png`; the scene's closing
+    # still sits one slot past the last subscene (see clean_orphans).
     if edit_dir and letter:
         keep = {f"{keep_output}.mp4", f"{keep_output}_still.png",
                 f"{keep_output}.png"}             # a @still subscene stages its PNG
@@ -190,6 +191,10 @@ def clean_orphans(prefix, edit_dir=None):
             try:
                 idx = label_to_index(label)
             except ValueError:
+                continue
+            # the scene's closing still lives ONE slot past the last subscene
+            # (render._still_files) — that slot is live, not an orphan
+            if idx == count and os.path.basename(f).endswith("_scene_end_still.png"):
                 continue
             if idx >= count:
                 try:

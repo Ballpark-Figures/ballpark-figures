@@ -12,8 +12,8 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
     render 01g 01h 01i               # several in sequence
     render 01                        # full scene
     render 01 sub                    # all subscenes, in order
-    render 01d --stills              # stage 01d into <repo>/edit_clips/ (anim copy + a
-                                     # trailing still, + a leading still for subscene a),
+    render 01d --stills              # stage 01d into <repo>/edit_clips/ (anim copy + its
+                                     # leading still; the last subscene adds the end still),
                                      # and with DaVinci open, import it into the Media Pool
                                      # (per-scene bin) — or refresh it in place on a
                                      # re-render. Supersedes --padded. Ranges: 04d- --stills
@@ -489,16 +489,55 @@ def _extract_one_frame(mp4, t, out):
     return r.returncode == 0
 
 
+# The --stills naming scheme. Each subscene stages its OWN LEADING still (its first
+# frame, i.e. the hold before it) named `<output>_still.png`, which sorts just BEFORE
+# `<output>.mp4` in DaVinci (it orders `_` ahead of `.`); the scene's LAST subscene
+# also stages the scene's closing hold under the NEXT letter, `<NN><next>_scene_end_
+# still.png`, so it sorts after everything. Until 2026-10-06 each subscene staged a
+# TRAILING still under the same `_still.png` name plus one `NN_lead_still.png` per
+# scene, which DaVinci sorted before its clip. STILLS_SCHEME is stamped into the
+# staging dir so a dir staged under the old scheme is never mistaken for current.
+STILLS_SCHEME = "2"
+END_STILL = "scene_end"
+
+
+def _still_files(prefix, letter, output):
+    """[(file name, seconds into the clip)] of the stills this subscene stages; a
+    negative time counts from the end. THE one statement of the naming scheme."""
+    out = [(f"{output}_still.png", 0.05)]
+    letters = resolve.subscene_letters(prefix)
+    if letters and letter == letters[-1]:
+        nxt = resolve.index_to_label(len(letters))
+        out.append((f"{prefix}{nxt}_{END_STILL}_still.png", -0.1))
+    return out
+
+
+def _scheme_path(edit_dir):
+    return os.path.join(edit_dir, ".stills_scheme")
+
+
+def _scheme_current(edit_dir):
+    try:
+        with open(_scheme_path(edit_dir), encoding="utf-8") as f:
+            return f.read().strip() == STILLS_SCHEME
+    except OSError:
+        return False
+
+
 def _stills(prefix, letter, output, mp4, scene_module):
     """--stills: stage this subscene into `<repo>/edit_clips/` for DaVinci — a plain
-    byte-copy of the mp4 (no re-encode) + a TRAILING still (last held frame), plus a
-    LEADING still for subscene `a` (the scene's opening hold). Filenames sort into
-    timeline order: `NN_lead_still.png`, `NNa_<m>.mp4`, `NNa_<m>_still.png`,
-    `NNb_<m>.mp4`, … Then, if Resolve is open, INGEST each file into the Media Pool
-    (a per-scene bin named `scene_module`): new files are imported so they appear in
-    the left-side master list, already-imported ones are refreshed in place (which
-    also updates any timeline instances). Matched by letter-agnostic identity, so
-    re-lettering is handled. Prints each staged file + its pool status.
+    byte-copy of the mp4 (no re-encode) plus the stills `_still_files` names: this
+    subscene's LEADING still, and for the scene's last subscene the closing still
+    under the next letter. Filenames sort into timeline order: `NNa_<m>_still.png`,
+    `NNa_<m>.mp4`, `NNb_<m>_still.png`, `NNb_<m>.mp4`, …, `NN<next>_scene_end_still.png`.
+    Then, if Resolve is open, INGEST each file into the Media Pool (a per-scene bin
+    named `scene_module`): new files are imported, already-imported ones are refreshed
+    in place (which also updates any timeline instances). Matched by letter-agnostic
+    identity, so re-lettering is handled. Prints each staged file + its pool status.
+
+    A between-subscene still is the FIRST frame of the following subscene, which is
+    the same image as the previous subscene's last frame (each subscene starts from
+    the previous one's end state) — but it comes from the FOLLOWING clip's render.
 
     A WHOLE-SCENE target (no letter) is never staged: the edit is built from the
     subscene clips and their stills, so `render NN all --stills [--extract]` sends
@@ -509,17 +548,20 @@ def _stills(prefix, letter, output, mp4, scene_module):
         return
     edit_dir = _edit_dir()
     os.makedirs(edit_dir, exist_ok=True)
+    with open(_scheme_path(edit_dir), "w", encoding="utf-8") as f:
+        f.write(STILLS_SCHEME + "\n")
+    old_lead = os.path.join(edit_dir, f"{prefix}_lead_still.png")   # pre-2026-10-06
+    if letter == "a" and os.path.exists(old_lead):
+        os.remove(old_lead)
+        print(f"[stills] removed {os.path.basename(edit_dir)}/{prefix}_lead_still.png "
+              f"(old naming scheme; subscene a's own still replaces it)")
     staged = []
+    for name, t in _still_files(prefix, letter, output):
+        if _extract_one_frame(mp4, t, os.path.join(edit_dir, name)):
+            staged.append(name)
     anim = f"{output}.mp4"                       # NN<letter>_<method>.mp4 — stable import name
     shutil.copy2(mp4, os.path.join(edit_dir, anim))
-    staged.append(anim)
-    trail = f"{output}_still.png"                # trailing hold = last frame
-    if _extract_one_frame(mp4, -0.1, os.path.join(edit_dir, trail)):
-        staged.append(trail)
-    if letter == "a":                            # leading hold = first frame; sorts first
-        lead = f"{prefix}_lead_still.png"
-        if _extract_one_frame(mp4, 0.05, os.path.join(edit_dir, lead)):
-            staged.append(lead)
+    staged.insert(1 if staged else 0, anim)      # still, clip, [end still]
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
     def report_orphans():
@@ -923,8 +965,9 @@ def _staged_current(prefix, letter, output, mp4):
                 os.path.getmtime(staged) == os.path.getmtime(mp4))
     except OSError:
         return False
-    needed = [f"{output}_still.png"] + ([f"{prefix}_lead_still.png"] if letter == "a" else [])
-    return same and all(os.path.exists(os.path.join(edit_dir, n)) for n in needed)
+    needed = [n for n, _t in _still_files(prefix, letter, output)]
+    return (same and _scheme_current(edit_dir) and
+            all(os.path.exists(os.path.join(edit_dir, n)) for n in needed))
 
 
 def _skipped_outputs(target, mp4, frames_spec, padded, stills):
@@ -943,9 +986,8 @@ def _skipped_outputs(target, mp4, frames_spec, padded, stills):
     if stills:
         module = os.path.splitext(os.path.basename(path))[0]
         if _staged_current(target[:2], letter, output, mp4):
-            names = [f"{output}.mp4", f"{output}_still.png"]
-            if letter == "a":
-                names.append(f"{target[:2]}_lead_still.png")
+            names = [f"{output}.mp4"] + [n for n, _t in
+                                         _still_files(target[:2], letter, output)]
             _ingest_staged(_edit_dir(), names, module, refresh=False)
         else:
             _stills(target[:2], letter, output, mp4, module)

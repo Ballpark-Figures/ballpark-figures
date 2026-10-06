@@ -198,16 +198,22 @@ stretchable stills remove the need to trim.
   `render 04d- --stills` — same targeting as `--padded`) writes, into a flat
   **`edit_clips/`** at the repo root (gitignored):
   - the subscene's **animation** clip (a byte-copy of the render, no re-encode);
-  - a **trailing still** PNG of its last held frame (`NN<label>_<method>_still.png`);
-  - and for subscene **a**, a **leading still** (`NN_lead_still.png`) — the scene's
-    opening hold.
+  - a **leading still** PNG of its first held frame (`NN<label>_<method>_still.png`),
+    which is the hold BEFORE that subscene (the same image as the previous subscene's
+    last frame);
+  - and for the scene's **last** subscene, a **closing still** under the NEXT letter
+    (`NN<next>_scene_end_still.png`) — the hold after everything.
 - **Only SUBSCENES are staged, never the whole-scene file** — so
   `render NN all --stills` (and `--stills --extract`) sends exactly the subscene clips
   plus the stills before, after and between them, and prints a `skipping` line for the
   full scene.
-- **Names sort into timeline order:** `NN_lead_still`, `NNa_<m>`, `NNa_<m>_still`,
-  `NNb_<m>`, … Set the media pool to **sort by Name**, select all → they lay in order
-  as `[anim a][still a][anim b][still b]…`.
+- **Names sort into timeline order:** `NNa_<m>_still`, `NNa_<m>`, `NNb_<m>_still`,
+  `NNb_<m>`, …, `NN<next>_scene_end_still`. Set the media pool to **sort by Name**,
+  select all → they lay in order as `[still][anim a][still][anim b]…[end still]`.
+  This relies on DaVinci sorting `_` before `.` (observed 2026-10-06). Until then each
+  subscene staged a TRAILING still under the same name, plus `NN_lead_still.png`, which
+  sorted a still BEFORE its own clip; a re-stage replaces the old files (the
+  `.stills_scheme` stamp in the staging dir forces it even for unchanged subscenes).
 - **Stills are the pacing:** stretch a still to hold as long as the VO needs.
   Animation SPEED still lives in manim (`run_time`s → re-render); DWELL/pacing lives
   in the stretched stills.

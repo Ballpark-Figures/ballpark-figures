@@ -428,7 +428,8 @@ def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips",
             continue
         method = ident[1]
         base = method[:-6] if method.endswith("_still") else method   # strip trailing still
-        if base == "lead" or base in keep:      # 'lead_still' -> 'lead' = the scene lead still
+        # 'scene_end' = the scene's closing still; 'lead' = the pre-2026-10-06 lead still
+        if base in ("scene_end", "lead") or base in keep:
             continue
         orphans.append(p)
     return orphans
