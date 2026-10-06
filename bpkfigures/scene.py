@@ -715,9 +715,13 @@ class BpkScene(Scene):
                       f"past the end of this clip ({clip_len:.2f}s) — it will be cut")
             elif t >= clip_len - SUBSCENE_HOLD - 1e-6:
                 print(f"[bpk] sfx {name!r} at {t:.2f}s is inside the TRAILING hold — "
-                      f"it will NOT survive a full-scene stitch (which trims that "
-                      f"second off every clip but the last), and the stretched still "
-                      f"over it is silent in the edit. Move it onto an animation beat.")
+                      f"`--stills` trims that second off the staged clip and a "
+                      f"full-scene stitch trims it off every clip but the last, so it "
+                      f"is silent in the edit. Move it onto an animation beat.")
+            elif t < SUBSCENE_HOLD - 1e-6:
+                print(f"[bpk] sfx {name!r} at {t:.2f}s is inside the LEADING hold — "
+                      f"`--stills` trims that second off the staged clip, so it is "
+                      f"silent in the edit. Move it onto an animation beat.")
             for complaint in spec_complaints(path):
                 print(f"[bpk] sfx {name!r}: {complaint}")
 

@@ -197,7 +197,10 @@ stretchable stills remove the need to trim.
 - **`render NN<label> --stills`** (e.g. `render 04d --stills`, or a range
   `render 04d- --stills` — same targeting as `--padded`) writes, into a flat
   **`edit_clips/`** at the repo root (gitignored):
-  - the subscene's **animation** clip (a byte-copy of the render, no re-encode);
+  - the subscene's **animation** clip, **trimmed of the 1s framework hold at each end**
+    so it starts as its animation starts and ends as its animation and sound end (a
+    frame-exact re-encode at CRF 12 / MP3 192k; the render in `media/` keeps its holds,
+    which only the whole-scene stitch uses);
   - a **leading still** PNG of its first held frame (`NN<label>_<method>_still.png`),
     which is the hold BEFORE that subscene (the same image as the previous subscene's
     last frame);

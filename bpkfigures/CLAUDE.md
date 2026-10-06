@@ -1153,15 +1153,17 @@ calls for; no titles/labels/narration that weren't asked for.
 - **SPEED lives in manim; DWELL lives in the EDIT — the subscene clip is the unit, and
   the pause BETWEEN subscenes is a stretchable still, not frames we render.** This is the
   house default (see `render … --stills` under § Rendering and the workflow in
-  `PUBLISHING.md`): each subscene stages as its own exact clip plus a PNG of its last
-  held frame, and the editor stretches that still to hold as long as the voiceover needs.
-  So the 1s `SUBSCENE_HOLD` is a SEAM the still butts against, **not** the real pause
-  length — never lengthen it, or add a trailing `self.wait`, to "leave room" for
-  narration. That room is made in DaVinci. What belongs in manim is how fast a thing
+  `PUBLISHING.md`): each subscene stages as its own clip — TRIMMED so it starts as its
+  animation starts and ends as its animation and sound end — beside a PNG still of the
+  hold, and the editor stretches that still to hold as long as the voiceover needs.
+  The 1s `SUBSCENE_HOLD` at each end of a RENDER exists only so `render NN all` can
+  stitch a whole scene (a testing aid); `--stills` cuts it off the staged clip. It is
+  **not** the real pause length — never lengthen it, or add a trailing `self.wait`,
+  to "leave room" for narration. That room is made in DaVinci. What belongs in manim is how fast a thing
   MOVES (`run_time`); how long the frame SITS is not a manim knob at all.
 - **Sound effects: `self.sfx("name")`, beside the animation it belongs to — NEVER
   `self.add_sound`.** The effect is baked into that subscene's mp4, so `--stills`
-  carries it into the edit untouched (a byte-copy) and a re-render swaps it in.
+  carries it into the edit with the clip and a re-render swaps it in.
   `PUBLISHING.md` § Sound effects has the DaVinci half.
   - **The library is `music-library/sfx/`** — the private repo, as for music, and for
     the same licensing reason. 48 kHz mono 16-bit `.wav`, head silence trimmed,
@@ -1170,10 +1172,10 @@ calls for; no titles/labels/narration that weren't asked for.
     habit. `BPK_SFX_DIR` points at a scratch directory for trying one out. A name
     that does not resolve RAISES — and `render NN --check` resolves every literal,
     so a typo costs a second rather than a render.
-  - **A cue belongs on an ANIMATION BEAT, not in the 1s hold at either end.** The
-    leading hold is fine (it survives the stitch); a cue in the TRAILING hold is
-    dropped from `render NN all` and sits under a silent stretched still in the edit.
-    The render warns when one lands there.
+  - **A cue belongs on an ANIMATION BEAT, not in the 1s hold at either end.**
+    `--stills` trims both holds off the staged clip, so a cue in EITHER one is
+    silent in the edit (and one in the trailing hold is also dropped from
+    `render NN all`). The render warns when one lands in either.
   - **A sound over a DWELL is out of scope for manim** — dwell is a stretched still
     whose length does not exist until the edit (§ SPEED-vs-DWELL above), so anything
     playing across a hold is a DaVinci-track effect. manim owns sound INSIDE a clip.
@@ -1515,8 +1517,9 @@ straight into DaVinci.
   PNGs; never hand-roll `ffmpeg` chains.
 - **`render 01d --stills` is THE way a subscene reaches the edit — it SUPERSEDES
   `--padded`, which is legacy and should not be offered as the editing aid.** It stages
-  into a flat gitignored `edit_clips/` at the repo root: the subscene's animation clip (a
-  **byte-copy** of the render, no re-encode) + a **leading still** PNG of its first held
+  into a flat gitignored `edit_clips/` at the repo root: the subscene's animation clip
+  **trimmed of the 1s framework hold at each end** (a frame-exact re-encode, CRF 12, of
+  the render's copy; the render itself keeps its holds) + a **leading still** PNG of its first held
   frame, and for the scene's LAST subscene a **closing still** under the next letter.
   Names sort into timeline order in DaVinci, which puts `_` before `.`
   (`NNa_<m>_still`, `NNa_<m>`, `NNb_<m>_still`, `NNb_<m>`, …, `NN<next>_scene_end_still`);

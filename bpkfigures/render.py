@@ -497,7 +497,7 @@ def _extract_one_frame(mp4, t, out):
 # TRAILING still under the same `_still.png` name plus one `NN_lead_still.png` per
 # scene, which DaVinci sorted before its clip. STILLS_SCHEME is stamped into the
 # staging dir so a dir staged under the old scheme is never mistaken for current.
-STILLS_SCHEME = "2"
+STILLS_SCHEME = "3"   # 3: the staged clip is TRIMMED of its framework holds
 END_STILL = "scene_end"
 
 
@@ -517,28 +517,75 @@ def _scheme_path(edit_dir):
 
 
 def _scheme_staged(edit_dir):
-    """The subscene outputs staged under the CURRENT scheme. Per subscene, not per
-    dir: a dir-wide flag would be set by the first subscene re-staged and then wave
-    every later unchanged subscene through with its old-scheme stills."""
+    """{output: [size, mtime] of the render it was staged FROM}, for the subscenes
+    staged under the CURRENT scheme. Per subscene, not per dir: a dir-wide flag would
+    be set by the first subscene re-staged and then wave every later unchanged
+    subscene through with its old-scheme files. The source is recorded because the
+    staged clip is a trimmed re-encode, so it can no longer be compared to the render
+    byte for byte."""
     try:
         with open(_scheme_path(edit_dir), encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, ValueError):
-        return set()
-    return set(data.get("staged", [])) if data.get("scheme") == STILLS_SCHEME else set()
+        return {}
+    if data.get("scheme") != STILLS_SCHEME or not isinstance(data.get("staged"), dict):
+        return {}
+    return data["staged"]
 
 
-def _mark_staged(edit_dir, output):
-    staged = _scheme_staged(edit_dir) | {output}
+def _source_sig(mp4):
+    return [os.path.getsize(mp4), os.path.getmtime(mp4)]
+
+
+def _mark_staged(edit_dir, output, mp4):
+    staged = _scheme_staged(edit_dir)
+    staged[output] = _source_sig(mp4)
     tmp = _scheme_path(edit_dir) + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({"scheme": STILLS_SCHEME, "staged": sorted(staged)}, f, indent=1)
+        json.dump({"scheme": STILLS_SCHEME, "staged": staged}, f, indent=1, sort_keys=True)
     os.replace(tmp, _scheme_path(edit_dir))
 
 
+def _hold_seconds():
+    """The framework hold at each end of a subscene render (scene.SUBSCENE_HOLD).
+    Imported lazily: bpkfigures.scene pulls in manim, which nothing else here needs."""
+    from bpkfigures.scene import SUBSCENE_HOLD
+    return SUBSCENE_HOLD
+
+
+def _stage_trimmed(mp4, dest):
+    """Write `mp4` to `dest` minus ONE framework hold at each end, so the staged clip
+    starts as its animation starts and ends as its animation (and sound) ends; the
+    stills on either side supply the pauses. The holds exist only so `NN all` can
+    stitch a whole scene, and the render itself keeps them.
+
+    A frame-exact cut needs a re-encode (a stream copy can only cut on keyframes), so
+    the video is re-encoded at visually lossless quality and the audio, when there
+    is any, at the same MP3 settings `_previewable_audio` uses. A body shorter than
+    one frame (a beat whose animation is empty) keeps a single frame, so the staged
+    clip is never empty. Returns True on success."""
+    hold = _hold_seconds()
+    dur = _duration(mp4)
+    fps_txt = _probe(mp4, ["-select_streams", "v:0"], "stream=avg_frame_rate") or "60/1"
+    num, _, den = fps_txt.partition("/")
+    frame = float(den or 1) / float(num or 60)
+    body = max(dur - 2 * hold, frame)
+    cmd = [_ffmpeg(), "-y", "-v", "error", "-ss", f"{hold:.6f}", "-i", mp4,
+           "-t", f"{body:.6f}", "-map", "0:v:0", "-map", "0:a:0?",
+           "-c:v", "libx264", "-crf", "12", "-preset", "medium", "-pix_fmt", "yuv420p",
+           "-c:a", "libmp3lame", "-b:a", "192k", "-movflags", "+faststart", dest]
+    r = subprocess.run(cmd, capture_output=True)
+    if r.returncode != 0:
+        print(f"[stills] trim failed for {os.path.basename(mp4)}:\n"
+              f"{r.stderr.decode(errors='replace')[-600:]}", file=sys.stderr)
+        return False
+    return True
+
+
 def _stills(prefix, letter, output, mp4, scene_module):
-    """--stills: stage this subscene into `<repo>/edit_clips/` for DaVinci — a plain
-    byte-copy of the mp4 (no re-encode) plus the stills `_still_files` names: this
+    """--stills: stage this subscene into `<repo>/edit_clips/` for DaVinci — the mp4
+    TRIMMED of its framework holds (`_stage_trimmed`) plus the stills `_still_files`
+    names, taken from the untrimmed render's holds: this
     subscene's LEADING still, and for the scene's last subscene the closing still
     under the next letter. Filenames sort into timeline order: `NNa_<m>_still.png`,
     `NNa_<m>.mp4`, `NNb_<m>_still.png`, `NNb_<m>.mp4`, …, `NN<next>_scene_end_still.png`.
@@ -570,9 +617,10 @@ def _stills(prefix, letter, output, mp4, scene_module):
         if _extract_one_frame(mp4, t, os.path.join(edit_dir, name)):
             staged.append(name)
     anim = f"{output}.mp4"                       # NN<letter>_<method>.mp4 — stable import name
-    shutil.copy2(mp4, os.path.join(edit_dir, anim))
+    if not _stage_trimmed(mp4, os.path.join(edit_dir, anim)):
+        return
     staged.insert(1 if staged else 0, anim)      # still, clip, [end still]
-    _mark_staged(edit_dir, output)
+    _mark_staged(edit_dir, output, mp4)
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
     def report_orphans():
@@ -967,18 +1015,16 @@ def _record_video_key(record_entry, output):
 
 
 def _staged_current(prefix, letter, output, mp4):
-    """True if edit_clips/ already holds THIS mp4 (copy2 keeps size and mtime) and
-    its stills, so a skipped subscene need not be re-staged."""
+    """True if edit_clips/ already holds this subscene staged FROM this exact render
+    (as recorded by `_mark_staged`) under the current scheme, with its stills, so a
+    skipped subscene need not be re-staged."""
     edit_dir = _edit_dir()
-    staged = os.path.join(edit_dir, f"{output}.mp4")
     try:
-        same = (os.path.getsize(staged) == os.path.getsize(mp4) and
-                os.path.getmtime(staged) == os.path.getmtime(mp4))
+        same = _scheme_staged(edit_dir).get(output) == _source_sig(mp4)
     except OSError:
         return False
-    needed = [n for n, _t in _still_files(prefix, letter, output)]
-    return (same and output in _scheme_staged(edit_dir) and
-            all(os.path.exists(os.path.join(edit_dir, n)) for n in needed))
+    needed = [f"{output}.mp4"] + [n for n, _t in _still_files(prefix, letter, output)]
+    return same and all(os.path.exists(os.path.join(edit_dir, n)) for n in needed)
 
 
 def _skipped_outputs(target, mp4, frames_spec, padded, stills):
