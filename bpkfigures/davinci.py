@@ -133,6 +133,17 @@ def _identity(name):
     return (prefix, method, ext)
 
 
+def _pool_sources(mp):
+    """Absolute media paths every media-pool item references."""
+    out = set()
+    for folder in _walk_folders(mp.GetRootFolder()):
+        for c in folder.GetClipList() or []:
+            p = _clip_path(c)
+            if p:
+                out.add(os.path.abspath(p))
+    return out
+
+
 def _walk_folders(folder):
     """Yield `folder` and every subfolder, recursively."""
     yield folder
@@ -214,7 +225,17 @@ def _swap_refresh(item, src, edit_dir, ident, referenced):
     n = _next_counter(swap_dir, key, ext)
     new_path = os.path.join(swap_dir, f"{key}.{n}{ext}")
     shutil.copy2(src, new_path)
-    if not item.ReplaceClip(new_path):
+    # ReplaceClip can report success WITHOUT re-pointing the item (seen 2026-10-06:
+    # 64 clips across eight scenes stayed on the old copy, which the prune below then
+    # deleted, taking them OFFLINE). So read the path back, retry once, and fail if
+    # it never moved, keeping the old copy.
+    moved = False
+    for _attempt in range(2):
+        if item.ReplaceClip(new_path) and \
+                os.path.abspath(_clip_path(item) or "") == os.path.abspath(new_path):
+            moved = True
+            break
+    if not moved:
         try:
             os.remove(new_path)
         except OSError:
@@ -270,9 +291,12 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
     if not refresh:
         return "already in pool"
 
-    # EXISTING -> refresh in place (updates the pool item + any timeline instances)
-    tl = proj.GetCurrentTimeline()
-    referenced = _timeline_sources(tl) if tl else set()
+    # EXISTING -> refresh in place (updates the pool item + any timeline instances).
+    # A .swap copy survives the prune while ANYTHING points at it: any timeline's
+    # items, AND any media-pool item — not just the open timeline's.
+    referenced = _pool_sources(mp)
+    for i in range(1, proj.GetTimelineCount() + 1):
+        referenced |= _timeline_sources(proj.GetTimelineByIndex(i))
     if not _swap_refresh(item, src, edit_dir, ident, referenced):
         return "refresh failed"
     # ReplaceClip may adopt the .swap basename in the list — restore the clean name
