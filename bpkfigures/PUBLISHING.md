@@ -170,16 +170,18 @@ Each recording session:
   change a clip's volume or run Normalize Audio Levels** (checked against the API
   README of the installed Resolve), so the levelling lives on the TRACK instead.
 - **Fairlight → Mixer → Track FX** (⋯ menu if hidden) → on **Voice** add **Dialogue
-  Leveler**: **Reduce Loud Dialogue** and **Lift Soft Dialogue** ON, **Optimize Moderate
-  Levels**, **Output Gain** toward **+6 dB**. Every clip on the track is levelled as it
-  plays, so nothing has to be done per clip.
+  Leveler**: **Reduce Loud Dialogue**, **Lift Soft Dialogue** and **Background
+  reduction** ON (background reduction kept on "for now", user 2026-10-06), **Optimize
+  Moderate Levels**, **Output Gain** **+6 dB**. Every clip on the track is levelled as
+  it plays, so nothing has to be done per clip. **Voice track only** — on the SFX track
+  it would treat sound effects as speech (it is OFF there in Wordle).
 - **It is a LEVELLER, not a loudness target** — check the Loudness meter afterwards and
   still set the master to ≈ −14 LUFS (§ Audio loudness).
 - **Per project, until it is in the template.** Effects cannot be added by script, so
   the template (`dotclaude/resolve/TEMPLATE-60fps.drp`) has to be re-exported with it
   on: import that `.drp` as a project, add the effect to Voice, Export Project over the
   same file, and commit it to `dotclaude`. Until then, add it by hand in each project
-  (done or pending per project: Wordle — pending, Wordle Bonus — pending).
+  (done or pending per project: Wordle — done 2026-10-06, Wordle Bonus — pending).
 
 **Noise gate (removes low-level room noise) — per-track, non-destructive:**
 - On the VO track's Mixer strip, double-click the **Dynamics** graph → the
