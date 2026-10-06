@@ -200,7 +200,9 @@ stretchable stills remove the need to trim.
   - the subscene's **animation** clip, **trimmed of the 1s framework hold at each end**
     so it starts as its animation starts and ends as its animation and sound end (a
     frame-exact re-encode at CRF 12 / MP3 192k; the render in `media/` keeps its holds,
-    which only the whole-scene stitch uses);
+    which only the whole-scene stitch uses). A sound still ringing when the animation
+    ends is NOT cut: the clip holds its last frame until the sound has died away
+    (below −60 dBFS), at most to the end of the render's trailing hold;
   - a **leading still** PNG of its first held frame (`NN<label>_<method>_still.png`),
     which is the hold BEFORE that subscene (the same image as the previous subscene's
     last frame);

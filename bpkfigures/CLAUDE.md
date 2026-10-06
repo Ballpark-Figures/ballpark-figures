@@ -1519,7 +1519,9 @@ straight into DaVinci.
   `--padded`, which is legacy and should not be offered as the editing aid.** It stages
   into a flat gitignored `edit_clips/` at the repo root: the subscene's animation clip
   **trimmed of the 1s framework hold at each end** (a frame-exact re-encode, CRF 12, of
-  the render's copy; the render itself keeps its holds) + a **leading still** PNG of its first held
+  the render's copy; the render itself keeps its holds) — except that a sound still
+  ringing when the animation ends RINGS OUT: the clip holds its last frame until the
+  sound drops below −60 dBFS, never past the render's end + a **leading still** PNG of its first held
   frame, and for the scene's LAST subscene a **closing still** under the next letter.
   Names sort into timeline order in DaVinci, which puts `_` before `.`
   (`NNa_<m>_still`, `NNa_<m>`, `NNb_<m>_still`, `NNb_<m>`, …, `NN<next>_scene_end_still`);

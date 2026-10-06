@@ -73,6 +73,7 @@ import glob
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import shutil
 import signal
@@ -497,7 +498,7 @@ def _extract_one_frame(mp4, t, out):
 # TRAILING still under the same `_still.png` name plus one `NN_lead_still.png` per
 # scene, which DaVinci sorted before its clip. STILLS_SCHEME is stamped into the
 # staging dir so a dir staged under the old scheme is never mistaken for current.
-STILLS_SCHEME = "3"   # 3: the staged clip is TRIMMED of its framework holds
+STILLS_SCHEME = "4"   # 3: clips trimmed of their holds; 4: a sound rings out past the trim
 END_STILL = "scene_end"
 
 
@@ -553,10 +554,40 @@ def _hold_seconds():
     return SUBSCENE_HOLD
 
 
+# A sound is still ringing while its 10 ms windows are louder than this. Well below
+# anything audible in a mix, well above the MP3 encoder's own noise floor.
+RING_OUT_FLOOR_DB = -60.0
+RING_OUT_PAD = 0.05            # s kept after the last audible window
+
+
+def _sound_end(mp4, start, stop):
+    """Seconds into `mp4` at which its sound last rises above RING_OUT_FLOOR_DB
+    within [start, stop], or None if it is silent there (or has no audio)."""
+    if _probe(mp4, ["-select_streams", "a:0"], "stream=codec_name") in ("", None):
+        return None
+    sr = 48000
+    r = subprocess.run([_ffmpeg(), "-v", "error", "-ss", f"{start:.6f}", "-i", mp4,
+                        "-t", f"{max(stop - start, 0):.6f}", "-map", "0:a:0",
+                        "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
+                       capture_output=True)
+    import numpy as np
+    x = np.frombuffer(r.stdout, dtype=np.float32)
+    win = sr // 100
+    n = len(x) // win
+    if n == 0:
+        return None
+    rms = np.sqrt(np.mean(x[:n * win].astype(np.float64).reshape(n, win) ** 2, axis=1))
+    loud = np.nonzero(20 * np.log10(rms + 1e-12) > RING_OUT_FLOOR_DB)[0]
+    if len(loud) == 0:
+        return None
+    return start + (loud[-1] + 1) * win / sr
+
+
 def _stage_trimmed(mp4, dest):
     """Write `mp4` to `dest` minus ONE framework hold at each end, so the staged clip
-    starts as its animation starts and ends as its animation (and sound) ends; the
-    stills on either side supply the pauses. The holds exist only so `NN all` can
+    starts as its animation starts and ends as its animation ends, or as its sound
+    ends if a sound is still ringing then (see the ring-out below); the stills on
+    either side supply the pauses. The holds exist only so `NN all` can
     stitch a whole scene, and the render itself keeps them.
 
     A frame-exact cut needs a re-encode (a stream copy can only cut on keyframes), so
@@ -570,6 +601,17 @@ def _stage_trimmed(mp4, dest):
     num, _, den = fps_txt.partition("/")
     frame = float(den or 1) / float(num or 60)
     body = max(dur - 2 * hold, frame)
+    # Let a sound RING OUT: if audio is still sounding in the trailing hold (a ding
+    # cued near the end of the animation), keep the clip — frozen on its last frame,
+    # which is exactly what the following still shows — until the sound has
+    # finished, never past the end of the render.
+    end = _sound_end(mp4, hold + body, dur)
+    if end is not None:
+        rung = min(end + RING_OUT_PAD, dur) - hold
+        if rung > body:
+            body = math.ceil(rung / frame - 1e-6) * frame
+            print(f"[stills] {os.path.basename(mp4)}: sound rings {body - (dur - 2 * hold):.2f}s "
+                  f"past the animation; clip kept until it ends")
     cmd = [_ffmpeg(), "-y", "-v", "error", "-ss", f"{hold:.6f}", "-i", mp4,
            "-t", f"{body:.6f}", "-map", "0:v:0", "-map", "0:a:0?",
            "-c:v", "libx264", "-crf", "12", "-preset", "medium", "-pix_fmt", "yuv420p",
