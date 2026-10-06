@@ -275,6 +275,12 @@ project and reopening yours afterwards (both are saved; undo history across the
 switch is untested). A project with a
 non-standard name is declared in `<tree>/davinci_project`.
 
+### Clips of subscenes that no longer exist
+When a scene is staged, any media-pool clip of that scene whose `@subscene` method no
+longer exists (renamed, merged into another, removed) is **deleted from the media
+pool**, so a re-lettered scene never shows two `07t` clips. A clip still placed on a
+timeline is left and reported as an ORPHAN instead — delete it from the edit by hand.
+
 ### Sound effects — baked into the clip, not a separate file
 
 A scene calls `self.sfx("name")` beside the animation it belongs to, and the effect is

@@ -1531,7 +1531,10 @@ straight into DaVinci.
   into the Media Pool** (per-scene bin), importing a new one and **refreshing an existing
   one in place — which updates timeline instances too**, so re-rendering a subscene swaps
   it into the cut automatically; matched by `(scene, @subscene method)`, so re-lettering is
-  handled. Placement on the timeline stays manual. Powered by `bpkfigures/davinci.py`;
+  handled. Placement on the timeline stays manual. **A clip whose subscene no longer
+  exists (renamed, merged, removed) is DELETED from the media pool when its scene is
+  next staged** — unless a timeline still uses it, which is only reported, since
+  deleting it would pull it out of the edit. Powered by `bpkfigures/davinci.py`;
   full workflow in `PUBLISHING.md`. See the SPEED-vs-DWELL rule under § Scene structure for
   why the stills are the pacing.
 - `render 01 sub --padded` (LEGACY, superseded by `--stills`) writes, beside each mp4, a

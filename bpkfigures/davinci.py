@@ -430,6 +430,48 @@ def in_project(name, resolve=None):
                       file=sys.stderr)
 
 
+def _orphan_method(ident, prefix, keep):
+    """True if a clip identity belongs to scene `prefix` but to NO current subscene."""
+    if not ident or ident[0] != prefix:
+        return False
+    method = ident[1]
+    base = method[:-6] if method.endswith("_still") else method   # strip trailing still
+    # 'scene_end' = the scene's closing still; 'lead' = the pre-2026-10-06 lead still
+    return not (base in ("scene_end", "lead") or base in keep)
+
+
+def prune_pool_orphans(prefix, current_methods, resolve=None, scope="edit_clips",
+                       project=None):
+    """DELETE from the media pool every clip of scene `prefix`, staged from `scope`,
+    whose @subscene method no longer exists (a subscene renamed, merged or removed)
+    — so a re-lettered scene does not leave two 07t's side by side. A clip still
+    placed on ANY timeline is NOT deleted (that would pull it out of the edit); it is
+    returned for the caller to report. Only runs with `project` open. Returns
+    (deleted names, names kept because a timeline uses them)."""
+    r = resolve or get_resolve()
+    if r is None:
+        return [], []
+    proj = r.GetProjectManager().GetCurrentProject()
+    if proj is None or (project and proj.GetName() != project):
+        return [], []
+    used = set()
+    for i in range(1, proj.GetTimelineCount() + 1):
+        used |= _timeline_sources(proj.GetTimelineByIndex(i))
+    keep = set(current_methods)
+    mp = proj.GetMediaPool()
+    doomed, kept = [], []
+    for folder in _walk_folders(mp.GetRootFolder()):
+        for c in folder.GetClipList() or []:
+            p = _clip_path(c)
+            if not p or _staging_name(p) != scope or not _orphan_method(_identity(p), prefix, keep):
+                continue
+            (kept if os.path.abspath(p) in used else doomed).append(c)
+    names = [c.GetName() for c in doomed]
+    if doomed and not mp.DeleteClips(doomed):
+        names = []
+    return names, [c.GetName() for c in kept]
+
+
 def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips",
                  project=None):
     """Media paths of video clips ON the open timeline for scene `prefix` whose

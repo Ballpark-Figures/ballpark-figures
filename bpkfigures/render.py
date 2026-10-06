@@ -674,15 +674,21 @@ def _stills(prefix, letter, output, mp4, scene_module):
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
     def report_orphans():
+        # clips of a subscene that no longer exists (renamed, merged, removed): off
+        # the media pool, unless a timeline still uses one — then only reported
         try:
-            orphans = davinci.orphan_clips(prefix, resolve.subscene_methods(prefix),
-                                           scope=os.path.basename(edit_dir),
-                                           project=_project_name())
-        except Exception:
-            orphans = []
-        for p in orphans:
-            print(f"[stills] ORPHAN on timeline: {os.path.basename(p)} — its subscene "
-                  f"no longer exists; delete this clip in DaVinci")
+            gone, held = davinci.prune_pool_orphans(
+                prefix, resolve.subscene_methods(prefix),
+                scope=os.path.basename(edit_dir), project=_project_name())
+        except Exception as e:
+            gone, held = [], []
+            print(f"[stills] orphan cleanup skipped: {e}", file=sys.stderr)
+        for name in gone:
+            print(f"[stills] removed from the media pool: {name} — its subscene no "
+                  f"longer exists")
+        for name in held:
+            print(f"[stills] ORPHAN on timeline: {name} — its subscene no longer "
+                  f"exists, but the edit uses it, so it was left; delete it in DaVinci")
 
     _ingest_staged(edit_dir, staged, scene_module, then=report_orphans)
 
