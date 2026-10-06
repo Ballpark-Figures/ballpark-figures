@@ -498,7 +498,7 @@ def _extract_one_frame(mp4, t, out):
 # TRAILING still under the same `_still.png` name plus one `NN_lead_still.png` per
 # scene, which DaVinci sorted before its clip. STILLS_SCHEME is stamped into the
 # staging dir so a dir staged under the old scheme is never mistaken for current.
-STILLS_SCHEME = "4"   # 3: clips trimmed of their holds; 4: a sound rings out past the trim
+STILLS_SCHEME = "5"   # 3: trimmed of holds; 4: sound rings out; 5: clips converted to BT.709
 END_STILL = "scene_end"
 
 
@@ -614,6 +614,14 @@ def _stage_trimmed(mp4, dest):
                   f"past the animation; clip kept until it ends")
     cmd = [_ffmpeg(), "-y", "-v", "error", "-ss", f"{hold:.6f}", "-i", mp4,
            "-t", f"{body:.6f}", "-map", "0:v:0", "-map", "0:a:0?",
+           # manim encodes with the BT.601 matrix and labels nothing, and DaVinci
+           # reads an unlabelled HD clip as BT.709, so every staged clip showed
+           # slightly off-colour beside its PNG still (navy 22,40,63 decoded as
+           # 19,39,64; measured 2026-10-06). Convert to BT.709 AND label it, so it is
+           # right whether or not the reader honours the label.
+           "-vf", "scale=in_color_matrix=bt601:out_color_matrix=bt709:in_range=tv:out_range=tv",
+           "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+           "-color_range", "tv",
            "-c:v", "libx264", "-crf", "12", "-preset", "medium", "-pix_fmt", "yuv420p",
            "-c:a", "libmp3lame", "-b:a", "192k", "-movflags", "+faststart", dest]
     r = subprocess.run(cmd, capture_output=True)
