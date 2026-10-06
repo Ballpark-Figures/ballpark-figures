@@ -513,15 +513,27 @@ def _still_files(prefix, letter, output):
 
 
 def _scheme_path(edit_dir):
-    return os.path.join(edit_dir, ".stills_scheme")
+    return os.path.join(edit_dir, ".stills_scheme.json")
 
 
-def _scheme_current(edit_dir):
+def _scheme_staged(edit_dir):
+    """The subscene outputs staged under the CURRENT scheme. Per subscene, not per
+    dir: a dir-wide flag would be set by the first subscene re-staged and then wave
+    every later unchanged subscene through with its old-scheme stills."""
     try:
         with open(_scheme_path(edit_dir), encoding="utf-8") as f:
-            return f.read().strip() == STILLS_SCHEME
-    except OSError:
-        return False
+            data = json.load(f)
+    except (OSError, ValueError):
+        return set()
+    return set(data.get("staged", [])) if data.get("scheme") == STILLS_SCHEME else set()
+
+
+def _mark_staged(edit_dir, output):
+    staged = _scheme_staged(edit_dir) | {output}
+    tmp = _scheme_path(edit_dir) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"scheme": STILLS_SCHEME, "staged": sorted(staged)}, f, indent=1)
+    os.replace(tmp, _scheme_path(edit_dir))
 
 
 def _stills(prefix, letter, output, mp4, scene_module):
@@ -548,8 +560,6 @@ def _stills(prefix, letter, output, mp4, scene_module):
         return
     edit_dir = _edit_dir()
     os.makedirs(edit_dir, exist_ok=True)
-    with open(_scheme_path(edit_dir), "w", encoding="utf-8") as f:
-        f.write(STILLS_SCHEME + "\n")
     old_lead = os.path.join(edit_dir, f"{prefix}_lead_still.png")   # pre-2026-10-06
     if letter == "a" and os.path.exists(old_lead):
         os.remove(old_lead)
@@ -562,6 +572,7 @@ def _stills(prefix, letter, output, mp4, scene_module):
     anim = f"{output}.mp4"                       # NN<letter>_<method>.mp4 — stable import name
     shutil.copy2(mp4, os.path.join(edit_dir, anim))
     staged.insert(1 if staged else 0, anim)      # still, clip, [end still]
+    _mark_staged(edit_dir, output)
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
     def report_orphans():
@@ -966,7 +977,7 @@ def _staged_current(prefix, letter, output, mp4):
     except OSError:
         return False
     needed = [n for n, _t in _still_files(prefix, letter, output)]
-    return (same and _scheme_current(edit_dir) and
+    return (same and output in _scheme_staged(edit_dir) and
             all(os.path.exists(os.path.join(edit_dir, n)) for n in needed))
 
 
