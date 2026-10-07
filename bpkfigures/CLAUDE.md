@@ -1226,6 +1226,26 @@ calls for; no titles/labels/narration that weren't asked for.
   hardcoded `hold` does NOT scale the animation). Add a second timing knob only when a
   part genuinely needs to be independent, and say why; a knob named anything but
   `run_time` (`fade`/`dur`/`speed`/`t`) is the smell to fix.
+- **NEVER BUNDLE SEVERAL INDEPENDENTLY-TUNED ANIMATIONS INTO ONE CALL OF UNLABELLED
+  NUMBERS.** A helper like `_turn(k, 0.65, 0.35, 1.0, 0.3)` — type, flip, narrow and
+  hops, each with its own run_time, passed positionally — leaves the user staring at
+  four numbers they cannot identify without opening another file, which is exactly
+  the knob they tune most. The rule above ("ONE run_time scales the WHOLE animation")
+  covers ONE animation; a sequence of separately-tuned STEPS is not one animation.
+  - **Write each step as its own call in the subscene body, one play each, its
+    run_time inline:** `self._type(1, 0.5)`, `self._flip(1, 0.5, lag_ratio=0)`,
+    `self._narrow(1, 0.5)`, `self._hops(1, 0.12)`. The body then reads as the beat's
+    timeline, and a wait can go between any two steps.
+  - **Two animations that genuinely start TOGETHER are one call, with KEYWORD run
+    times:** `self._flip_and_narrow(1, flip_run_time=0.35, narrow_run_time=1.0)`.
+    Make such parameters keyword-only (`*,`) so a positional call cannot be written.
+  - **Shared helpers especially**: a scene file is where the user edits, so a shared
+    asset may offer the STEPS, but the sequence of steps belongs in the scene.
+  - The tell: a helper signature with two or more `*_rt` / `*_run_time` parameters,
+    or a call site with more than one bare float in a row.
+  - (Bit us 2026-10-07: strategy_line's `_turn` and `_win` drove scenes 13 and 14's
+    turns as `_turn(1, 0.65, 0.35, 1.0, 0.3, flip_lag=0, ...)`; the user could not tell
+    which number was which. Unrolled into per-step calls, and `_turn`/`_win` removed.)
 - **Do NOT hide DISTINCT script beats in a `for` loop — UNROLL it, one explicit step
   per beat.** The moment iterations are different things the VOICEOVER walks through
   one at a time (three example turns, several cases), the loop's single shared
