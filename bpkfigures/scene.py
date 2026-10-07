@@ -250,6 +250,31 @@ def _scene_source_digest(cls, method_names):
         if isinstance(fn, types.FunctionType):
             _add_function(f"{cls.__name__}.{name}", fn)
 
+    # INHERITED methods (a shared asset's base class, e.g. StacksView._move_view)
+    # are walked for NAMES ONLY: their own source is covered wholesale by
+    # _source_hash, but they call back into HOOKS the scene overrides (08's
+    # _callout_spec, which reads CALLOUTS). Not following them made a scene
+    # constant reached only through such a hook invisible to the digest — moving
+    # SALET in 08's CALLOUTS left every snapshot and skip key "unchanged"
+    # (2026-10-07).
+    inherited_seen = set()
+
+    def _walk_inherited(fn):
+        stack = [fn]
+        while stack:
+            f = stack.pop()
+            for ref in _referenced_names(f):
+                obj = cls_ns.get(ref)
+                if isinstance(obj, types.FunctionType):
+                    _add_function(f"{cls.__name__}.{ref}", obj)
+                    continue
+                inh = getattr(cls, ref, None)
+                inh = getattr(inh, "__func__", inh)
+                if isinstance(inh, types.FunctionType) and not _same_module(inh) \
+                        and ref not in inherited_seen:
+                    inherited_seen.add(ref)
+                    stack.append(inh)
+
     while queue:
         fn = queue.pop()
         for ref in _referenced_names(fn):
@@ -257,6 +282,15 @@ def _scene_source_digest(cls, method_names):
             obj = cls_ns.get(ref)
             if isinstance(obj, types.FunctionType):
                 _add_function(f"{cls.__name__}.{ref}", obj)
+                continue
+            # an INHERITED method: follow it for calls back into this class
+            inh = getattr(cls, ref, None)
+            inh = getattr(inh, "__func__", inh)
+            if isinstance(inh, types.FunctionType) and not _same_module(inh) \
+                    and ref not in mod_ns:
+                if ref not in inherited_seen:
+                    inherited_seen.add(ref)
+                    _walk_inherited(inh)
                 continue
             # a module-level name in the scene's module?
             if ref in mod_ns:

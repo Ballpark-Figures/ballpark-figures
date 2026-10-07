@@ -1687,6 +1687,14 @@ straight into DaVinci.
   deliberately not captured, as the address would poison the cache) and a *huge*
   numpy array (numpy truncates its repr with `…`, so two differ only past the
   cutoff). Ordinary layout/position/size constants are safe.
+- **A scene HOOK called from a shared asset IS followed (fixed 2026-10-07).** The digest
+  walks a subscene's own code within the scene file; an INHERITED method (a shared
+  asset's, e.g. StacksView._move_view) is now walked for NAMES ONLY, so a scene
+  override it calls back into (08's `_callout_spec`, reading `CALLOUTS`) and the
+  constants that override reads are captured. Before, moving SALET in 08's `CALLOUTS`
+  left every snapshot AND every skip key "unchanged", so 08b was skipped and 08c on
+  started from the old position. The asset's OWN source stays covered by the
+  source hash, as before.
 - **CLASS attributes are the blind spot — keep TUNABLE constants at MODULE level, and
   NEVER reference the scene class by name (`ClassName.attr`) inside a method.** The digest
   captures MODULE constants by value (above) but NOT a class attribute read via `self.X`
