@@ -145,6 +145,16 @@ def place_on_baseline(mob, point, *, string=None, factory=None):
     return mob.move_to([point[0], point[1] + off, 0])
 
 
+def footnote(text, font_size=24, color=WHITE, **kwargs):
+    """A footnote: a RAISED asterisk, then `text` — VGroup(star, body), unplaced.
+    The video's footnote look (hangman 18's, wordle 16's FORTH note). `kwargs` go to
+    the body's crisp_text (e.g. t2w={"ranking": BOLD} for a bold word)."""
+    body = crisp_text(text, font_size=font_size, color=color, **kwargs)
+    star = crisp_text("*", font_size=font_size, color=color).next_to(body, LEFT, buff=0.04)
+    star.set_y(body.get_top()[1])          # raised to the body's cap height
+    return VGroup(star, body)
+
+
 def crisp_paragraph(*lines, **kwargs):
     kwargs.setdefault("font", FONT)
     fs = kwargs.pop("font_size", DEFAULT_FONT_SIZE)

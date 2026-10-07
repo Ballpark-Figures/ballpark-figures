@@ -327,6 +327,36 @@ class _ClipPlayback(Animation):
         self._close()
 
 
+def show_clip_frame(watch, path, start=0):
+    """Put the frame of `path` at `start` into `watch`'s player, in place of the
+    thumbnail — so the page shows where a `play_clip` from `start` will begin (09c:
+    the watch page swipes back already on the clip's first frame). Same sizing and
+    letterboxing as play_clip; a later play_clip on this page reuses the screen."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"show_clip_frame: no video file at {path}")
+    box = watch.player[0]
+    px = max(2, round(box.width / config.frame_width * config.pixel_width))
+    py = max(2, round(px * box.height / box.width))
+    vf = (f"scale={px}:{py}:force_original_aspect_ratio=decrease,"
+          f"pad={px}:{py}:(ow-iw)/2:(oh-ih)/2:black")
+    out = subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", f"{_seconds(start):.3f}",
+                          "-i", path, "-an", "-vf", vf, "-frames:v", "1", "-f", "rawvideo",
+                          "-pix_fmt", "rgba", "-"], stdout=subprocess.PIPE, check=True).stdout
+    frame = np.frombuffer(out, np.uint8).reshape(py, px, 4)
+    screen = getattr(watch, "screen", None)
+    if screen is None:
+        screen = ImageMobject(frame.copy())
+        watch.player.add(screen)
+        watch.screen = screen
+    screen.pixel_array = frame.copy()
+    screen.orig_alpha_pixel_array = frame[:, :, 3].copy()
+    screen.set_width(box.width).move_to(box)
+    for m in watch.player.submobjects:      # the thumbnail and its badge go under it
+        if m is not screen:
+            m.set_opacity(0.0)
+    return watch
+
+
 def play_clip(watch, path, start=0, **kwargs):
     """Play the video file at `path` from `start` (seconds, or "M:SS") inside the
     player of `watch`, a `youtube_watch` page, at real speed for the run_time the
