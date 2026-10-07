@@ -33,6 +33,23 @@ load wherever you're working. Video-specific rules live in that video's own
   Willfully deviating from an explicit instruction — even when your alternative
   seems reasonable — is a serious error that can cause major problems later.
   Flagging-then-asking is always acceptable; substituting without asking is not.
+  - **EXPLAINING THE DEVIATION AND THEN DOING IT IS NOT ASKING.** "X has to go in B,
+    not the A you named, because…" followed by edits to B in the same turn is the
+    override with a justification attached — the user gets a decision already made.
+    When you think the user's named place, file, scene, method or value is wrong,
+    the turn ENDS on the reason and the options (theirs, made to work, first; yours
+    second) and a question. No edits to the alternative until they choose.
+  - **"It can't be done the way they said" is almost never true — it is "it is harder
+    that way."** Before deciding their way is impossible, look for how to MAKE it
+    work, and offer that as option one. A constraint you found is information for
+    the user's decision, not a licence to make it.
+  - The tell: you are writing "so it has to be", "which means it belongs in", or
+    "instead" about something the user named, and your next action is an edit.
+  - (Bit us 2026-10-07: asked to add a move-up transition "at the start of scene 8",
+    the agent decided scene 8 could not reach scene 7's last frame, said so in one
+    line, and built it as the last subscene of scene 7 instead. It could have been
+    done in scene 8 — show 7's final still as an image and move that up — and the
+    user, asked, might have chosen either; they were not asked.)
 - **ONE COMMAND, THE ONE THEY ASKED FOR — never append an alternative.** The user
   SCANS for the command block and does not read the prose around it, so every
   command you emit is taken as "the thing I asked for". A second command is
