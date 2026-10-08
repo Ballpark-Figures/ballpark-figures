@@ -1888,11 +1888,16 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
     and `play()` ADDS any animated mobject not already in the scene — so
     `FadeOut(VGroup(*dots))` puts that fresh group on TOP of a window added just
     before it, and the leaving dots draw over the arriving window. The same happens
-    with any `FadeIn`/`Transform`/`animate` of a newly built group. So an incoming
-    panel, window, card or board covering outgoing content gets `set_z_index(1)` (or
-    higher) when it is built, as a matter of course. The user has had to ask for
-    this repeatedly (wordle 20d, 2026-10-08: the 80,000 Hours window rising over the
+    with any `FadeIn`/`Transform`/`animate` of a newly built group. So set the
+    layering explicitly, as a matter of course — the user has had to ask for it
+    repeatedly (wordle 20d, 2026-10-08: the 80,000 Hours window rising over the
     fading hour dots); it should never need asking.
+    - **PREFER LOWERING WHAT LEAVES (`set_z_index(-1)`) TO RAISING WHAT ARRIVES.**
+      `set_z_index` stamps only the pieces that exist NOW. A composite that adds
+      pieces later — a browser window whose swipe builds fresh address and tab-title
+      text — gets those at the default 0, UNDER its own raised bar: raising the
+      window made every later address and title vanish (same scene, same day). Raise
+      the arriving thing only when nothing will be added to it afterwards.
   - **A decoration hung on a composite as an ATTRIBUTE (not a submobject) is SKIPPED by a
     group `FadeOut`/`FadeIn` → it lingers.** `chart.xtitle = mob` (then `FadeIn(chart.xtitle)`
     separately) leaves `mob` OUTSIDE `chart`'s submobject tree, so a later `FadeOut(chart)`
