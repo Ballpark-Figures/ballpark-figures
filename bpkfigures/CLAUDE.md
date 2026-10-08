@@ -1883,6 +1883,16 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
     with side effects, can leave the group behind). Only `remove()` TOP-LEVEL mobjects;
     to drop an in-group text, rebuild the group or hard-clear (`for m in
     list(self.mobjects): self.remove(m)`).
+  - **WHATEVER ARRIVES DRAWS ABOVE WHAT IS LEAVING OR ALREADY THERE — set its
+    `z_index`, never trust add order.** manim draws in the order mobjects were added,
+    and `play()` ADDS any animated mobject not already in the scene — so
+    `FadeOut(VGroup(*dots))` puts that fresh group on TOP of a window added just
+    before it, and the leaving dots draw over the arriving window. The same happens
+    with any `FadeIn`/`Transform`/`animate` of a newly built group. So an incoming
+    panel, window, card or board covering outgoing content gets `set_z_index(1)` (or
+    higher) when it is built, as a matter of course. The user has had to ask for
+    this repeatedly (wordle 20d, 2026-10-08: the 80,000 Hours window rising over the
+    fading hour dots); it should never need asking.
   - **A decoration hung on a composite as an ATTRIBUTE (not a submobject) is SKIPPED by a
     group `FadeOut`/`FadeIn` → it lingers.** `chart.xtitle = mob` (then `FadeIn(chart.xtitle)`
     separately) leaves `mob` OUTSIDE `chart`'s submobject tree, so a later `FadeOut(chart)`
