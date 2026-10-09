@@ -373,6 +373,13 @@ not audio.
 Sanity-check before rendering: scrub the very start and end of the timeline (no
 clipped frames), and confirm audio is present and in sync.
 
+**Check every playback shortcut is undone before the final export:** the Voice
+track's **Dialogue Leveler** (and gate) ON if it was bypassed to make playback smoother,
+no track left soloed or muted, and a frozen voice track (if one was made) either
+matching the live one or swapped back for it. Any of these exports silently. Look for a
+red "BEFORE EXPORT" marker at the start of the timeline -- that is where such a
+reminder is left.
+
 ## 5. Publish to YouTube
 
 - **Upload the `.mov`** (the render from step 4) to YouTube Studio — **not** the
