@@ -350,6 +350,12 @@ def show_clip_frame(watch, path, start=0):
         watch.screen = screen
     screen.pixel_array = frame.copy()
     screen.orig_alpha_pixel_array = frame[:, :, 3].copy()
+    # WHICH frame this is, as text, so manim's animation cache can see it. Its hash of
+    # an ndarray over 1000 elements keeps only the first 10,000 values -- the top rows
+    # of the picture -- so two frames with the same top rows (a blue border) hashed
+    # alike and a cached swipe showing the OLD frame was reused (wordle 09c,
+    # 2026-10-09: 13:30 moved to 2:18 and the swipe kept showing 13:30).
+    screen.clip_key = f"{os.path.abspath(path)}@{_seconds(start):.3f}"
     screen.set_width(box.width).move_to(box)
     for m in watch.player.submobjects:      # the thumbnail and its badge go under it
         if m is not screen:
