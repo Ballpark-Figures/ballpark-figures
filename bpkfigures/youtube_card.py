@@ -325,6 +325,11 @@ class _ClipPlayback(Animation):
         super().finish()
         self._show(self.frame)
         self._close()
+        # the frame the page is LEFT on, as text for manim's animation cache (see
+        # show_clip_frame): whatever plays next starts from it, and the hash of the
+        # pixels alone cannot tell two clips' last frames apart (wordle 09d)
+        self.screen.clip_key = (f"{os.path.abspath(self.path)}@{self.start:.3f}"
+                                f"+{self.shown + 1}f@{config.frame_rate}")
 
 
 def show_clip_frame(watch, path, start=0):
