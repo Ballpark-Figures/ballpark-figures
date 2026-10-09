@@ -1516,6 +1516,33 @@ straight into DaVinci.
 - New videos get the tree from `/new-video`; an older one gets it from
   `dotclaude/add-bonus.sh <video-dir>` (idempotent, never overwrites).
 
+## Scripting the user's open DaVinci project (agent)
+Ad-hoc scripts against the LIVE project (`bpkfigures.davinci`: importing music,
+repointing clips, reading the timeline) act on the edit the user is working in, while
+they are working in it. Treat each one as touching their session, not as a free query.
+- **Few connections: batch the work into ONE script per task.** Every call opens a new
+  scripting connection to Resolve. Do not check something, act, and re-check in three
+  separate calls, and do not poll. Read what the task needs, act, and verify, in one
+  script. (2026-10-08: dozens of separate connections across an evening of music
+  work, in a Resolve session open 3.5 days, ended with its main thread pegged at 100%
+  while idle and playback stuttering everywhere; a restart fixed it. The connections are
+  a suspected contributor, NOT a proven cause; the media swaps below are the other.)
+- **Do not swap media under a clip that is on the timeline.** `ReplaceClip` RESETS each
+  timeline instance's trims: a trimmed clip went back to the start of its source and,
+  after further swaps, stretched to the full file. Before any swap, read the clip's
+  timeline instances; if any is trimmed, swap only after telling the user, and record
+  its in/out first so it can be restored by hand (the API cannot set trims).
+- **A replacement file gets a NEW filename, never an old one's.** Resolve caches media
+  by PATH: when `GameShow.mp3` held three different tracks in one evening, it kept
+  playing an earlier track's audio and showing its waveform. A new path forces a fresh
+  read. The same goes for forcing a re-read by swapping away and back: it works, but it
+  is two more swaps under any timeline instance.
+- **After a batch of renames or swaps, suggest the user restart Resolve** (save, Cmd+Q,
+  reopen). It clears stale caches and whatever the session has accumulated, and it is
+  the cheap fix for sudden playback trouble.
+- **A tool call the user interrupts may already have run.** Check the result (git log,
+  the project state) before reporting what did or did not happen.
+
 ## Rendering — use the `render` script (`bpkfigures/render.py`)
 - **Render with `bpkfigures/render`, NOT hand-rolled `manim`.** Single render path for
   user + agent (the old `manim()` zsh override is gone); run from the `scenes/` dir.
