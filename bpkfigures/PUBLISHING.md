@@ -260,6 +260,13 @@ stretchable stills remove the need to trim.
 - Runs the swap only where Resolve is reachable (the Mac); with Resolve closed / on the
   desktop it just writes the files. Powered by `bpkfigures/davinci.py`.
 
+### Footage — `python -m bpkfigures.footage <tree> [--timeline]`
+Recorded segments go into DaVinci through `bpkfigures/footage.py`: the main video's
+`footage/` into `<Video>`, the bonus video's `bonus/footage/` into `<Video> Bonus`,
+each into a `Footage` bin. `--timeline` appends every clip not yet on the open
+timeline to its end, in NAME order (so name segments `A_...`, `B_...`). A clip already
+imported or placed is left alone, so it is safe to re-run after adding one.
+
 ### Bonus video graphics — `edit_clips_bonus/` and the `Bonus` bin
 Bonus graphics (see `CLAUDE.md` § Bonus graphics) are `@still` PNGs rendered from
 `<video>/bonus/scenes/` with `render 01<letter> --stills`. They stage into

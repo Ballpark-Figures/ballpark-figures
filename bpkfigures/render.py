@@ -394,17 +394,9 @@ def _project_name():
     `<tree>/davinci_project` wins; otherwise it is derived the way new-video names
     the project — the repo name in PascalCase (`wheel-of-fortune` -> `WheelOfFortune`)
     — plus ` Bonus` (the tree name) for any tree other than `animations/`. ingest()
-    refuses to import into any other open project."""
-    override = os.path.join(os.getcwd(), "..", "davinci_project")
-    if os.path.isfile(override):
-        with open(override, encoding="utf-8") as f:
-            name = f.read().strip()
-        if name:
-            return name
-    repo = os.path.basename(_repo_root())
-    name = "".join(w[:1].upper() + w[1:] for w in repo.split("-"))
-    tree = _tree_name()
-    return name if tree == "animations" else f"{name} {tree.capitalize()}"
+    refuses to import into any other open project. The rule itself lives in
+    davinci.project_for_tree, shared with bpkfigures.footage."""
+    return davinci.project_for_tree(os.path.join(os.getcwd(), ".."), _repo_root())
 
 
 def _stage_image(letter, output, png, scene_module):

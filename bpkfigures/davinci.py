@@ -375,6 +375,26 @@ def flush_pending(edit_dir, resolve=None):
     return out
 
 
+def project_for_tree(tree_dir, repo_root):
+    """The DaVinci project a TREE's media belongs in (`animations/`, `bonus/`, ...).
+    An explicit name in `<tree>/davinci_project` wins; otherwise the repo name in
+    PascalCase (`wheel-of-fortune` -> `WheelOfFortune`), the way new-video names the
+    project, plus ` Bonus` (the tree name, capitalised) for any tree other than
+    `animations/`. The ONE statement of the rule: render.py's --stills and
+    bpkfigures.footage both ask it, so a clip and a footage file of the same tree can
+    never be routed to different projects."""
+    override = os.path.join(tree_dir, "davinci_project")
+    if os.path.isfile(override):
+        with open(override, encoding="utf-8") as f:
+            name = f.read().strip()
+        if name:
+            return name
+    repo = os.path.basename(os.path.abspath(repo_root))
+    name = "".join(w[:1].upper() + w[1:] for w in repo.split("-"))
+    tree = os.path.basename(os.path.abspath(tree_dir))
+    return name if tree == "animations" else f"{name} {tree.capitalize()}"
+
+
 def open_project_name(resolve=None):
     """Name of the open DaVinci project, or None (Resolve unreachable / none open)."""
     r = resolve or get_resolve()

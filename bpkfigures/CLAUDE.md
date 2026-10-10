@@ -1498,8 +1498,22 @@ calls for; no titles/labels/narration that weren't asked for.
 
 ## Bonus graphics (`<video>/bonus/`) — one-off stills, no script
 Each video has a second, scriptless animations tree for its lower-production BONUS
-video. The user asks in chat ("make a graphic of a table of X") and the graphic goes
-straight into DaVinci.
+(Patreon) video. The user asks in chat ("make a graphic of a table of X") and the
+graphic goes straight into DaVinci.
+- **The bonus video is RECORDED SEGMENTS plus those stills — no voiceover-driven
+  animation.** Segments live in `bonus/footage/`, named so that NAME ORDER IS PLAY
+  ORDER (`A_intro.mov`, `B_wordle.mov`, ...); the clips are gitignored, only the
+  README is tracked. `python -m bpkfigures.footage bonus --timeline` (from the video
+  root) imports them into the `Footage` bin of `<Video> Bonus` and appends any not yet
+  placed to the end of the timeline, in order. Re-running imports only new clips and
+  never moves or re-trims a placed one. It refuses with another project open unless
+  given `--switch`, which saves and reopens the user's project like `render --switch`.
+  The same tool does `animations` (the main video's `footage/`).
+- **`<Video> Bonus` is a project from the same template as the main video**
+  (`dotclaude/resolve/TEMPLATE-60fps.drp`: track layout, Music faders, Voice gate), so
+  a talking-head segment dropped on V1 sends its audio to A1 Voice exactly as in the
+  main edit. The per-project hand steps in `PUBLISHING.md` (the Dialogue Leveler on
+  Voice) apply to it too.
 - **One graphic = one `@still` method in `bonus/scenes/01bonus.py`**, appended as
   the next letter with a beat-map line in the docstring. A graphic that genuinely
   needs motion is a normal `@subscene` in the same file. There is no `Script.md`, so
