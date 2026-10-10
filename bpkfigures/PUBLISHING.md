@@ -425,9 +425,11 @@ The description body, chapters, and the specific tag list are per-video content
      the optimal solver and the paper; Battleship: the Datagenetics post).
   5. **Sponsor** — when there is one, its link (the read usually says "linked in the
      description").
-  6. **Website** — `Website: https://www.ballparkfigur.es` (Hangman on). The video's
-     own page, `/videos/<slug>/`, exists only after `website/add_video.py` runs, which
-     needs the video PUBLIC.
+  6. **Website** — the video's OWN page, `Website: https://www.ballparkfigur.es/videos/<slug>/`
+     (the user's call from Wordle on; Hangman linked the homepage). That page exists only
+     after `website/add_video.py` runs, which needs the video PUBLIC, so it 404s until
+     release day — put it in the description anyway and add the page right after
+     publishing.
   7. **Chapters** — `Chapters:` then `MM:SS Title` lines, first at `00:00`.
 - **Tags: worth adding** (the creator confirms they help). Mix per-video topic tags with
   the standing math/CS set — probability, statistics, expected value, dynamic programming,
