@@ -410,8 +410,25 @@ The description body, chapters, and the specific tag list are per-video content
 - **A/B title test:** up to 3 title variants, and **each variant can be paired with its
   own thumbnail** (so two entries with the same title text but different thumbnails is a
   valid distinct test, not a duplicate).
-- **Description structure:** one-line hook → Substack blog-post link → link to the most
-  relevant reference video (e.g. Jan Misali's hangman video) → chapters.
+- **Description structure** — as the published descriptions actually run (read from
+  YouTube 2026-10-10; Hangman is the current form). Check the last published
+  description before trusting this list over it:
+  1. **Hook** — one or two sentences on what was found.
+  2. **Blog post** — `Blog post: <url>`. **Patreon** since Hangman
+     (`patreon.com/BallparkFigures/posts/...`); Battleship and Yahtzee used Substack.
+  3. **GitHub** — `GitHub: https://github.com/Ballpark-Figures/<video>`. **The repo is
+     private until release**, so flip it public (`gh repo edit
+     Ballpark-Figures/<video> --visibility public --accept-visibility-change-consequences`)
+     when the video goes public, or the link is a 404.
+  4. **Sources / reference links** — the papers, solvers, prior videos and tools the
+     video draws on, one per line with a label (Hangman: Jan Misali's video; Yahtzee:
+     the optimal solver and the paper; Battleship: the Datagenetics post).
+  5. **Sponsor** — when there is one, its link (the read usually says "linked in the
+     description").
+  6. **Website** — `Website: https://www.ballparkfigur.es` (Hangman on). The video's
+     own page, `/videos/<slug>/`, exists only after `website/add_video.py` runs, which
+     needs the video PUBLIC.
+  7. **Chapters** — `Chapters:` then `MM:SS Title` lines, first at `00:00`.
 - **Tags: worth adding** (the creator confirms they help). Mix per-video topic tags with
   the standing math/CS set — probability, statistics, expected value, dynamic programming,
   algorithms, game theory, combinatorics, math, word games — plus the specific game/topic.
