@@ -960,6 +960,26 @@ fixed, and check the two match before the number reaches the user.
   one of the 32 instances — every one of which was correct, so a validator built on the
   claim would have rejected 32 good rounds.)
 
+- **BEFORE SAYING WHAT A SCENE (OR ANY DOCUMENT) IS ABOUT, READ ALL OF IT — and never
+  describe content you have not read.** A title, a summary, a label, a verdict that a
+  name is "out of date": each is a claim about the content, so its source is the WHOLE
+  `Script.md` section (`## NN` to the next `## `), not a file name and not the first few
+  beats. A truncated read (`sed -n` a few lines, `cut -c`) covers what it covers; if you
+  chose the window, you chose what you could miss.
+  - **When the user disputes a claim, read MORE before answering, not less.** The
+    objection is evidence that what you read was incomplete; defending the claim from the
+    same fragment doubles the error.
+  - **Content the user writes for an audience — chapter titles, a description — is
+    theirs.** Supply the facts you can measure (the timestamps) and leave the words to
+    them unless asked.
+  - The tell: you are naming or characterising something, and your source is its file
+    name, or a read you cut short.
+  (Bit us 2026-10-10: asked for YouTube chapter timestamps, the agent titled each chapter
+  from the scene FILE NAMES, turning `18slant_price` — the SLANT then PRICE strategy —
+  into "SLANT's price". Challenged, it read only 18a-18b of the scene, cut to 300
+  characters, missed the SLANT PRICE beats entirely, and told the user the file name was
+  out of date.)
+
 ## Long-running jobs (agent)
 - **THE USER RUNS THE COMPUTATIONS — build the machinery, hand over the command, whatever
   you estimate it will cost.** The agent writes the primitives, the gate and the search,
