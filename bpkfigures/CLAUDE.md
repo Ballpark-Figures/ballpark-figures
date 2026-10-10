@@ -969,9 +969,6 @@ fixed, and check the two match before the number reaches the user.
   - **When the user disputes a claim, read MORE before answering, not less.** The
     objection is evidence that what you read was incomplete; defending the claim from the
     same fragment doubles the error.
-  - **Content the user writes for an audience — chapter titles, a description — is
-    theirs.** Supply the facts you can measure (the timestamps) and leave the words to
-    them unless asked.
   - The tell: you are naming or characterising something, and your source is its file
     name, or a read you cut short.
   (Bit us 2026-10-10: asked for YouTube chapter timestamps, the agent titled each chapter
