@@ -1604,6 +1604,14 @@ they are working in it. Treat each one as touching their session, not as a free 
   HIGH; `--fast` is a quick `-ql` check and `--very-fast` is 3fps @ 256×144. `render
   01g 01h 01i` → several in sequence; `render 01` → full scene. `--recompute` ignores the
   snapshot cache.
+- **Subscene letters go PAST `z`, so a scene is never limited to 26 subscenes:** after
+  `a`..`z` come `za`..`zz`, then `zza`..`zzz`, and so on (`resolve.py`
+  `index_to_label`). The 27th subscene is `za`, the 52nd `zz`, the 53rd `zza`.
+  Each tier adds one leading `z`, so labels still sort in order in a file listing and
+  in DaVinci, where `aa` would sort before `b`. Address them like any other subscene
+  (`render 06zc`, `render 06za-`). Banner comments use the label too
+  (`# za : ...`). yahtzee scene 06 runs to `zl`. **Do not split a scene into several
+  files just to stay under 26.**
 - **The agent DEFAULTS to `--very-fast`; escalate to `--fast` ONLY when a check needs
   detail.** Most agent checks are GROSS (did it render, is X present, is the bg navy vs
   light-blue, coarse layout) and 144p answers them — faster wall-clock (big on the heavy
