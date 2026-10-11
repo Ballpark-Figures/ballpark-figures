@@ -1514,6 +1514,19 @@ graphic goes straight into DaVinci.
   a talking-head segment dropped on V1 sends its audio to A1 Voice exactly as in the
   main edit. The per-project hand steps in `PUBLISHING.md` (the Dialogue Leveler on
   Voice) apply to it too.
+- **A bonus still copies the MAIN VIDEO's own version of that kind of element —
+  find it in `animations/scenes/` and name it in the bonus file's REUSE MAP before
+  building the first one.** The bonus video is the main video's LOOK (its
+  background, its titles, its tables), not a fresh design. The bonus tree imports
+  the main video's config, but that carries colours and helpers, not what the
+  scenes DO with them, so "the base class's background" or "the bpkfigures helper"
+  is not a precedent when the video has its own version: a `get_table` cream card
+  is wrong in a video whose tables are hand-laid on navy. Once a kind is mapped,
+  every later still of it follows the map; if its main-video version lives inline in
+  scenes, collect it into an asset both can call rather than copying constants.
+  (Bit us 2026-10-10: the first wordle bonus title card came out on the cyan base
+  and the first table on a cream card, though the main video is navy with its own
+  table style — each because the helper was checked and the video was not.)
 - **One graphic = one `@still` method in `bonus/scenes/01bonus.py`**, appended as
   the next letter with a beat-map line in the docstring. A graphic that genuinely
   needs motion is a normal `@subscene` in the same file. There is no `Script.md`, so
