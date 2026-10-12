@@ -1,6 +1,10 @@
 """Insignificant Figures logo — the Ballpark Figures donut, flattened (Cairo).
 
-    manim -s -qk insignificant_logo.py Logo      # 4K square PNG
+    manim -s -qk insignificant_logo.py Logo LogoNavy
+
+Logo is the original's colouring; LogoNavy swaps the light blue and the navy (navy
+background, light-blue ring). The PNGs live beside old_logo.png at the umbrella root as
+insignificant_logo.png and insignificant_logo_navy.png.
 
 The original torus (logo.py) seen from directly above: a ring with the hole in the
 middle, the yellow glaze as a wedge on the right, and the net crossing only the navy.
@@ -30,11 +34,13 @@ SPOKES = 20
 
 
 class Logo(Scene):
+    BACKGROUND, RING = bpk.BG, bpk.SKIN
+
     def construct(self):
-        self.camera.background_color = bpk.BG
+        self.camera.background_color = self.BACKGROUND
 
         body = Annulus(inner_radius=R_IN, outer_radius=R_OUT,
-                       fill_color=bpk.SKIN, fill_opacity=bpk.BODY_OPACITY, stroke_width=0)
+                       fill_color=self.RING, fill_opacity=bpk.BODY_OPACITY, stroke_width=0)
         wedge = AnnularSector(inner_radius=R_IN, outer_radius=R_OUT,
                               start_angle=-HALF, angle=2 * HALF,
                               fill_color=bpk.YELLOW_PEN, fill_opacity=1.0, stroke_width=0)
@@ -53,3 +59,8 @@ class Logo(Scene):
                        opacity=bpk.NET_FRONT_OPACITY)
 
         self.add(body, wedge, net)
+
+
+class LogoNavy(Logo):
+    """The light blue and the navy swapped (the user's request, 2026-10-12)."""
+    BACKGROUND, RING = bpk.SKIN, bpk.BG

@@ -1509,9 +1509,16 @@ gives. So:
   immediately to prove the token works, then adds triggers at +2, +10 and +30 minutes.
   **Show the user the trigger table it prints** — that table, not a sentence saying it
   is done, is the confirmation. Ask the time zone if it is not stated; never assume one.
-- **Ask whether the video has a sponsor, and add its domain to `website/data/sponsors.json`**
-  if it is not there (commit + push). Sponsor links stay off topic pages, and nothing in
-  a description says which link is the sponsor's.
+- **Work out the sponsor YOURSELF — do not ask.** The scheduling agent is the LLM in this
+  loop (the release job itself is a plain script and cannot tell a sponsor link from a
+  source link), and the sponsor read is in the video's own script/description. Add its
+  domain to `website/data/sponsors.json` if absent (commit + push) and SAY which domain
+  you added. Sponsor links stay off topic pages (the user's call, 2026-10-12).
+- **The bonus video goes live AT THE SAME TIME as the main video** (the user's rule), so
+  one scheduling turn covers both. The pairing is known, not inferred: the bonus video is
+  the one built in that video's `bonus/` tree. Bonus videos appear on the website ONLY
+  on their main video's page (no page or listing of their own); where its button points
+  once bonus videos are on YouTube is UNDECIDED — raise it at the first such release.
 - **A changed time is a re-run with the new time**; delete the old triggers
   (`gcloud scheduler jobs delete <name>`) so the job does not also fire at the old one.
 - **After the release time, verify**: the `/videos/<slug>/` page and every GitHub link in
@@ -1534,8 +1541,10 @@ graphic goes straight into DaVinci.
   with a photo of the user) and are UNDECIDED, so do not assume the `99` thumbnail
   conventions carry over. Its logo is a flat, top-down version of the Ballpark Figures
   donut, `insignificant_logo.py` beside `logo.py` at the umbrella root
-  (`manim -s -qk insignificant_logo.py Logo`), importing every colour and dimension
-  from `logo.py`.
+  (`manim -s -qk insignificant_logo.py Logo LogoNavy`), importing every colour and
+  dimension from `logo.py`. **Its PNGs go beside `old_logo.png` at the umbrella root**
+  (`insignificant_logo.png`, `insignificant_logo_navy.png` — light blue and navy
+  swapped), not left in `media/`: the user asked for the logo to live WITH the old one.
 - **The bonus video is RECORDED SEGMENTS plus those stills — no voiceover-driven
   animation.** Segments live in `bonus/footage/`, named so that NAME ORDER IS PLAY
   ORDER (`A_intro.mov`, `B_wordle.mov`, ...); the clips are gitignored, only the
