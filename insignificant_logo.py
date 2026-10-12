@@ -1,11 +1,11 @@
 """Insignificant Figures logo — the Ballpark Figures donut, flattened (Cairo).
 
-    manim -s -qk insignificant_logo.py Logo LogoNavy LogoBlackNet
+    manim -s -qk insignificant_logo.py Logo LogoNavy LogoNavyBlackNet
 
 Logo is the original's colouring; LogoNavy swaps the light blue and the navy (navy
-background, light-blue ring); LogoBlackNet draws the mesh in black. The PNGs live WITH THE CURRENT LOGO'S render, in media/images/logo/ (gitignored),
+background, light-blue ring); LogoNavyBlackNet is LogoNavy with a black mesh. The PNGs live WITH THE CURRENT LOGO'S render, in media/images/logo/ (gitignored),
 as insignificant_logo.png, insignificant_logo_navy.png and
-insignificant_logo_blacknet.png.
+insignificant_logo_navy_blacknet.png.
 
 The original torus (logo.py) seen from directly above: a ring with the hole in the
 middle, the yellow glaze as a wedge on the right, and the net crossing only the navy.
@@ -74,6 +74,6 @@ class LogoNavy(Logo):
     BACKGROUND, RING = bpk.SKIN, bpk.BG
 
 
-class LogoBlackNet(Logo):
-    """The original colouring with BLACK mesh lines (the user's request, 2026-10-12)."""
+class LogoNavyBlackNet(LogoNavy):
+    """LogoNavy with BLACK mesh lines (the user's request, 2026-10-12)."""
     NET = BLACK
