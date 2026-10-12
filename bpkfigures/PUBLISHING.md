@@ -424,19 +424,25 @@ The description body, chapters, and the specific tag list are per-video content
   2. **Blog post** — `Blog post: <url>`. **Patreon** since Hangman
      (`patreon.com/BallparkFigures/posts/...`); Battleship and Yahtzee used Substack.
   3. **GitHub** — `GitHub: https://github.com/Ballpark-Figures/<video>`. **The repo is
-     private until release**, so flip it public (`gh repo edit
-     Ballpark-Figures/<video> --visibility public --accept-visibility-change-consequences`)
-     when the video goes public, or the link is a 404.
+     private until release and is made public AUTOMATICALLY** within ~10 minutes of the
+     video going public, by the analytics `bpka release` job (see step 6).
   4. **Sources / reference links** — the papers, solvers, prior videos and tools the
      video draws on, one per line with a label (Hangman: Jan Misali's video; Yahtzee:
      the optimal solver and the paper; Battleship: the Datagenetics post).
   5. **Sponsor** — when there is one, its link (the read usually says "linked in the
      description").
   6. **Website** — the video's OWN page, `Website: https://www.ballparkfigur.es/videos/<slug>/`
-     (the user's call from Wordle on; Hangman linked the homepage). That page exists only
-     after `website/add_video.py` runs, which needs the video PUBLIC, so it 404s until
-     release day — put it in the description anyway and add the page right after
-     publishing.
+     (the user's call from Wordle on; Hangman linked the homepage). **The page is created
+     AUTOMATICALLY when the video goes public**: the analytics job `bpka release` runs
+     every 10 minutes, and for each newly public owned video whose description contains a
+     `ballparkfigur.es/videos/<slug>` URL it adds the `website/data/videos.json` entry
+     (Cloudflare deploys it) and makes every `github.com/Ballpark-Figures/<repo>` the
+     description links public. **That URL is the trigger**: without it nothing happens.
+     It matches URLs, not labels, so "Web page:" works as well as "Website:". The blog
+     button is the description's first Patreon/Substack URL, never a guess. Anything it
+     cannot do (a linked repo that does not exist) emails an alert. Wordle's links were
+     broken on release day because this was a manual step; `website/add_video.py` remains
+     as the manual fallback only.
   7. **Chapters** — `Chapters:` then `MM:SS Title` lines, first at `00:00`.
 - **Tags: worth adding** (the creator confirms they help). Mix per-video topic tags with
   the standing math/CS set — probability, statistics, expected value, dynamic programming,
