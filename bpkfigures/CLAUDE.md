@@ -1509,6 +1509,9 @@ gives. So:
   immediately to prove the token works, then adds triggers at +2, +10 and +30 minutes.
   **Show the user the trigger table it prints** — that table, not a sentence saying it
   is done, is the confirmation. Ask the time zone if it is not stated; never assume one.
+- **Ask whether the video has a sponsor, and add its domain to `website/data/sponsors.json`**
+  if it is not there (commit + push). Sponsor links stay off topic pages, and nothing in
+  a description says which link is the sponsor's.
 - **A changed time is a re-run with the new time**; delete the old triggers
   (`gcloud scheduler jobs delete <name>`) so the job does not also fire at the old one.
 - **After the release time, verify**: the `/videos/<slug>/` page and every GitHub link in
