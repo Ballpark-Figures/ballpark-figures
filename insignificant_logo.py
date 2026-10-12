@@ -3,8 +3,8 @@
     manim -s -qk insignificant_logo.py Logo LogoNavy
 
 Logo is the original's colouring; LogoNavy swaps the light blue and the navy (navy
-background, light-blue ring). The PNGs live beside old_logo.png at the umbrella root as
-insignificant_logo.png and insignificant_logo_navy.png.
+background, light-blue ring). The PNGs live WITH THE CURRENT LOGO'S render, in media/images/logo/ (gitignored),
+as insignificant_logo.png and insignificant_logo_navy.png.
 
 The original torus (logo.py) seen from directly above: a ring with the hole in the
 middle, the yellow glaze as a wedge on the right, and the net crossing only the navy.

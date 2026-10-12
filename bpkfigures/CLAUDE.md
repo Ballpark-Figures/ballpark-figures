@@ -1542,9 +1542,9 @@ graphic goes straight into DaVinci.
   conventions carry over. Its logo is a flat, top-down version of the Ballpark Figures
   donut, `insignificant_logo.py` beside `logo.py` at the umbrella root
   (`manim -s -qk insignificant_logo.py Logo LogoNavy`), importing every colour and
-  dimension from `logo.py`. **Its PNGs go beside `old_logo.png` at the umbrella root**
+  dimension from `logo.py`. **Its PNGs go WITH THE CURRENT LOGO's render, in `media/images/logo/`**
   (`insignificant_logo.png`, `insignificant_logo_navy.png` — light blue and navy
-  swapped), not left in `media/`: the user asked for the logo to live WITH the old one.
+  swapped). `old_logo.png` at the root is the RETIRED all-navy logo, not "the old one".
 - **The bonus video is RECORDED SEGMENTS plus those stills — no voiceover-driven
   animation.** Segments live in `bonus/footage/`, named so that NAME ORDER IS PLAY
   ORDER (`A_intro.mov`, `B_wordle.mov`, ...); the clips are gitignored, only the
