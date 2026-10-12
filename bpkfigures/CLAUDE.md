@@ -1496,6 +1496,28 @@ calls for; no titles/labels/narration that weren't asked for.
   compute them yourself — SOURCE every displayed value from the user's pipeline, or
   stub-and-flag it. See "The numbers are the product — never invent a calculation".
 
+## Release day — the moment the user gives a release time, SCHEDULE IT
+A video's description links its website page and its GitHub repo, and both only work
+once the video is public. For Wordle (2026-10-11) neither was done, viewers reported
+broken links, and an earlier promise in chat to "have the website go live with the
+video" had nothing behind it. The analytics job `bpka release` now does both, but it
+has NO standing schedule (the user's call, 2026-10-12): it runs at the times the user
+gives. So:
+- **When the user states a release date and time, in ANY conversation, schedule it IN
+  THAT TURN** — `bash schedule-release.sh "YYYY-MM-DD HH:MM" <IANA zone>` in the analytics
+  repo on the machine with gcloud (see the private notes). It runs the job once
+  immediately to prove the token works, then adds triggers at +2, +10 and +30 minutes.
+  **Show the user the trigger table it prints** — that table, not a sentence saying it
+  is done, is the confirmation. Ask the time zone if it is not stated; never assume one.
+- **A changed time is a re-run with the new time**; delete the old triggers
+  (`gcloud scheduler jobs delete <name>`) so the job does not also fire at the old one.
+- **After the release time, verify**: the `/videos/<slug>/` page and every GitHub link in
+  the description return 200. Report what you checked.
+- **The description must contain the `ballparkfigur.es/videos/<slug>/` URL** — it is the
+  job's trigger (see `PUBLISHING.md` step 6). No URL, no page.
+- **Never answer a release-time message with a promise.** If scheduling fails, say so
+  and why, then and there.
+
 ## Bonus graphics (`<video>/bonus/`) — one-off stills, no script
 Each video has a second, scriptless animations tree for its lower-production BONUS
 (Patreon) video. The user asks in chat ("make a graphic of a table of X") and the

@@ -424,8 +424,8 @@ The description body, chapters, and the specific tag list are per-video content
   2. **Blog post** — `Blog post: <url>`. **Patreon** since Hangman
      (`patreon.com/BallparkFigures/posts/...`); Battleship and Yahtzee used Substack.
   3. **GitHub** — `GitHub: https://github.com/Ballpark-Figures/<video>`. **The repo is
-     private until release and is made public AUTOMATICALLY** within ~10 minutes of the
-     video going public, by the analytics `bpka release` job (see step 6).
+     private until release and is made public AUTOMATICALLY** by the analytics
+     `bpka release` job, run at the release time the user gives (see step 6).
   4. **Sources / reference links** — the papers, solvers, prior videos and tools the
      video draws on, one per line with a label (Hangman: Jan Misali's video; Yahtzee:
      the optimal solver and the paper; Battleship: the Datagenetics post).
@@ -433,8 +433,9 @@ The description body, chapters, and the specific tag list are per-video content
      description").
   6. **Website** — the video's OWN page, `Website: https://www.ballparkfigur.es/videos/<slug>/`
      (the user's call from Wordle on; Hangman linked the homepage). **The page is created
-     AUTOMATICALLY when the video goes public**: the analytics job `bpka release` runs
-     every 10 minutes, and for each newly public owned video whose description contains a
+     AUTOMATICALLY when the video goes public** — PROVIDED THE USER HAS GIVEN CLAUDE THE
+     RELEASE TIME, which schedules the analytics job `bpka release` for it (see
+     § Release day in the shared CLAUDE.md). For each newly public owned video whose description contains a
      `ballparkfigur.es/videos/<slug>` URL it adds the `website/data/videos.json` entry
      (Cloudflare deploys it) and makes every `github.com/Ballpark-Figures/<repo>` the
      description links public. **That URL is the trigger**: without it nothing happens.
