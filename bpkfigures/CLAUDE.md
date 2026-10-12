@@ -1522,14 +1522,17 @@ gives. So:
 Each video has a second, scriptless animations tree for its lower-production BONUS
 (Patreon) video. The user asks in chat ("make a graphic of a table of X") and the
 graphic goes straight into DaVinci.
-- **The bonus videos are moving to a SECOND YouTube channel, "Insignificant Figures"**
+- **The bonus videos are moving to a SECOND YouTube channel, "Insignificant Figures"
+  (`@ISFFigures`)**
   (the user's plan, 2026-10-12). It is "probably basically" the bonus channel, but may
   also carry videos on other topics, so a bonus video and an Insignificant Figures
   video are not guaranteed to be the same thing. A main video's bonus video SHARES the
   main video's styling (palette, `FONT`, props). Its THUMBNAILS may differ (possibly
   with a photo of the user) and are UNDECIDED, so do not assume the `99` thumbnail
   conventions carry over. Its logo is a flat, top-down version of the Ballpark Figures
-  donut, kept beside `logo.py` at the umbrella root.
+  donut, `insignificant_logo.py` beside `logo.py` at the umbrella root
+  (`manim -s -qk insignificant_logo.py Logo`), importing every colour and dimension
+  from `logo.py`.
 - **The bonus video is RECORDED SEGMENTS plus those stills — no voiceover-driven
   animation.** Segments live in `bonus/footage/`, named so that NAME ORDER IS PLAY
   ORDER (`A_intro.mov`, `B_wordle.mov`, ...); the clips are gitignored, only the
