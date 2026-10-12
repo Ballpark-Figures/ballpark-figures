@@ -1533,7 +1533,7 @@ Each video has a second, scriptless animations tree for its lower-production BON
 (Patreon) video. The user asks in chat ("make a graphic of a table of X") and the
 graphic goes straight into DaVinci.
 - **The bonus videos are moving to a SECOND YouTube channel, "Insignificant Figures"
-  (`@ISFFigures`)**
+  (`@ISCFigures`)**
   (the user's plan, 2026-10-12). It is "probably basically" the bonus channel, but may
   also carry videos on other topics, so a bonus video and an Insignificant Figures
   video are not guaranteed to be the same thing. A main video's bonus video SHARES the
