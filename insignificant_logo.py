@@ -1,10 +1,11 @@
 """Insignificant Figures logo — the Ballpark Figures donut, flattened (Cairo).
 
-    manim -s -qk insignificant_logo.py Logo LogoNavy
+    manim -s -qk insignificant_logo.py Logo LogoNavy LogoBlackNet
 
 Logo is the original's colouring; LogoNavy swaps the light blue and the navy (navy
-background, light-blue ring). The PNGs live WITH THE CURRENT LOGO'S render, in media/images/logo/ (gitignored),
-as insignificant_logo.png and insignificant_logo_navy.png.
+background, light-blue ring); LogoBlackNet draws the mesh in black. The PNGs live WITH THE CURRENT LOGO'S render, in media/images/logo/ (gitignored),
+as insignificant_logo.png, insignificant_logo_navy.png and
+insignificant_logo_blacknet.png.
 
 The original torus (logo.py) seen from directly above: a ring with the hole in the
 middle, the yellow glaze as a wedge on the right, and the net crossing only the navy.
@@ -41,7 +42,7 @@ NET_WIDTH = bpk.NET_FRONT_WIDTH * config.frame_width / 8.0
 
 
 class Logo(Scene):
-    BACKGROUND, RING = bpk.BG, bpk.SKIN
+    BACKGROUND, RING, NET = bpk.BG, bpk.SKIN, bpk.LIGHTYELLOW
 
     def construct(self):
         self.camera.background_color = self.BACKGROUND
@@ -62,7 +63,7 @@ class Logo(Scene):
         for i in range(NET_RINGS):
             r = R_IN + (R_OUT - R_IN) * i / (NET_RINGS - 1)
             net.add(Arc(radius=r, start_angle=HALF, angle=TAU - 2 * HALF))
-        net.set_stroke(color=bpk.LIGHTYELLOW, width=NET_WIDTH,
+        net.set_stroke(color=self.NET, width=NET_WIDTH,
                        opacity=bpk.NET_FRONT_OPACITY)
 
         self.add(body, wedge, net)
@@ -71,3 +72,8 @@ class Logo(Scene):
 class LogoNavy(Logo):
     """The light blue and the navy swapped (the user's request, 2026-10-12)."""
     BACKGROUND, RING = bpk.SKIN, bpk.BG
+
+
+class LogoBlackNet(Logo):
+    """The original colouring with BLACK mesh lines (the user's request, 2026-10-12)."""
+    NET = BLACK
