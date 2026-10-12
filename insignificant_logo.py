@@ -22,15 +22,22 @@ from manim import *
 
 import logo as bpk
 
-# Square canvas, the ring filling it as the donut fills the original's avatar.
+# Square canvas. The ring's outer edge sits at RING_FILL of the way from the centre to
+# the edge, i.e. of YouTube's circular avatar crop. 0.75 filled the circle too much
+# (the user, 2026-10-12).
+RING_FILL = 0.6
 config.pixel_width = config.pixel_height = 2160
-config.frame_width = config.frame_height = 8.0
 
 R_IN = bpk.R_MAJOR - bpk.A_MINOR
 R_OUT = bpk.R_MAJOR + bpk.A_MINOR
 HALF = (bpk.u_hi - bpk.u_lo) / 2          # the glaze's half-width, centred on the right
 NET_RINGS = 6                              # circles, rims included -> 4 inside
 SPOKES = 20
+config.frame_width = config.frame_height = 2 * R_OUT / RING_FILL
+# manim draws stroke widths relative to the FRAME, so zooming out thins the net against
+# the ring. Scale it back so the lines keep the weight they had at the first render's
+# 8-unit frame, which the user approved.
+NET_WIDTH = bpk.NET_FRONT_WIDTH * config.frame_width / 8.0
 
 
 class Logo(Scene):
@@ -55,7 +62,7 @@ class Logo(Scene):
         for i in range(NET_RINGS):
             r = R_IN + (R_OUT - R_IN) * i / (NET_RINGS - 1)
             net.add(Arc(radius=r, start_angle=HALF, angle=TAU - 2 * HALF))
-        net.set_stroke(color=bpk.LIGHTYELLOW, width=bpk.NET_FRONT_WIDTH,
+        net.set_stroke(color=bpk.LIGHTYELLOW, width=NET_WIDTH,
                        opacity=bpk.NET_FRONT_OPACITY)
 
         self.add(body, wedge, net)
