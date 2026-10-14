@@ -11,6 +11,14 @@ load wherever you're working. Video-specific rules live in that video's own
 `CLAUDE.md` (e.g. `yahtzee/CLAUDE.md`).
 
 ## Following instructions
+- **The user ALWAYS drives Claude Code through the VSCode extension, never the bare
+  CLI — on every machine, Macs and the WSL desktop alike.** So frame everything in
+  VSCode terms (the Claude panel, the `render` alias, the WSL-remote window) and do
+  NOT steer them toward `claude` on the command line or assume a terminal-only
+  workflow. "Open Claude Code" / "get Claude to take over" means the VSCode
+  extension, not a CLI session. (Bit us 2026-10-14: during a WSL desktop recovery the
+  agent repeatedly handed over `claude` CLI install/run steps as the way back in; the
+  user: "I always use you in vscode" — twice.)
 - **Do what the user explicitly asked, in the form they asked for.** When they
   name a file, format, or method ("put it in a CLAUDE.md", "use a tail flag"),
   that exact choice IS the spec — not a suggestion to improve on with your own
