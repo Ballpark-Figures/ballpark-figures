@@ -201,6 +201,28 @@ load wherever you're working. Video-specific rules live in that video's own
   fully reachable, and the only stale note said the opposite. One `tailscale status` up
   front would have replaced all of it.)
 
+- **A MISCONFIGURATION YOU FIND IS A PROBLEM TO RAISE, NOT A FACT TO RECORD OR ROUTE AROUND.**
+  The moment you notice the setup is wrong -- a tool pointed at the wrong environment, a
+  setting that defeats its purpose, one repo silently using another's files -- tell the user
+  THAT TURN, say what it breaks, and propose the fix. Do not write it into a notes file as
+  "the user has not decided": they cannot decide what they were never asked. And do not build
+  around it, however small the workaround: working around a broken setup is how it stays
+  broken.
+  - The tell: you are writing a note that ends "...whether to change it", or choosing a
+    library, a path or a method BECAUSE the environment in front of you is odd.
+  - (Bit us 2026-10-21: a session found that JupyterLab ran every video's notebooks on the
+    WORDLE venv, and wrote it in the private notes as undecided. Nine days later, a missing
+    package surfaced it again, and the agent first avoided the package, then proposed
+    installing it in a venv the notebooks did not use. The user saw it only because they
+    happened to be watching.)
+
+- **CHANGES TO AN ENVIRONMENT ARE PROPOSED AND APPROVED BEFORE THEY ARE MADE.** Installing a
+  package, changing an interpreter, kernel or venv, editing an app's or the machine's
+  settings: say which machine, which environment, and what else it touches (other repos, other
+  machines, a lockfile), and wait for the go-ahead. The user's standing default is to add a
+  package a project needs to THAT project's own venv and its `requirements.lock` -- that is
+  what to propose, not a license to install anywhere.
+
 - **A WORKAROUND is an INTERIM, never a substitute for the ask — and NEVER pronounce
   something not worth fixing before you have looked at the MECHANISM.** When the user
   states a goal ("I want it to open Chrome", "I want this to work"), that goal IS the spec.
