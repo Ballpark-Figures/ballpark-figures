@@ -557,11 +557,17 @@ class BpkScene(Scene):
                 # the asymmetry the setup_scene guard exists to prevent.
                 self._sfx_still = self._is_still(name)
                 if self._is_still(name):
+                    kept = list(self.mobjects)
                     self._clear_frame()          # independent frame: no carry-over
                 getattr(self, name)()
                 self._sfx_still = False
                 self.wait(SUBSCENE_HOLD)         # single shared pause between subscenes
-                if not self._is_still(name):     # still frames need no snapshot
+                if self._is_still(name):
+                    # ...and none carried OUT either: the next subscene resumes from
+                    # the state before the still, as it does when rendered alone.
+                    self._clear_frame()
+                    self.add(*kept)
+                else:                            # still frames need no snapshot
                     self._save_snapshot(i, names)
             return
 
@@ -597,6 +603,8 @@ class BpkScene(Scene):
         if loaded_j < idx - 1:                  # replay the gap (or full prefix)
             self.renderer.skip_animations = True
             for i in range(loaded_j + 1, idx):
+                if self._is_still(names[i]):     # a still changes no state: skip it,
+                    continue                     # or its frame would leak into this one
                 getattr(self, names[i])()
                 self._save_snapshot(i, names)
             self.renderer.skip_animations = False
