@@ -543,6 +543,10 @@ traceable to the user's OWN computations, never re-derived by the agent.
   1080p, timeline fps), gitignored; a `.drp` is a Resolve backup, never uploaded.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB battleship defines its own `BOARD_FILL`.
+- **The default background, `BG_COLOR`, is NAVY (`BOARD_NAVY`) from wheel-of-fortune on**
+  (the user's call, 2026-10-25). The old light blue is `LIGHT_BLUE`; yahtzee, hangman,
+  mastermind and wordle pin `BG_COLOR = LIGHT_BLUE` in their own `config.py`, so they
+  render as before. A video's "light blue" means `LIGHT_BLUE`, never `BG_COLOR`.
 - **Reserved scene-number slots (2-DIGIT prefixes — `resolve` slices `target[:2]`, so
   1/3-digit prefixes break subscene addressing).** `01`,`02`,… are content scenes; two
   META-files bookend them, each a normal `BpkScene` subclass:
