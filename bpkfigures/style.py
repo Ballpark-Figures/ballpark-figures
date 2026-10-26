@@ -5,7 +5,7 @@ from manim import *
 # The channel's light blue — the default background through wordle. Videos made
 # before the switch pin BG_COLOR to it in their own config.py, so they render as they
 # always did.
-LIGHT_BLUE = ManimColor.from_rgb((2, 164, 211))
+CYAN_BG = ManimColor.from_rgb((2, 164, 211))   # #02A4D3
 # Dark navy. First used as hangman's chalkboard slate (chalkboard.py imports it from
 # here, same value), then wordle's board background.
 BOARD_NAVY = ManimColor("#16283F")

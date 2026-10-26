@@ -544,9 +544,11 @@ traceable to the user's OWN computations, never re-derived by the agent.
 - Shared style: `bpkfigures/style.py` (`ACCENT_FILL`, `BG_COLOR`, `FONT`,
   `crisp_text`/`crisp_paragraph`). NB battleship defines its own `BOARD_FILL`.
 - **The default background, `BG_COLOR`, is NAVY (`BOARD_NAVY`) from wheel-of-fortune on**
-  (the user's call, 2026-10-25). The old light blue is `LIGHT_BLUE`; yahtzee, hangman,
-  mastermind and wordle pin `BG_COLOR = LIGHT_BLUE` in their own `config.py`, so they
-  render as before. A video's "light blue" means `LIGHT_BLUE`, never `BG_COLOR`.
+  (the user's call, 2026-10-25). The old cyan (`#02A4D3`) is `CYAN_BG`; yahtzee,
+  hangman, mastermind and wordle pin `BG_COLOR = CYAN_BG` in their own `config.py`, so
+  they render as before. NB `LIGHT_BLUE` is a DIFFERENT colour (`#3FAEF5`, the light
+  palette's blue); the first version of this change named the cyan `LIGHT_BLUE` too,
+  and the palette's later definition silently won.
 - **Reserved scene-number slots (2-DIGIT prefixes — `resolve` slices `target[:2]`, so
   1/3-digit prefixes break subscene addressing).** `01`,`02`,… are content scenes; two
   META-files bookend them, each a normal `BpkScene` subclass:
