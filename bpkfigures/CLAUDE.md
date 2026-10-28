@@ -216,6 +216,20 @@ load wherever you're working. Video-specific rules live in that video's own
     installing it in a venv the notebooks did not use. The user saw it only because they
     happened to be watching.)
 
+- **IF FIXING A PROBLEM IS BLOCKED ON SOMETHING ONLY THE USER CAN DO, ASK THEM FOR IT
+  THAT TURN — never let the problem persist, and never build a standing workaround around
+  the gap.** A sign-in, a password, a sudo step, a tool to install, a machine to wake: the
+  user's words, 2026-10-28: "if something like that is blocked on me, you should just ask
+  me rather than continue to allow a problem like that to persist." Name the exact step
+  (the command, what it opens, why it is needed), and once they have done it, finish the
+  fix and remove whatever made the step necessary.
+  - The tell: you are writing "can only be done from X", "lives only on X" or "needs the
+    user to..." into a notes file as a standing fact, or routing work through the one
+    place it happens to work. That is a gap to close, so ask.
+  - (Bit us 2026-10: gcloud was installed only on the older Mac. That was written down as
+    a fact for weeks instead of raised, every deploy had to go through that machine, and
+    an analytics fix committed 2026-10-15 was not deployed until 2026-10-28 while the
+    daily job failed every morning. Closing it took the user three commands.)
 - **CHANGES TO AN ENVIRONMENT ARE PROPOSED AND APPROVED BEFORE THEY ARE MADE.** Installing a
   package, changing an interpreter, kernel or venv, editing an app's or the machine's
   settings: say which machine, which environment, and what else it touches (other repos, other
