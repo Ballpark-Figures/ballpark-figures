@@ -201,6 +201,27 @@ load wherever you're working. Video-specific rules live in that video's own
   fully reachable, and the only stale note said the opposite. One `tailscale status` up
   front would have replaced all of it.)
 
+- **WHERE THE FACTS ABOUT THE USER'S SETUP LIVE — read the entry BEFORE advising on their
+  own gear, machines or workflow.** A question that sounds like shopping or general advice
+  ("which camera should I get?", "is this mic worth it?", "should I upgrade X?") is a
+  question about THEIR setup, so it starts with a lookup, not with reasoning from file
+  metadata. **One home per topic: a new fact goes into the file listed here, and a new
+  topic gets a row here.**
+  - **Recording kit** — talking heads (camera/phone, wireless lav, capture app and its
+    settings) and the voiceover mic and monitoring: `bpkfigures/PUBLISHING.md`, "Talking
+    heads" and "Mic + monitoring" under § 2.
+  - **DaVinci Resolve** — project settings, track layout, audio effects, loudness, export:
+    `bpkfigures/PUBLISHING.md` § 1-4.
+  - **YouTube upload and music licensing**: `bpkfigures/PUBLISHING.md` § 5.
+  - **Machines, network, SSH, cloud tooling, billing**: the private notes
+    (`CLAUDE.private.md`), with system packages in `dotclaude/Brewfile`.
+  - **Editors and apps** (VSCode, JupyterLab Desktop) and **audio hardware faults**: the
+    private notes.
+  - (Bit us 2026-10-31: asked about Wirecutter's vlogging cameras, the agent ran `ffprobe`
+    on a talking-head clip, inferred a Mac-side capture and a built-in mic from its tags
+    and bitrate, and recommended buying a mic. The kit, an iPhone with a RØDE Wireless GO
+    and lav, was written up in PUBLISHING.md the whole time.)
+
 - **A MISCONFIGURATION YOU FIND IS A PROBLEM TO RAISE, NOT A FACT TO RECORD OR ROUTE AROUND.**
   The moment you notice the setup is wrong -- a tool pointed at the wrong environment, a
   setting that defeats its purpose, one repo silently using another's files -- tell the user
