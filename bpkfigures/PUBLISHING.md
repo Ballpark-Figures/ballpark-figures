@@ -144,7 +144,8 @@ Each recording session:
 **Talking heads (RØDE Wireless GO + iPhone + RØDE Capture) — the house setup
 (recorded 2026-10-04 from the user's own screenshots):**
 - **Kit:** a RØDE **Wireless GO** receiver (RX) with **two transmitters** (TX 1, TX 2),
-  all on firmware **2.0.8**. Recorded on the **iPhone** in the **RØDE Capture** app,
+  all on firmware **2.0.8**. Recorded on the user's **iPhone mini** (generation not yet
+  recorded) in the **RØDE Capture** app,
   **held horizontally**, then **AirDropped** to the laptop.
 - **The GO's settings live ON THE DEVICES**, changed in **RODE Central on the iPhone**
   (not on any computer), so a new laptop needs nothing for them. RODE Central on a
