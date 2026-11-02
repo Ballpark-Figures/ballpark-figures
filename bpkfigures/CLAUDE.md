@@ -561,6 +561,23 @@ traceable to the user's OWN computations, never re-derived by the agent.
       over ~60 rows to a head/tail preview, silently hiding rows in the exploratory
       tables. Add this line whenever you author a new notebook (or first touch one
       that lacks it).
+    - **A NOTEBOOK THE USER HAS OPEN IN JUPYTERLAB: ask them to SAVE it before you edit
+      it, and to RELOAD it (Ctrl Shift R) after.** The agent edits the FILE on disk; what
+      the user changed in the open tab and has not saved is not in it, and is lost the
+      moment the tab reloads the agent's version. A parameter they moved (`MIN_ROUNDS` 50
+      to 300, `TOP_WINDOW` 5 to 1) silently comes back at its old value, and they have to
+      find and reset it. Autosave narrows the gap but does not close it: JupyterLab has
+      no save-on-run. So, every time:
+      - **before the first edit of a turn**, ask "save the notebook first?" unless the user
+        has just said it is saved;
+      - **edit only the cells the change needs**, leaving every other cell, settings
+        included, exactly as it is on disk;
+      - **commit only your own change**: build the commit from the last committed version
+        with the same edit (so the user's uncommitted outputs and settings stay out), and
+        say so in one line;
+      - **end the handoff with "reload it (Ctrl Shift R) before running or saving"**.
+      (Bit us 2026-11-02, three times in one session in wheel-of-fortune's bonus notebook:
+      the user had to reset parameters after each agent edit. The user asked for this rule.)
   - `animations/{config.py, assets/, scenes/NN<name>.py}` — the RENDER side: scene
     code, visual assets, per-scene render caches (`assets/<name>_data.py` +
     `<name>_cache.json`). `assets/` is NOT a home for raw source data.
