@@ -561,22 +561,21 @@ traceable to the user's OWN computations, never re-derived by the agent.
       over ~60 rows to a head/tail preview, silently hiding rows in the exploratory
       tables. Add this line whenever you author a new notebook (or first touch one
       that lacks it).
-    - **A NOTEBOOK THE USER HAS OPEN IN JUPYTERLAB: ask them to SAVE it before you edit
-      it.** The agent edits the FILE on disk; what
-      the user changed in the open tab and has not saved is not in it, and is lost the
-      moment the tab reloads the agent's version. A parameter they moved (`MIN_ROUNDS` 50
-      to 300, `TOP_WINDOW` 5 to 1) silently comes back at its old value, and they have to
-      find and reset it. Autosave narrows the gap but does not close it: JupyterLab has
-      no save-on-run. So, every time:
-      - **before the first edit of a turn**, ask "save the notebook first?" unless the user
-        has just said it is saved;
+    - **A NOTEBOOK THE USER HAS OPEN IN JUPYTERLAB: apply every change to their working
+      copy straight away, and NEVER ask them to save first** (the user's words,
+      2026-11-02: "I don't want you to not apply changes you make, and I don't want you to
+      have to ask me about saving"). The agent edits the FILE on disk, so what the user has
+      changed in the open tab and not saved is not in it; that gap is closed on the user's
+      side instead: their JupyterLab saves on every run key and autosaves every 5 seconds
+      (see the private notes). So, every time:
       - **edit only the cells the change needs**, leaving every other cell, settings
         included, exactly as it is on disk;
       - **commit only your own change**: build the commit from the last committed version
         with the same edit (so the user's uncommitted outputs and settings stay out), and
         say so in one line.
       (Bit us 2026-11-02, three times in one session in wheel-of-fortune's bonus notebook:
-      the user had to reset parameters after each agent edit. The user asked for this rule.)
+      the user had to reset parameters they had changed in the tab after each agent edit,
+      before their JupyterLab saved on run.)
   - `animations/{config.py, assets/, scenes/NN<name>.py}` — the RENDER side: scene
     code, visual assets, per-scene render caches (`assets/<name>_data.py` +
     `<name>_cache.json`). `assets/` is NOT a home for raw source data.
