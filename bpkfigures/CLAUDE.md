@@ -1063,6 +1063,43 @@ fixed, and check the two match before the number reaches the user.
   characters, missed the SLANT PRICE beats entirely, and told the user the file name was
   out of date.)
 
+## A new data source gets an INVENTORY of everything it carries before anything is stripped (agent)
+When a project starts reading a source -- HTML pages, PDFs, spreadsheets, video, an API --
+the first deliverable is a written list of EVERY kind of information the raw source holds,
+not just the text: formatting (colour, bold, size), tables, images, links, alt text,
+metadata, layout. For each, say what it appears to encode (measured over a sample, not
+guessed) and whether the pipeline keeps it. **Anything dropped that could carry information
+is raised with the user at that point**, and the inventory goes in the project's CLAUDE.md
+beside the source's entry.
+- **Why:** converting to plain text is the default first step, and it silently decides what
+  every later stage can ever know. Nothing downstream can notice what was thrown away before
+  it existed, so no check, gate or reader catches it.
+- **When a problem is being solved the hard way** -- inferring from money gaps or wording what
+  some field must have been -- go back to the RAW source and look for whether it states it
+  some other way before building the inference.
+- The tell: you are writing an HTML-to-text (or PDF-to-text) step, or reading only the `text`
+  field of a record that also has the raw markup.
+- (Bit us 2026-11-03, wheel-of-fortune: the recaps colour names by seat, wheel values by
+  wedge, and solves right or wrong, letter by letter. The extraction read text with the HTML
+  stripped, and weeks of work inferred wedges and attributions the colours would have shown.
+  Found only when the user mentioned the colours, too late for the video.)
+
+## A new analysis reads data through the project's shared loaders and filters, and its examples are read against the source (agent)
+- **Every filter the project's loaders apply is part of what the data MEANS**, not an option.
+  A new analysis that walks the data itself (a loop over rounds, records, rows) instead of
+  calling the shared loader must apply the same filter -- call the loader's own predicate,
+  never re-derive it -- or it reads records the project has already decided are unreliable.
+  The tell: you are writing a loop over raw records in a new module, and you have not named
+  which loader filter you are applying.
+- **A list of examples is read against the source before it is handed over.** Open the raw
+  source for at least the first rows and check that what the row claims happened is what the
+  source says. A table of examples is a set of claims about individual cases, and one row
+  read against its source catches what no aggregate check can.
+- (Bit us 2026-11-03, wheel-of-fortune: a table of final-spin solves "with no call first"
+  walked the game summary without `load.regular_round_problem`, so 5 of its 7 rows came from
+  rounds whose call order the LLM reader had marked inferred. The user found it by opening
+  one recap.)
+
 ## Long-running jobs (agent)
 - **THE USER RUNS THE COMPUTATIONS — build the machinery, hand over the command, whatever
   you estimate it will cost.** The agent writes the primitives, the gate and the search,
