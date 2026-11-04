@@ -1612,7 +1612,12 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         quality = "-qk"
     else:
         quality = "-qh"
-    cmd = [manim, quality]
+    # manim's own cache reuses a play's clip whenever the objects' STATE hashes the
+    # same, so a change to an animation's CODE (a custom interpolate_mobject) still
+    # renders the old clip, and --recompute cannot reach it (2026-11-04: a fix to a
+    # flight's pop rendered stale until the partials were deleted). The snapshot
+    # cache and the skip keys above do the skipping that matters, keyed on the code.
+    cmd = [manim, quality, "--disable_caching"]
     if image:
         cmd += ["-s"]                            # save the LAST frame as a PNG (no video)
     if very_fast:

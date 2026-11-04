@@ -1919,6 +1919,14 @@ they are working in it. Treat each one as touching their session, not as a free 
   <Scene>/` for any that fail `ffprobe` to catch others. Nuking the folder also works
   (regenerable build artifact) but forces a full re-render. (Bit us 2026-08-13: agent
   fast-iterate kills left one truncated partial that blocked `render 18a` and the full scene.)
+- **`render` runs manim with `--disable_caching` (from 2026-11-04), so manim no longer
+  reuses a play's clip across renders.** Its cache keyed a clip on the objects' STATE, not
+  the animation's CODE: an edit to a custom `interpolate_mobject` kept rendering the old
+  clip, and `--recompute` (which bypasses OUR caches only) could not reach it. The snapshot
+  cache and the per-subscene skip keys do the skipping, and they key on the code. Clips
+  rendered before the change can still be stale; deleting a scene's
+  `partial_movie_files/` clears them. The corrupt-partial failure above now needs a
+  partial left over from before the change, or an interrupted render's own.
 
 ## Snapshot cache (`bpkfigures/scene.py`)
 - Rendering one subscene loads the LATEST VALID snapshot at or before the prior
