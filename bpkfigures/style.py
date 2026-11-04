@@ -200,10 +200,13 @@ class CrispCounter:
 
     def __init__(self, prefix, tracker, *, left, y, font_size, color=BLACK,
                  weight=NORMAL, fmt=None, up_color=None, down_color=None,
-                 color_of=None):
+                 color_of=None, align=LEFT):
         # color_of: optional value -> colour; when given the readout is always the
         # colour of the value it shows (no flash), e.g. a win rate on a red-green scale
+        # align: which edge of the readout sits at x=`left` -- LEFT (the default), RIGHT,
+        # or ORIGIN to centre it there (a centred readout shifts a little as digits change)
         self.color_of = color_of
+        self.align = align
         self.prefix, self.tracker = prefix, tracker
         self.left, self.y, self.font_size = left, y, font_size
         self.color, self.weight = color, weight
@@ -217,7 +220,7 @@ class CrispCounter:
         numstr = self.fmt(value)
         m = crisp_text(self.prefix + numstr, font_size=self.font_size,
                        color=self.color, weight=self.weight)
-        m.move_to([self.left, self.y, 0], aligned_edge=LEFT)     # FIXED left edge — no recentre
+        m.move_to([self.left, self.y, 0], aligned_edge=getattr(self, "align", LEFT))  # FIXED edge
         if num_color != self.color and numstr:
             m[-len(numstr):].set_color(num_color)                # recolour only the number glyphs
         return m
@@ -237,6 +240,20 @@ class CrispCounter:
                 c = interpolate_color(col, self.color, t)
             m.become(self._build(v, c))
         return upd
+
+    def place(self, *, left=None, y=None, font_size=None):
+        """Move the readout's anchor (and size) and rebuild it there at once -- for a
+        readout carried along with something that moved or was scaled between counts."""
+        if left is not None:
+            self.left = left
+        if y is not None:
+            self.y = y
+        if font_size is not None:
+            self.font_size = font_size
+        v = self.tracker.get_value()
+        self.mob.become(self._build(v, self.color if self.color_of is None
+                                    else self.color_of(v)))
+        return self
 
     def count(self, scene, value, run_time, *, flash="auto"):
         """Animate the tracker to ``value`` (the readout follows via a become() updater);
