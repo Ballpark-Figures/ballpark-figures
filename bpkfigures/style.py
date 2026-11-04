@@ -200,13 +200,15 @@ class CrispCounter:
 
     def __init__(self, prefix, tracker, *, left, y, font_size, color=BLACK,
                  weight=NORMAL, fmt=None, up_color=None, down_color=None,
-                 color_of=None, align=LEFT):
+                 color_of=None, align=LEFT, outline=None):
         # color_of: optional value -> colour; when given the readout is always the
         # colour of the value it shows (no flash), e.g. a win rate on a red-green scale
         # align: which edge of the readout sits at x=`left` -- LEFT (the default), RIGHT,
         # or ORIGIN to centre it there (a centred readout shifts a little as digits change)
+        # outline: (colour, width) drawn behind the letters, so they keep their size
         self.color_of = color_of
         self.align = align
+        self.outline = outline
         self.prefix, self.tracker = prefix, tracker
         self.left, self.y, self.font_size = left, y, font_size
         self.color, self.weight = color, weight
@@ -221,6 +223,11 @@ class CrispCounter:
         m = crisp_text(self.prefix + numstr, font_size=self.font_size,
                        color=self.color, weight=self.weight)
         m.move_to([self.left, self.y, 0], aligned_edge=getattr(self, "align", LEFT))  # FIXED edge
+        outline = getattr(self, "outline", None)
+        if outline:
+            m.set_stroke(outline[0], width=outline[1], background=True)
+            for part in m.family_members_with_points():
+                part.joint_type = LineJointType.ROUND
         if num_color != self.color and numstr:
             m[-len(numstr):].set_color(num_color)                # recolour only the number glyphs
         return m
