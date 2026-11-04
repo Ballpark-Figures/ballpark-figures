@@ -68,7 +68,7 @@ def speech_bubble(text, *, font_size=FONT_SIZE_MD, text_color=BOARD_NAVY,
                   fill_color=CARD_FILL, stroke_color=MUTED_GREY, stroke_width=2.0,
                   corner_radius=0.28, pad_w=0.30, pad_h=0.30, min_width=1.45,
                   tail="left", tail_len=0.5, tail_spread=0.175,
-                  tail_base=-0.375, tail_tip=-0.625, pill=True):
+                  tail_base=-0.375, tail_tip=-0.625, pill=True, weight=NORMAL):
     """A speech bubble sized to ``text`` (may contain ``\\n``).
 
     Defaults to the house look — a warm ``CARD_FILL`` PILL (stadium ends) with a
@@ -83,9 +83,9 @@ def speech_bubble(text, *, font_size=FONT_SIZE_MD, text_color=BOARD_NAVY,
     height (both fractions of the half-height). ``pill=True`` gives fully-rounded
     (stadium) ends — the body's corner radius becomes half its height, so a
     short single-line label reads as a capsule. The bubble body is centred on
-    ORIGIN before you ``move_to`` it."""
+    ORIGIN before you ``move_to`` it. ``weight``: the text's (e.g. BOLD)."""
     label = crisp_paragraph(*text.split("\n"), font_size=font_size,
-                            color=text_color, alignment="center")
+                            color=text_color, alignment="center", weight=weight)
     w = max(label.width + 2 * pad_w, min_width)
     h = label.height + 2 * pad_h
     radius = h / 2 if pill else min(corner_radius, h / 2 * 0.9)
