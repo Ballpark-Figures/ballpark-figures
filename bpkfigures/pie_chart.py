@@ -22,6 +22,12 @@ For an INCREMENTAL build across several beats (reveal some sectors now, more lat
     .fan_group(scene, indices, run_time)
                                       — grow a contiguous `indices` as ONE arc from the
                                         first's edge (fan_all restricted to the group).
+To CHANGE a pie already on screen (e.g. once a letter rules some answers out):
+    .resize_sectors(scene, values, run_time[, anchor=None])
+                                      — every arc moves to its share of the new `values`;
+                                        a sector given 0 is EATEN by its neighbours from
+                                        both sides. One point (by default opposite the
+                                        eaten sectors) stays still; labels cross-fade.
 Both/all use manim's default easing. Colours (and optional labels) are the caller's —
 e.g. vowels red + consonants blue.
 """
@@ -37,7 +43,8 @@ class PieChart(VGroup):
                  stroke_color=WHITE, stroke_width=2.0, label_color=None,
                  label_font_size=FONT_SIZE_SM, show_percent=True, label_buff=0.4,
                  label_mode="outside", inner_label_color=WHITE, inner_frac=0.62,
-                 inner_frac_spread=0.0, min_label_frac=0.0, leader_color=GREY, **kwargs):
+                 inner_frac_spread=0.0, min_label_frac=0.0, leader_color=GREY,
+                 rotation=0.0, **kwargs):
         super().__init__(**kwargs)
         vals = [float(v) for v in values]
         total = sum(vals) or 1.0
@@ -46,14 +53,25 @@ class PieChart(VGroup):
         self.colors = list(colors)
         self.stroke_color = stroke_color
         self.stroke_width = stroke_width
+        # what resize_sectors needs to rebuild the labels for new values
+        self._label_args = dict(
+            colors=colors, labels=labels, radius=radius, center=center,
+            stroke_color=stroke_color, stroke_width=stroke_width, label_color=label_color,
+            label_font_size=label_font_size, show_percent=show_percent,
+            label_buff=label_buff, label_mode=label_mode,
+            inner_label_color=inner_label_color, inner_frac=inner_frac,
+            inner_frac_spread=inner_frac_spread, min_label_frac=min_label_frac,
+            leader_color=leader_color)
         # each sector's arc (radians), the cumulative arc before it, and its start edge
-        # (measured CLOCKWISE from the top). angle is drawn NEGATIVE = clockwise.
+        # (measured CLOCKWISE from the top, less `rotation`: how far clockwise the first
+        # sector starts, nonzero only after a resize). angle is drawn NEGATIVE = clockwise.
+        self.rotation = rotation
         self.arc = [v / total * TAU for v in vals]
         self.cum_before, c = [], 0.0
         for a in self.arc:
             self.cum_before.append(c)
             c += a
-        self.start = [_TOP - cb for cb in self.cum_before]
+        self.start = [_TOP - rotation - cb for cb in self.cum_before]
 
         self.sectors = VGroup(*[self._sector(i, self.arc[i])
                                 for i in range(len(vals))])
@@ -67,7 +85,7 @@ class PieChart(VGroup):
             # self.labels index-aligned with self.sectors for the reveal animations)
             # so a spray of tiny slivers isn't an unreadable pile of overlapping %.
             for i in range(len(vals)):
-                if vals[i] / total < min_label_frac:
+                if vals[i] <= 0 or vals[i] / total < min_label_frac:
                     self.labels.add(VGroup())
                     continue
                 mid = self.start[i] - self.arc[i] / 2
@@ -89,7 +107,7 @@ class PieChart(VGroup):
             min_gap = 0.55                                 # min vertical spacing per column
             built, sides = {}, {1.0: [], -1.0: []}
             for i, name in enumerate(labels):
-                if vals[i] / total < min_label_frac:
+                if vals[i] <= 0 or vals[i] / total < min_label_frac:
                     continue
                 mid = self.start[i] - self.arc[i] / 2
                 d = np.array([np.cos(mid), np.sin(mid), 0.0])
@@ -120,7 +138,7 @@ class PieChart(VGroup):
             self.add(self.labels)
         elif labels is not None:
             for i, name in enumerate(labels):
-                if vals[i] / total < min_label_frac:
+                if vals[i] <= 0 or vals[i] / total < min_label_frac:
                     self.labels.add(VGroup())                  # placeholder: keep alignment
                     continue
                 mid = self.start[i] - self.arc[i] / 2          # sector mid-angle
@@ -265,6 +283,88 @@ class PieChart(VGroup):
             self._redraw(i, self.arc[i])
             if i < len(self.labels):
                 self.labels[i].set_opacity(1)
+
+    def resize_sectors(self, scene, values, run_time, *, anchor=None, extra=()):
+        """Re-split the pie to new `values` (one per sector, in the same order): every
+        arc moves from its old share to its new one at once, and a sector given 0 is
+        EATEN by its neighbours, which grow into it from both sides until it is gone.
+        The values are the caller's (sourced, like the first ones); nothing here
+        renormalises a removal for you.
+
+        One point of the ring stays still, so the pie never spins: `anchor` (radians
+        clockwise from the top), by default the point opposite the eaten sectors
+        (their arc-weighted mean direction), so the gap closes on itself. With nothing
+        eaten the default is the first sector's start edge. Old labels fade out over
+        the first 40% and the new ones (new percentages, new positions) fade in over
+        the last 40%. `extra` plays alongside."""
+        vals = [float(v) for v in values]
+        n = len(self.sectors)
+        if len(vals) != n:
+            raise ValueError(f"resize_sectors: {len(vals)} values for {n} sectors")
+        total = sum(vals)
+        if total <= 0:
+            raise ValueError("resize_sectors: the new values sum to 0")
+        old = list(self.arc)
+        new = [v / total * TAU for v in vals]
+        rot0 = self.rotation
+
+        def cums(arcs):
+            out, c = [], 0.0
+            for a in arcs:
+                out.append(c)
+                c += a
+            return out
+
+        old_cum = cums(old)
+        if anchor is None:
+            gone = [i for i in range(n) if new[i] <= 0 < old[i]]
+            if gone:
+                # the eaten sectors' mean direction (clockwise from the top), then opposite
+                mids = [rot0 + old_cum[i] + old[i] / 2 for i in gone]
+                w = [old[i] for i in gone]
+                x = sum(wi * np.cos(m) for wi, m in zip(w, mids))
+                y = sum(wi * np.sin(m) for wi, m in zip(w, mids))
+                anchor = np.arctan2(y, x) + PI
+            else:
+                anchor = rot0
+        # the anchor's place in the OLD layout: sector j, fraction f of its arc. It is
+        # kept at the same angle as every arc changes, which fixes the rotation.
+        rel = (anchor - rot0) % TAU
+        j = next((k for k in range(n) if old[k] > 0 and old_cum[k] + old[k] >= rel), n - 1)
+        f = (rel - old_cum[j]) / old[j] if old[j] > 0 else 0.0
+        f = min(max(f, 0.0), 1.0)
+
+        def layout(alpha):
+            arcs = [(1 - alpha) * o + alpha * w for o, w in zip(old, new)]
+            cum = cums(arcs)
+            rot = anchor - cum[j] - f * arcs[j]
+            return arcs, cum, rot
+
+        _, _, rot1 = layout(1.0)
+        target = PieChart(vals, rotation=rot1, **self._label_args)
+        new_labels = target.labels
+        new_labels.set_opacity(0)
+        old_labels = self.labels
+        scene.add(new_labels)
+
+        def func(_m, alpha):
+            arcs, cum, rot = layout(alpha)
+            for i in range(n):
+                self._redraw(i, arcs[i], start=_TOP - rot - cum[i])
+            old_labels.set_opacity(max(0.0, 1 - alpha / 0.4))
+            new_labels.set_opacity(max(0.0, (alpha - 0.6) / 0.4))
+
+        scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
+        # adopt the new layout, so later calls (another resize) start from it
+        self.rotation, self.arc, self.cum_before = rot1, new, cums(new)
+        self.start = [_TOP - rot1 - cb for cb in self.cum_before]
+        for i in range(n):
+            self._redraw(i, self.arc[i])
+        scene.remove(new_labels)
+        self.remove(old_labels)
+        new_labels.set_opacity(1)
+        self.labels = new_labels
+        self.add(new_labels)
 
 
 def get_pie_chart(values, **kwargs):
