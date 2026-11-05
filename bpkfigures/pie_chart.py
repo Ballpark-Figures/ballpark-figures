@@ -6,7 +6,11 @@ the top (12 o'clock), with two fan-in animations.
     .labels    per-sector labels — `label_mode="outside"` (default): "NAME  ##%" on the
                rim ray; `label_mode="inside"`: just "##%" inside each wedge (no names);
                `label_mode="callout"`: "NAME  ##%" in a left/right column beside the pie,
-               de-collided vertically with a leader line to the slice (crowded slices)
+               de-collided vertically with a leader line to the slice (crowded slices);
+               `label_mode="legend"`: a column on ONE side (`legend_side`), a colour
+               swatch per row in slice order, so labels never cross the pie or the far
+               side (added for wheel-of-fortune 03). `label_factory(name, pct)` builds
+               a legend row's label as any mobject (default "NAME  ##%" text)
 and two animation methods (each takes the scene + a single `run_time`, both starting
 at the vertical and sweeping CLOCKWISE):
     .fan_all(scene, run_time)         — ALL sectors grow SIMULTANEOUSLY from the top,
@@ -44,7 +48,8 @@ class PieChart(VGroup):
                  label_font_size=FONT_SIZE_SM, show_percent=True, label_buff=0.4,
                  label_mode="outside", inner_label_color=WHITE, inner_frac=0.62,
                  inner_frac_spread=0.0, min_label_frac=0.0, leader_color=GREY,
-                 rotation=0.0, **kwargs):
+                 rotation=0.0, legend_side="right", legend_buff=0.5, legend_gap=0.5,
+                 swatch_size=0.28, label_factory=None, **kwargs):
         super().__init__(**kwargs)
         vals = [float(v) for v in values]
         total = sum(vals) or 1.0
@@ -61,7 +66,8 @@ class PieChart(VGroup):
             label_buff=label_buff, label_mode=label_mode,
             inner_label_color=inner_label_color, inner_frac=inner_frac,
             inner_frac_spread=inner_frac_spread, min_label_frac=min_label_frac,
-            leader_color=leader_color)
+            leader_color=leader_color, legend_side=legend_side, legend_buff=legend_buff,
+            legend_gap=legend_gap, swatch_size=swatch_size, label_factory=label_factory)
         # each sector's arc (radians), the cumulative arc before it, and its start edge
         # (measured CLOCKWISE from the top, less `rotation`: how far clockwise the first
         # sector starts, nonzero only after a resize). angle is drawn NEGATIVE = clockwise.
@@ -135,6 +141,33 @@ class PieChart(VGroup):
                     built[e["i"]] = VGroup(leader, lab)
             for i in range(len(vals)):
                 self.labels.add(built.get(i, VGroup()))
+            self.add(self.labels)
+        elif label_mode == "legend" and labels is not None:
+            # one column beside the pie, rows top to bottom in slice order, each a
+            # swatch of the slice's colour then its label; centred on the pie's height
+            rows = []
+            for i, name in enumerate(labels):
+                pct = f"{round(100 * vals[i] / total)}%"
+                lab = (label_factory(name, pct) if label_factory is not None
+                       else crisp_text(f"{name}  {pct}" if show_percent else name,
+                                       font=FONT, font_size=label_font_size,
+                                       color=label_color or WHITE))
+                sw = Square(side_length=swatch_size, fill_color=self.colors[i],
+                            fill_opacity=1, stroke_width=0)
+                rows.append(VGroup(sw, lab.next_to(sw, RIGHT, buff=0.2)))
+            top = self.pie_center[1] + (len(rows) - 1) / 2 * legend_gap
+            col = VGroup()
+            for k, row in enumerate(rows):
+                row.set_y(top - k * legend_gap)
+                col.add(row)
+            for row in rows:
+                row.align_to(col, LEFT)
+            if legend_side == "right":
+                col.shift(RIGHT * (self.pie_center[0] + radius + legend_buff - col.get_left()[0]))
+            else:
+                col.shift(RIGHT * (self.pie_center[0] - radius - legend_buff - col.get_right()[0]))
+            for row in rows:
+                self.labels.add(row)
             self.add(self.labels)
         elif labels is not None:
             for i, name in enumerate(labels):
