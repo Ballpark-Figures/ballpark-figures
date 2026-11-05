@@ -145,8 +145,11 @@ class PieChart(VGroup):
         elif label_mode == "legend" and labels is not None:
             # one column beside the pie, rows top to bottom in slice order, each a
             # swatch of the slice's colour then its label; centred on the pie's height
-            rows = []
+            rows, shown = [], []
             for i, name in enumerate(labels):
+                if vals[i] <= 0:            # no row for an empty slice (e.g. one eaten
+                    continue                # by resize_sectors)
+                shown.append(i)
                 pct = f"{round(100 * vals[i] / total)}%"
                 lab = (label_factory(name, pct) if label_factory is not None
                        else crisp_text(f"{name}  {pct}" if show_percent else name,
@@ -166,8 +169,9 @@ class PieChart(VGroup):
                 col.shift(RIGHT * (self.pie_center[0] + radius + legend_buff - col.get_left()[0]))
             else:
                 col.shift(RIGHT * (self.pie_center[0] - radius - legend_buff - col.get_right()[0]))
-            for row in rows:
-                self.labels.add(row)
+            by_slice = dict(zip(shown, rows))
+            for i in range(len(vals)):
+                self.labels.add(by_slice.get(i, VGroup()))
             self.add(self.labels)
         elif labels is not None:
             for i, name in enumerate(labels):
@@ -327,9 +331,9 @@ class PieChart(VGroup):
         One point of the ring stays still, so the pie never spins: `anchor` (radians
         clockwise from the top), by default the point opposite the eaten sectors
         (their arc-weighted mean direction), so the gap closes on itself. With nothing
-        eaten the default is the first sector's start edge. Old labels fade out over
-        the first 40% and the new ones (new percentages, new positions) fade in over
-        the last 40%. `extra` plays alongside."""
+        eaten the default is the first sector's start edge. A label in both layouts
+        slides to its new place as old and new cross-fade (its % changing in place);
+        an eaten sector's label fades out over the first 40%. `extra` plays alongside."""
         vals = [float(v) for v in values]
         n = len(self.sectors)
         if len(vals) != n:
@@ -379,13 +383,32 @@ class PieChart(VGroup):
         new_labels.set_opacity(0)
         old_labels = self.labels
         scene.add(new_labels)
+        # a label kept by both layouts slides from its old place to its new one as the
+        # two cross-fade (a legend row whose % changes reads as one row moving); an eaten
+        # sector's label fades out early, a newly shown one fades in late
+        pairs = []
+        for i in range(min(len(old_labels), len(new_labels))):
+            o, w = old_labels[i], new_labels[i]
+            if len(o.get_family()) > 1 and len(w.get_family()) > 1:
+                pairs.append((o, w, o.get_center(), w.get_center()))
+        paired = {id(o) for o, *_ in pairs} | {id(w) for _, w, *_ in pairs}
 
         def func(_m, alpha):
             arcs, cum, rot = layout(alpha)
             for i in range(n):
                 self._redraw(i, arcs[i], start=_TOP - rot - cum[i])
-            old_labels.set_opacity(max(0.0, 1 - alpha / 0.4))
-            new_labels.set_opacity(max(0.0, (alpha - 0.6) / 0.4))
+            s = smooth(alpha)
+            for o, w, oc, wc in pairs:
+                o.move_to(oc + (wc - oc) * s)
+                w.move_to(wc + (oc - wc) * (1 - s))
+                o.set_opacity(1 - s)
+                w.set_opacity(s)
+            for lab in old_labels:
+                if id(lab) not in paired:
+                    lab.set_opacity(max(0.0, 1 - alpha / 0.4))
+            for lab in new_labels:
+                if id(lab) not in paired:
+                    lab.set_opacity(max(0.0, (alpha - 0.6) / 0.4))
 
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         # adopt the new layout, so later calls (another resize) start from it
@@ -395,6 +418,8 @@ class PieChart(VGroup):
             self._redraw(i, self.arc[i])
         scene.remove(new_labels)
         self.remove(old_labels)
+        for o, w, oc, wc in pairs:
+            w.move_to(wc)
         new_labels.set_opacity(1)
         self.labels = new_labels
         self.add(new_labels)
