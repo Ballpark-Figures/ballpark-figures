@@ -209,12 +209,13 @@ class PieChart(VGroup):
         for i in range(n):
             self._fan_one(scene, i, rt)
 
-    def fan_sectors(self, scene, indices, run_time, *, sequential=False):
+    def fan_sectors(self, scene, indices, run_time, *, sequential=False, extra=()):
         """Grow just the sectors in ``indices`` (each from its OWN start edge) over one
         ``run_time`` — SIMULTANEOUSLY by default (the "all at once" tail), or one at a
         time if ``sequential=True``. Un-named sectors are left as they are, so calling
         this repeatedly across beats builds the pie incrementally (pair with an initial
-        ``hide_all``). Labels for the named sectors fade in with them."""
+        ``hide_all``). Labels for the named sectors fade in with them. `extra` plays
+        alongside (simultaneous mode only), as in fan_all."""
         if self not in scene.mobjects:
             scene.add(self)
         indices = [int(i) for i in indices]
@@ -229,18 +230,18 @@ class PieChart(VGroup):
                 self._redraw(i, self.arc[i] * alpha)
                 if i < len(self.labels):
                     self.labels[i].set_opacity(alpha)
-        scene.play(UpdateFromAlphaFunc(self.sectors, func), run_time=run_time)
+        scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in indices:
             self._redraw(i, self.arc[i])
             if i < len(self.labels):
                 self.labels[i].set_opacity(1)
 
-    def fan_group(self, scene, indices, run_time):
+    def fan_group(self, scene, indices, run_time, extra=()):
         """Grow a CONTIGUOUS group of sectors as ONE arc sweeping clockwise from the
         FIRST sector's start edge (a shared origin) — the swept arc always split in the
         group's final proportions (fan_all, restricted to `indices`), so the group fans
         out from one place rather than each sector growing in place from its own edge.
-        Labels fade in over the last third."""
+        Labels fade in over the last third. `extra` plays alongside, as in fan_all."""
         if self not in scene.mobjects:
             scene.add(self)
         idx = sorted(int(i) for i in indices)
@@ -259,7 +260,7 @@ class PieChart(VGroup):
             self._redraw(i, 0.0)
             if i < len(self.labels):
                 self.labels[i].set_opacity(0)
-        scene.play(UpdateFromAlphaFunc(self.sectors, func), run_time=run_time)
+        scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in idx:
             self._redraw(i, self.arc[i])
             if i < len(self.labels):
