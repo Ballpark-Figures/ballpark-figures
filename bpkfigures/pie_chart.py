@@ -58,24 +58,31 @@ def _spec(v):
 
 
 def set_sounds(*, open=None, eat=None):
-    """Turn on the pie's sounds for every pie from here on: `open` under each fan-in
-    (fan_all, fan_sectors, fan_group, and each sector of fan_sequential), `eat` under
-    each resize_sectors. Each is an sfx name, (name, gain dB) or (name, gain dB, peak
-    s), or a LIST of them, played in order and spread evenly over the animation. A
-    sound's peak (where the file is loudest; 0 is its start) lands at the middle of
-    its share of the animation, so a single sound sits at the animation's middle and
-    four sit at 1/8, 3/8, 5/8 and 7/8 of it. None leaves it off."""
+    """Turn on the pie's sounds for every pie from here on. Each sound is an sfx name,
+    (name, gain dB) or (name, gain dB, peak s); a sound's peak (where the file is
+    loudest; 0 is its start) lands at the middle of its animation.
+
+    `open`: a sound, or a LIST of them, ONE PER SECTOR: sector k coming in plays
+    open[k] (sectors past the end of the list play its last). A fan-in that brings in
+    one sector plays its sound at the animation's middle; one that brings in several
+    (fan_all, fan_group, fan_sectors) plays theirs in sector order, each at the middle
+    of an equal share of the animation.
+    `eat`: one sound, at the middle of each resize_sectors. None leaves either off."""
     for key, v in (("open", open), ("eat", eat)):
         _SOUNDS[key] = (None if v is None else
                         [_spec(x) for x in v] if isinstance(v, list) else [_spec(v)])
 
 
-def _cue(scene, key, sound, run_time):
-    sounds = _SOUNDS[key]
-    if sound and sounds and hasattr(scene, "sfx"):
-        n = len(sounds)
-        for k, (name, gain, peak) in enumerate(sounds):
-            scene.sfx(name, at=max(0.0, run_time * (k + 0.5) / n - peak), gain=gain)
+def _cue(scene, key, sound, run_time, sectors=(0,)):
+    """`key`'s sounds for this animation: for "open", those of the `sectors` it brings
+    in, in order; spread evenly, each at the middle of its share."""
+    specs = _SOUNDS[key]
+    if not (sound and specs and hasattr(scene, "sfx")):
+        return
+    picks = [specs[min(i, len(specs) - 1)] for i in sectors] if key == "open" else specs
+    n = len(picks)
+    for k, (name, gain, peak) in enumerate(picks):
+        scene.sfx(name, at=max(0.0, run_time * (k + 0.5) / n - peak), gain=gain)
 
 
 class PieChart(VGroup):
@@ -265,7 +272,7 @@ class PieChart(VGroup):
             self.labels.set_opacity(max(0.0, (alpha - 0.7) / 0.3))
 
         self.labels.set_opacity(0)
-        _cue(scene, "open", sound, run_time)
+        _cue(scene, "open", sound, run_time, range(n))
         scene.play(UpdateFromAlphaFunc(self, func), *extra, run_time=run_time)
         for i in range(n):
             self._redraw(i, self.arc[i])
@@ -285,7 +292,7 @@ class PieChart(VGroup):
             self._redraw(i, self.arc[i] * alpha)
             if i < len(self.labels):
                 self.labels[i].set_opacity(alpha)
-        _cue(scene, "open", sound, run_time)
+        _cue(scene, "open", sound, run_time, [i])
         scene.play(UpdateFromAlphaFunc(self.sectors[i], func), run_time=run_time)
         self._redraw(i, self.arc[i])
         if i < len(self.labels):
@@ -323,7 +330,7 @@ class PieChart(VGroup):
                 self._redraw(i, self.arc[i] * alpha)
                 if i < len(self.labels):
                     self.labels[i].set_opacity(alpha)
-        _cue(scene, "open", sound, run_time)
+        _cue(scene, "open", sound, run_time, indices)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in indices:
             self._redraw(i, self.arc[i])
@@ -354,7 +361,7 @@ class PieChart(VGroup):
             self._redraw(i, 0.0)
             if i < len(self.labels):
                 self.labels[i].set_opacity(0)
-        _cue(scene, "open", sound, run_time)
+        _cue(scene, "open", sound, run_time, idx)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in idx:
             self._redraw(i, self.arc[i])
