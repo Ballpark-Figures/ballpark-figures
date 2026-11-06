@@ -215,7 +215,7 @@ def name_label(i, *, height=0.34, color=LABEL_COLOR):
 def get_tier_list(labels="letter", *, center=ORIGIN, panel_width=_DEFAULT_PANEL_W,
                   cell_width=1.75, row_height=0.82, row_gap=0.10,
                   cell_gap=0.08, colors=None, dimmed=False, names=None,
-                  panel_fill=None):
+                  panel_fill=None, panels=True):
     """A tier list: a coloured grade CELL on the left + a dark content PANEL on the
     right, per tier, top (best) → bottom (worst). Default is 7 rows.
 
@@ -227,6 +227,10 @@ def get_tier_list(labels="letter", *, center=ORIGIN, panel_width=_DEFAULT_PANEL_
     dimmed : start every row muted (for the beat-06 emphasis build-up).
     colors : per-tier cell colours; default = the S-tier rainbow for grade labels,
              the grouped TOP/HIGH/MID/LOW palette once the tiers are NAMED.
+    panels : False leaves the content panels out: the letters sit on the background.
+             The panel's slot in each row (and `.panels`) is then an invisible point at
+             the panel's centre, so the row keeps its shape and no opacity change (an
+             emphasis, a reset) can bring a panel back. Default True.
 
     Returns VGroup(*rows) with `.rows` (list of VGroup(cell, panel, label,
     contents)), parallel `.cells/.panels/.labels/.contents`, and geometry
@@ -252,6 +256,7 @@ def get_tier_list(labels="letter", *, center=ORIGIN, panel_width=_DEFAULT_PANEL_
             return name_label_spec(*tier_names[i])
         return (letter_label if labels == "letter" else number_label)(i)
 
+    show_panels = panels      # `panels` is the list of them below
     rows, cells, panels, labs, contents = [], [], [], [], []
     for i in range(n):
         cy = top_cy - i * pitch
@@ -260,11 +265,14 @@ def get_tier_list(labels="letter", *, center=ORIGIN, panel_width=_DEFAULT_PANEL_
         cell.set_fill(colors[i], opacity=1.0).set_stroke(PANEL_STROKE, width=2)
         cell.move_to([cell_cx, cy, 0])
 
-        panel = RoundedRectangle(width=panel_width, height=row_height,
-                                 corner_radius=0.06)
-        panel.set_fill(PANEL_FILL if panel_fill is None else panel_fill,
-                       opacity=1.0).set_stroke(PANEL_STROKE, width=2)
-        panel.move_to([panel_cx, cy, 0])
+        if show_panels:
+            panel = RoundedRectangle(width=panel_width, height=row_height,
+                                     corner_radius=0.06)
+            panel.set_fill(PANEL_FILL if panel_fill is None else panel_fill,
+                           opacity=1.0).set_stroke(PANEL_STROKE, width=2)
+            panel.move_to([panel_cx, cy, 0])
+        else:
+            panel = VectorizedPoint([panel_cx, cy, 0])
 
         lab = build_label(i)
         lab.move_to([cell_cx, cy, 0])
@@ -365,13 +373,13 @@ def fill_tier(tl, i, letters, *, height=0.5, buff=LETTER_BUFF,
 
 # ── comparison (a filled list, and a piece-by-piece morph between two) ─────────
 def filled_list(letters, *, names=None, scale=1.0, panel_width=_DEFAULT_PANEL_W,
-                panel_fill=None, box=None, vowels=None):
+                panel_fill=None, box=None, vowels=None, panels=True):
     """A tier list with each tier's `letters` filled in — default the 7-tier NAMED
     structure, or a custom `names` (list of (word, arrow)) — scaled and ready to
     `.move_to(...)`. `letters` is one string (or list of TOKENS) per tier, top→bottom. The shared builder
     behind the scene-17 / scene-22 tier COMPARISONS. `box`: see `fill_tier`; `vowels`:
-    see `tile_color`."""
-    kw = dict(panel_width=panel_width, panel_fill=panel_fill)
+    see `tile_color`; `panels`: see `get_tier_list`."""
+    kw = dict(panel_width=panel_width, panel_fill=panel_fill, panels=panels)
     tl = (get_tier_list("name", **kw) if names is None
           else get_tier_list(names=names, **kw))
     for i, lets in enumerate(letters):
