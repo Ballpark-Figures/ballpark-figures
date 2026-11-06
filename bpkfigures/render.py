@@ -304,6 +304,48 @@ def _parse_frames(spec, dur):
     return times
 
 
+def _seek_args(mp4, t):
+    """ffmpeg's seek for the frame at `t` seconds (negative = from the end).
+
+    A from-the-end time is turned into an absolute one, no later than the LAST
+    frame's start. `-sseof` is not used: a seek that lands after the last frame
+    starts finds no frame, and ffmpeg then writes nothing yet exits 0 -- which a
+    time under one frame from the end always did at --very-fast's 3fps (-0.2 s,
+    and the closing still's -0.1 s), so the frame was reported and never written."""
+    if t >= 0:
+        return ["-ss", str(t)]
+    dur = _duration(mp4)
+    f = _probe_fields(mp4, ["-select_streams", "v:0"], "stream=r_frame_rate")
+    try:
+        num, _, den = f.get("r_frame_rate", "").partition("/")
+        frame = float(den or 1) / float(num)
+    except (ValueError, ZeroDivisionError):
+        frame = 0.0
+    if dur is None:
+        return ["-sseof", str(t)]
+    return ["-ss", f"{max(0.0, min(dur + t, dur - frame)):.6f}"]
+
+
+def _write_frame(mp4, t, out):
+    """Write ONE frame at `t` (negative = from the end) to `out`. True only if the
+    file was actually written: ffmpeg can exit 0 having encoded nothing, so the
+    exit code alone is not the test. Written beside `out` and moved over it only
+    on success, so a failure never leaves an earlier run's file passing for a new
+    one, nor takes away a still DaVinci is already using."""
+    root, ext = os.path.splitext(out)
+    tmp = f"{root}.partial{ext}"
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    r = subprocess.run([_ffmpeg(), "-y", *_seek_args(mp4, t), "-i", mp4,
+                        "-frames:v", "1", tmp], capture_output=True)
+    if r.returncode == 0 and os.path.exists(tmp) and os.path.getsize(tmp) > 0:
+        os.replace(tmp, out)
+        return True
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    return False
+
+
 def _extract_frames(mp4, times):
     """Write a PNG per time into a frames/ dir beside the mp4; return paths."""
     frames_dir = os.path.join(os.path.dirname(mp4), "frames")
@@ -313,12 +355,10 @@ def _extract_frames(mp4, times):
     for t in times:
         tag = f"end{abs(t):g}" if t < 0 else f"{t:g}"
         out = os.path.join(frames_dir, f"{stem}_{tag}.png")
-        seek = ["-sseof", str(t)] if t < 0 else ["-ss", str(t)]
-        r = subprocess.run([_ffmpeg(), "-y", *seek, "-i", mp4,
-                            "-frames:v", "1", out],
-                           capture_output=True)
-        if r.returncode == 0:
+        if _write_frame(mp4, t, out):
             paths.append(out)
+        else:
+            print(f"  [frames] no frame at {t:g}s in {os.path.basename(mp4)}")
     return paths
 
 
@@ -476,10 +516,7 @@ def _flush_all_pending():
 def _extract_one_frame(mp4, t, out):
     """Write ONE frame (t<0 = seconds-from-end, like ffmpeg -sseof) to `out`.
     Returns True on success. Used for the held first/last frames (the stills)."""
-    seek = ["-sseof", str(t)] if t < 0 else ["-ss", str(t)]
-    r = subprocess.run([_ffmpeg(), "-y", *seek, "-i", mp4, "-frames:v", "1", out],
-                       capture_output=True)
-    return r.returncode == 0
+    return _write_frame(mp4, t, out)
 
 
 # The --stills naming scheme. Each subscene stages its OWN LEADING still (its first
