@@ -674,6 +674,11 @@ the "where do I look" map.
   aligned `crisp_text` cells on a card, numeric columns right-aligned by default, zebra
   stripes, fitted to the frame; role handles `.header`/`.rows`/`.cells[r][c]`. Cells are
   shown as given, so formatting is the caller's and the values are SOURCED.
+- **A 3D chart (a grid of bars, a surface, a camera tilt)** → `bpkfigures.three_d`: the
+  scene subclasses the video base AND manim's `ThreeDScene` (BpkScene snapshots the 3D
+  camera); `bar_grid` + `grow_bar_grid` for the bars; `picklable()` on every `ThreeDAxes` /
+  `Surface` kept on the scene, or its snapshot is silently skipped. Module docstring has
+  the text and depth-sorting notes; wheel-of-fortune 92/06 are the reference.
 - **A number line or timeline** → `bpkfigures.number_line.ZoomLine`: `zoom(lo, hi)` rescales
   it with ticks and labels re-thinning smoothly (nested 1/5 step ladder, each level fading by its
   on-screen spacing); `add_marker` + `marker_in` pin labelled points that ride the zoom;

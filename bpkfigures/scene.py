@@ -743,6 +743,18 @@ class BpkScene(Scene):
         if hasattr(self.camera, "frame"):
             f = self.camera.frame
             bundle["cam_frame"] = (f.get_center(), f.get_width(), f.get_height())
+        if hasattr(self.camera, "phi_tracker"):
+            # A ThreeDScene's camera: its angles, focal distance and zoom (in
+            # get_value_trackers' order), its centre, and the mobjects pinned to the
+            # screen or turned to face it. In this same dump, so the pinned sets keep
+            # identity with the mobjects above.
+            cam = self.camera
+            bundle["cam3d"] = {
+                "trackers": [t.get_value() for t in cam.get_value_trackers()],
+                "center": cam.frame_center.copy(),
+                "fixed_in_frame": list(cam.fixed_in_frame_mobjects),
+                "fixed_orientation": dict(cam.fixed_orientation_mobjects),
+            }
         path = self._snapshot_path(idx)
         try:
             with open(path, "wb") as f:
@@ -789,6 +801,14 @@ class BpkScene(Scene):
             center, w, h = cf
             self.camera.frame.move_to(center) \
                 .stretch_to_fit_width(w).stretch_to_fit_height(h)
+        c3 = bundle.get("cam3d")
+        if c3 is not None and hasattr(self.camera, "phi_tracker"):
+            cam = self.camera
+            for t, v in zip(cam.get_value_trackers(), c3["trackers"]):
+                t.set_value(v)
+            cam.frame_center = c3["center"]
+            cam.fixed_in_frame_mobjects = set(c3["fixed_in_frame"])
+            cam.fixed_orientation_mobjects = dict(c3["fixed_orientation"])
         return True
 
     def _is_still(self, name):
