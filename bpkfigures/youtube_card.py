@@ -5,6 +5,8 @@ text is passed in (nothing is computed). Building blocks:
 
   youtube_card(...)   one grid card: 16:9 thumbnail + title / channel / meta
   youtube_watch(...)  full-screen watch page: big player + title + channel row
+  youtube_split(l, r) two watch pages side by side on one page (`.left` / `.right`,
+                      each a player for play_clip, so two clips can play at once)
   youtube_home(cells) full-screen homepage: an N-column grid of cards, where each
                       cell is either a real card (a dict of kwargs) or None → a
                       greyed-out placeholder (skeleton)
@@ -231,6 +233,32 @@ def youtube_watch(title, channel, meta, *, subscribe=True, duration=None,
     watch = Group(page, stack)
     watch.player = player               # for play_clip
     return watch
+
+
+def youtube_split(left, right, *, dark=True, gap=0.5, margin=0.5, frame_w=16.0,
+                  frame_h=9.0):
+    """Two watch pages side by side on one page: `left` and `right` are each the
+    kwargs of a `youtube_watch` (title, channel, meta, thumbnail, ...). Each half is
+    that page's player, title, channel row and meta line, scaled to fit half the
+    width (between `margin` at the frame's edges and `gap` between the two). Returns
+    Group(page, left, right) with `.left` / `.right`, each carrying `.player`, so
+    `play_clip(split.left, ...)` and `show_clip_frame(split.right, ...)` work on it
+    as on a full watch page, and the two clips can play in one `self.play`."""
+    C = _pal(dark)
+    page = Rectangle(width=frame_w, height=frame_h, fill_color=ManimColor(C["surface"]),
+                     fill_opacity=1.0, stroke_width=0)
+    w = (frame_w - 2 * margin - gap) / 2
+    halves = []
+    for kw, side in ((left, -1), (right, 1)):
+        watch = youtube_watch(**kw, dark=dark, frame_w=frame_w, frame_h=frame_h)
+        stack = watch[1]                      # the player + the lines under it
+        stack.scale(w / stack.width)
+        half = Group(stack).move_to([side * (w + gap) / 2, 0, 0])
+        half.player = watch.player
+        halves.append(half)
+    split = Group(page, *halves)
+    split.left, split.right = halves
+    return split
 
 
 def _seconds(t):

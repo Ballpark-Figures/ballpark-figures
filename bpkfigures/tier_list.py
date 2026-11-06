@@ -125,6 +125,10 @@ def name_colors(tier_names):
 
 PANEL_FILL   = ManimColor("#2B2B2B")   # dark charcoal content row (letters pop on it)
 PANEL_STROKE = ManimColor("#15151A")
+# The panels on a NAVY background (BOARD_NAVY), lighter so the rows read on it: wordle's
+# PANEL_ON_NAVY (its assets/tier_data.py, 09e on), promoted when wheel-of-fortune (05)
+# became its second user. Pass as `panel_fill=`.
+PANEL_ON_NAVY = interpolate_color(BOARD_NAVY, WHITE, 0.22)
 LABEL_COLOR  = BLACK                   # reads on every bright cell + the grey
 LETTER_COLOR = WHITE                   # (legacy) neutral tier letter colour
 DIM_OPACITY  = 0.28                    # a tier's muted / un-emphasised look
