@@ -62,11 +62,10 @@ def set_sounds(*, open=None, eat=None):
     (name, gain dB) or (name, gain dB, peak s); a sound's peak (where the file is
     loudest; 0 is its start) lands at the middle of its animation.
 
-    `open`: a sound, or a LIST of them, ONE PER SECTOR: sector k coming in plays
-    open[k] (sectors past the end of the list play its last). A fan-in that brings in
-    one sector plays its sound at the animation's middle; one that brings in several
-    (fan_all, fan_group, fan_sectors) plays theirs in sector order, each at the middle
-    of an equal share of the animation.
+    `open`: a sound, or a LIST of them, ONE PER SECTOR. Each fan-in plays ONE sound, at
+    its middle: that of the first sector it brings in (open[k] for sector k; past the
+    end of the list, its last). So a pie built slice by slice steps through the list,
+    and fan_all plays open[0].
     `eat`: one sound, at the middle of each resize_sectors. None leaves either off."""
     for key, v in (("open", open), ("eat", eat)):
         _SOUNDS[key] = (None if v is None else
@@ -74,15 +73,14 @@ def set_sounds(*, open=None, eat=None):
 
 
 def _cue(scene, key, sound, run_time, sectors=(0,)):
-    """`key`'s sounds for this animation: for "open", those of the `sectors` it brings
-    in, in order; spread evenly, each at the middle of its share."""
+    """`key`'s one sound for this animation, at its middle: for "open", that of the
+    first of the `sectors` it brings in."""
     specs = _SOUNDS[key]
     if not (sound and specs and hasattr(scene, "sfx")):
         return
-    picks = [specs[min(i, len(specs) - 1)] for i in sectors] if key == "open" else specs
-    n = len(picks)
-    for k, (name, gain, peak) in enumerate(picks):
-        scene.sfx(name, at=max(0.0, run_time * (k + 0.5) / n - peak), gain=gain)
+    first = min(sectors) if key == "open" else 0
+    name, gain, peak = specs[min(first, len(specs) - 1)]
+    scene.sfx(name, at=max(0.0, run_time / 2 - peak), gain=gain)
 
 
 class PieChart(VGroup):
