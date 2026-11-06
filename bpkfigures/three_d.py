@@ -23,16 +23,69 @@ import numpy as np
 def picklable(mob):
     """Drop, in place, what keeps a 3D mobject out of a snapshot, and return it. ThreeDAxes
     gives every axis piece instance-level lambdas (a sheen gradient and a unit normal), and a
-    Surface keeps the function it was built from; neither is used after construction. Call it
-    on any ThreeDAxes or Surface stored on the scene."""
+    Surface or RevealSurface keeps the function it was built from. Call it on any ThreeDAxes
+    or Surface stored on the scene, and on a RevealSurface after its last `fill_to`."""
     for m in mob.get_family():
         for k, v in list(vars(m).items()):
             qual = getattr(v, "__qualname__", "") if callable(v) else ""
             if "<locals>" in qual or "<lambda>" in qual:
                 delattr(m, k)
-        if isinstance(m, Surface):
+        if isinstance(m, (Surface, RevealSurface)):
             m._func = None
     return mob
+
+
+class RevealSurface(VGroup):
+    """A surface z = func(u, v) on a fixed mesh that can be shown up to a moving straight
+    edge in (u, v): `fill_to(a, b, level)` shows exactly the part where a*u + b*v <= level,
+    cutting the tiles the edge crosses along it, so the fill is continuous and the mesh never
+    moves or stretches. (a, b) = (1, 0) fills left to right; a fitted model's own linear
+    predictor fills it from low to high, its edge a line of equal value.
+
+    func(u, v) -> a scene point. Tiles are depth-sorted like a Surface's (shade_in_3d), and
+    start hidden. Each tile is a flat polygon through func at its corners, as a Surface's."""
+
+    def __init__(self, func, u_range, v_range, resolution, *, fill_color, stroke_color,
+                 stroke_width=0.5, fill_opacity=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self._func = func
+        self.fill_opacity_full = fill_opacity
+        us = np.linspace(*u_range, resolution[0] + 1)
+        vs = np.linspace(*v_range, resolution[1] + 1)
+        self.quads = []                 # each tile's corners in (u, v)
+        for i in range(resolution[0]):
+            for j in range(resolution[1]):
+                quad = [(us[i], vs[j]), (us[i + 1], vs[j]), (us[i + 1], vs[j + 1]),
+                        (us[i], vs[j + 1])]
+                tile = VMobject(fill_color=fill_color, fill_opacity=0,
+                                stroke_color=stroke_color, stroke_width=stroke_width,
+                                stroke_opacity=0, shade_in_3d=True)
+                tile.set_points_as_corners([func(*c) for c in quad + quad[:1]])
+                self.quads.append(quad)
+                self.add(tile)
+
+    def fill_to(self, a, b, level):
+        """Show the part of the surface where a*u + b*v <= level."""
+        for tile, quad in zip(self, self.quads):
+            inside = [a * u + b * v <= level for u, v in quad]
+            if not any(inside):
+                tile.set_fill(opacity=0).set_stroke(opacity=0)
+                continue
+            if all(inside):
+                poly = quad
+            else:                       # Sutherland-Hodgman against the one half-plane
+                poly = []
+                for (p, pin), (q, qin) in zip(zip(quad, inside),
+                                              zip(quad[1:] + quad[:1], inside[1:] + inside[:1])):
+                    if pin:
+                        poly.append(p)
+                    if pin != qin:
+                        fp, fq = a * p[0] + b * p[1] - level, a * q[0] + b * q[1] - level
+                        t = fp / (fp - fq)
+                        poly.append((p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])))
+            tile.set_points_as_corners([self._func(*c) for c in poly + poly[:1]])
+            tile.set_fill(opacity=self.fill_opacity_full).set_stroke(opacity=1)
+        return self
 
 
 def bar_grid(cells, to_point, side, z_len, *, color, stroke_color, stroke_width=0.5):
