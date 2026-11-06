@@ -90,7 +90,7 @@ class PieChart(VGroup):
                  label_mode="outside", inner_label_color=WHITE, inner_frac=0.62,
                  inner_frac_spread=0.0, min_label_frac=0.0, leader_color=GREY,
                  rotation=0.0, legend_side="right", legend_buff=0.5, legend_gap=0.5,
-                 swatch_size=0.28, label_factory=None, **kwargs):
+                 swatch_size=0.28, label_factory=None, callout_even=False, **kwargs):
         super().__init__(**kwargs)
         vals = [float(v) for v in values]
         total = sum(vals) or 1.0
@@ -108,7 +108,8 @@ class PieChart(VGroup):
             inner_label_color=inner_label_color, inner_frac=inner_frac,
             inner_frac_spread=inner_frac_spread, min_label_frac=min_label_frac,
             leader_color=leader_color, legend_side=legend_side, legend_buff=legend_buff,
-            legend_gap=legend_gap, swatch_size=swatch_size, label_factory=label_factory)
+            legend_gap=legend_gap, swatch_size=swatch_size, label_factory=label_factory,
+            callout_even=callout_even)
         # each sector's arc (radians), the cumulative arc before it, and its start edge
         # (measured CLOCKWISE from the top, less `rotation`: how far clockwise the first
         # sector starts, nonzero only after a resize). angle is drawn NEGATIVE = clockwise.
@@ -173,6 +174,10 @@ class PieChart(VGroup):
                 for k in range(1, len(ys)):                # push apart to keep min_gap
                     if ys[k] > ys[k - 1] - min_gap:
                         ys[k] = ys[k - 1] - min_gap
+                # callout_even: the column's labels evenly spaced between its first and
+                # last (each column on its own), in place of rim heights pushed apart
+                if callout_even and len(ys) > 1:
+                    ys = list(np.linspace(ys[0], ys[-1], len(ys)))
                 for e, y in zip(items, ys):
                     lab = e["lab"]
                     lab.move_to([col_x + side * lab.width / 2, y, 0])
