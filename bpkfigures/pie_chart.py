@@ -46,22 +46,29 @@ _TOP = PI / 2   # 12 o'clock — where every sweep starts
 
 # Sound effects, off unless a video turns them on (set_sounds, e.g. in its config.py):
 # "open" under every fan-in, "eat" under every resize_sectors. Each is None or
-# (sfx name, gain dB or None), played with scene.sfx as the animation starts.
+# (sfx name, gain dB or None, peak s), played with scene.sfx so that the file's loudest
+# moment (`peak` seconds in) lands at the middle of the animation, as a whoosh is placed.
 _SOUNDS = {"open": None, "eat": None}
 
 
 def set_sounds(*, open=None, eat=None):
     """Turn on the pie's sounds for every pie from here on: `open` under each fan-in
     (fan_all, fan_sectors, fan_group, and each sector of fan_sequential), `eat` under
-    each resize_sectors. Each is an sfx name, or (name, gain dB). None leaves it off."""
+    each resize_sectors. Each is an sfx name, (name, gain dB) or (name, gain dB, peak
+    s): the peak, where the file is loudest, is put at the animation's middle (0 puts
+    the file's start there). None leaves it off."""
     for key, v in (("open", open), ("eat", eat)):
-        _SOUNDS[key] = None if v is None else (v if isinstance(v, tuple) else (v, None))
+        if v is None:
+            _SOUNDS[key] = None
+        else:
+            v = v if isinstance(v, tuple) else (v,)
+            _SOUNDS[key] = (v[0], v[1] if len(v) > 1 else None, v[2] if len(v) > 2 else 0.0)
 
 
-def _cue(scene, key, sound):
+def _cue(scene, key, sound, run_time):
     s = _SOUNDS[key]
     if sound and s is not None and hasattr(scene, "sfx"):
-        scene.sfx(s[0], gain=s[1])
+        scene.sfx(s[0], at=max(0.0, run_time / 2 - s[2]), gain=s[1])
 
 
 class PieChart(VGroup):
@@ -251,7 +258,7 @@ class PieChart(VGroup):
             self.labels.set_opacity(max(0.0, (alpha - 0.7) / 0.3))
 
         self.labels.set_opacity(0)
-        _cue(scene, "open", sound)
+        _cue(scene, "open", sound, run_time)
         scene.play(UpdateFromAlphaFunc(self, func), *extra, run_time=run_time)
         for i in range(n):
             self._redraw(i, self.arc[i])
@@ -271,7 +278,7 @@ class PieChart(VGroup):
             self._redraw(i, self.arc[i] * alpha)
             if i < len(self.labels):
                 self.labels[i].set_opacity(alpha)
-        _cue(scene, "open", sound)
+        _cue(scene, "open", sound, run_time)
         scene.play(UpdateFromAlphaFunc(self.sectors[i], func), run_time=run_time)
         self._redraw(i, self.arc[i])
         if i < len(self.labels):
@@ -309,7 +316,7 @@ class PieChart(VGroup):
                 self._redraw(i, self.arc[i] * alpha)
                 if i < len(self.labels):
                     self.labels[i].set_opacity(alpha)
-        _cue(scene, "open", sound)
+        _cue(scene, "open", sound, run_time)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in indices:
             self._redraw(i, self.arc[i])
@@ -340,7 +347,7 @@ class PieChart(VGroup):
             self._redraw(i, 0.0)
             if i < len(self.labels):
                 self.labels[i].set_opacity(0)
-        _cue(scene, "open", sound)
+        _cue(scene, "open", sound, run_time)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in idx:
             self._redraw(i, self.arc[i])
@@ -440,7 +447,7 @@ class PieChart(VGroup):
                 if id(lab) not in paired:
                     lab.set_opacity(max(0.0, (alpha - 0.6) / 0.4))
 
-        _cue(scene, "eat", sound)
+        _cue(scene, "eat", sound, run_time)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         # adopt the new layout, so later calls (another resize) start from it
         self.rotation, self.arc, self.cum_before = rot1, new, cums(new)
