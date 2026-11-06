@@ -2383,6 +2383,13 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   emitting it. Removing a subscene shifts every LATER letter, orphaning the old
   highest-letter video (`resolve --clean` only cleans letters you render) — delete that
   orphaned `NN<letter>_*.mp4` by hand.
+- **BUILD EVERY SUBSCENE THE SCRIPT GIVES — never stop partway through a scene.** If a
+  scene's column 2 is written out, the user wants all of it built; when they want only
+  part of a scene, they leave the rest unwritten. So "animate scene N" (or "the first
+  half of N", when the script has more) means every beat it has. A beat blocked on a
+  decision still gets built, with a FLAGGED stand-in where the decision lands, and the
+  question asked at handoff. (Bit us 2026-11-06, wheel-of-fortune 07: asked for "the
+  first half", the agent built a-d and stopped, though e-i were fully scripted.)
 - **SUBSCENE COUNT MUST EQUAL BEAT COUNT — one `@subscene` per RIGHT-column beat (each
   `--`/`---`/`—`-delimited segment), NEVER more.** The subscene letters (a, b, c…) map 1:1
   onto the beats, in order. NOTE the beat count is the number of RIGHT-column segments, which
