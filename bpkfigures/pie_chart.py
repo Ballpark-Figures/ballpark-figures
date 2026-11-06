@@ -29,9 +29,10 @@ For an INCREMENTAL build across several beats (reveal some sectors now, more lat
 To CHANGE a pie already on screen (e.g. once a letter rules some answers out):
     .resize_sectors(scene, values, run_time[, anchor=None])
                                       — every arc moves to its share of the new `values`;
-                                        a sector given 0 is EATEN by its neighbours from
-                                        both sides. One point (by default opposite the
-                                        eaten sectors) stays still; labels cross-fade.
+                                        a sector given 0 is EATEN by its neighbours. The
+                                        first sector's start edge stays put (or, with
+                                        anchor="gap", the point opposite the eaten ones);
+                                        labels slide and cross-fade.
 Both/all use manim's default easing. Colours (and optional labels) are the caller's —
 e.g. vowels red + consonants blue.
 """
@@ -329,9 +330,11 @@ class PieChart(VGroup):
         renormalises a removal for you.
 
         One point of the ring stays still, so the pie never spins: `anchor` (radians
-        clockwise from the top), by default the point opposite the eaten sectors
-        (their arc-weighted mean direction), so the gap closes on itself. With nothing
-        eaten the default is the first sector's start edge. A label in both layouts
+        clockwise from the top). By default it is the first sector's start edge, so a
+        pie that starts at the top still does and the sectors after an eaten one
+        close up behind it. `anchor="gap"` keeps the point opposite the eaten sectors
+        (their arc-weighted mean direction) instead, so the gap closes on itself from
+        both sides. A label in both layouts
         slides to its new place as old and new cross-fade (its % changing in place);
         an eaten sector's label fades out over the first 40%. `extra` plays alongside."""
         vals = [float(v) for v in values]
@@ -354,6 +357,8 @@ class PieChart(VGroup):
 
         old_cum = cums(old)
         if anchor is None:
+            anchor = rot0                       # the first sector's start edge stays put
+        elif anchor == "gap":
             gone = [i for i in range(n) if new[i] <= 0 < old[i]]
             if gone:
                 # the eaten sectors' mean direction (clockwise from the top), then opposite
