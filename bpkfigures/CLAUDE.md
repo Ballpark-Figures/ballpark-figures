@@ -1935,28 +1935,43 @@ they are working in it. Treat each one as touching their session, not as a free 
   rebuild the whole prefix. Combined with lazy building (above), editing a
   subscene's `_setup_<name>` invalidates only that subscene onward, so the heavy
   early build-up stays cached.
-- Snapshot key = `SNAPSHOT_VERSION` + hash of the project `.py` files the scene
-  IMPORTS (`_import_closure`: every import statement in the scene file, followed
-  recursively and statically, lazy imports included; scene files and the
-  render/resolve CLI tooling excluded) + a per-subscene dependency digest. Scenes
-  are INDEPENDENT: editing a SIBLING scene, or an asset/shared module this scene
-  never imports, does NOT invalidate it. (Until 2026-09-30 the hash covered EVERY
-  `.py` under `bpkfigures/` and `animations/`, so another tab saving any asset
-  threw away every scene's snapshots mid-render.) Editing a later subscene (or code
-  only it uses) leaves earlier snapshots valid; editing an asset/config/shared
-  helper the scene imports invalidates them. Bump `SNAPSHOT_VERSION` to
-  force-invalidate. A snapshot MISS prints WHICH key term changed — `srchash` vs
-  `digest`. **The closure has a gate**: `python -m bpkfigures.check_snapshot_deps`
-  from a `scenes/` dir imports each scene for real and fails if it loaded a project
-  file the closure missed. Run it after an unusual import (importlib, exec).
-  **NOT covered, as before: non-`.py` inputs** — a `*_cache.json` regenerated under
-  a scene does not invalidate its snapshots; use `--recompute`.
+- **Snapshot key = `SNAPSHOT_VERSION` + what the subscenes REACH** (`_reach_parts`,
+  from 2026-11-05, version 7). It starts from `setup_scene` + subscenes a..itself and
+  follows what they use, across modules: the source of every project function and
+  class reached, and the VALUE of every constant read (default arguments and class
+  attributes included). Names are told apart by BYTECODE: a global read resolves
+  through the function's module, an attribute only to the scene's own methods
+  (`self.x`), so `board.tiles` never pulls in a function called `tiles`. Two
+  conservative catch-alls: a module used as an object (`mod.x`), imported inside a
+  function, or holding a constant with no stable repr is hashed WHOLE; and every
+  reached module's top-level code that is not a definition, an import or a plain name
+  assignment (a registration call, an `if` block) always counts. Framework methods run
+  without being named (`construct`, `setup`, ...) are seeded from the scene's project
+  base classes. So editing `assets/tiles.py` re-keys only the beats that use loose
+  tiles, and a scene's first beats survive edits to code they never touch. (Before:
+  every project file the scene imported, so any asset or shared-module edit threw away
+  every snapshot of the scene; and before 2026-09-30, every `.py` in both trees.)
+  - **Reprs must be stable across processes**: sets print in sorted order
+    (`_canon`), since a set's repr order follows per-process string hashing. That was
+    measured: a stray `_NEVER_PICKLE` set made every render miss.
+  - The per-clip skip key (`render._video_key`) and the thumbnail key use the same
+    reach, WITH the sound settings.
+  - **Verified 2026-11-05** in memory on scene 03 (a `tiles.py` constant re-keys from
+    03c, `board.py` from 03a, `pie_chart.py` from 03j, a sound only the clip key) and
+    by real renders (02c, then 02d and 02e loading the snapshot before them).
+  - A snapshot MISS prints WHICH term changed: `srchash` (whole-hashed modules and
+    side effects) vs `digest` (reached code and values). Bump `SNAPSHOT_VERSION` to
+    force-invalidate.
+  - **Blind spots**: a CLASS attribute read via `self.X` on the scene (as before); code
+    reached only dynamically (`getattr(obj, "name")`, a callback stored in a
+    registry); and **non-`.py` inputs** — a `*_cache.json` regenerated under a scene
+    does not invalidate its snapshots (its value is caught only when a beat reads it
+    as a module constant, e.g. `DATA = load()`); use `--recompute`.
 - **SOUND SETTINGS LIVE IN A FILE NAMED `sounds.py`, WHICH THE SNAPSHOT KEY LEAVES OUT**
   (2026-11-05, `scene.AUDIO_ONLY_FILE`). A sound cannot change a frame, yet with the
   gains and peaks in `config.py` every retuned sound threw away every snapshot of every
   scene (wheel-of-fortune 03a/03b, minutes each, rebuilt after a bubble timing moved).
-  The file and the names it defines are dropped from the snapshot's source hash AND its
-  digest; the per-clip skip key (`render._video_key`) still covers both, so a changed
+  The names it defines and its top-level code are dropped from the snapshot's reach; the per-clip skip key (`render._video_key`) still covers both, so a changed
   sound re-renders the clips that play it. The video's `config.py` does `from sounds
   import *`. **Only sound settings go there**: anything that affects a frame put in
   `sounds.py` would leave stale snapshots behind. wheel-of-fortune is the reference.

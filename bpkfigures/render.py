@@ -838,15 +838,10 @@ def _thumb_key(cls, scene_path, name, qtag):
     subscene's dependency-closure digest — plus the render QUALITY tag (so a quick
     --fast PNG never satisfies a later full-res render)."""
     from bpkfigures import scene as S
-    bpk = S._BPK_DIR
-    project_root = os.path.dirname(os.path.dirname(os.path.realpath(scene_path)))
-    tooling = {os.path.realpath(os.path.join(bpk, f)) for f in ("render.py", "resolve.py")}
     srcs = [
         f"v{S.SNAPSHOT_VERSION}",
         f"q:{qtag}",
-        S._files_hash(S._import_closure(scene_path, [bpk, project_root],
-                                        [project_root, os.path.dirname(bpk)]) - tooling),
-        S._scene_source_digest(cls, ["setup_scene", name]),
+        *S._reach_parts(cls, ["setup_scene", name]),
     ]
     return hashlib.md5("".join(srcs).encode()).hexdigest()
 
@@ -986,26 +981,16 @@ def _non_code_inputs_hash():
 
 
 def _video_key(cls, scene_path, names, idx, qtag, no_sfx, inputs_hash):
-    """The change-key for video subscene `names[idx]`: the snapshot prefix-key's
-    terms for 0..idx (version, the project code the scene imports minus every scene
-    file and the CLI tooling, the scene digest of setup_scene + subscenes 0..idx),
-    plus the quality, whether sound effects are baked in, and the non-code inputs."""
+    """The change-key for video subscene `names[idx]`: what setup_scene + subscenes
+    0..idx REACH (scene `_reach_parts`, as the snapshot key, but WITH the sound
+    settings, since they change the clip's audio), plus the version, the quality,
+    whether sound effects are baked in, and the non-code inputs."""
     from bpkfigures import scene as S
-    bpk = S._BPK_DIR
-    scene_path = os.path.realpath(scene_path)
-    project_root = os.path.dirname(os.path.dirname(scene_path))
-    scene_dir = os.path.dirname(scene_path)
-    tooling = {os.path.realpath(os.path.join(bpk, f)) for f in ("render.py", "resolve.py")}
-    siblings = {os.path.realpath(os.path.join(scene_dir, f))
-                for f in os.listdir(scene_dir) if f.endswith(".py")}
-    deps = S._import_closure(scene_path, [bpk, project_root],
-                             [project_root, os.path.dirname(bpk)])
     srcs = [
         f"v{S.SNAPSHOT_VERSION}",
         f"q:{qtag}",
         f"sfx:{0 if no_sfx else 1}",
-        S._files_hash(deps - siblings - tooling),
-        S._scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])),
+        *S._reach_parts(cls, ["setup_scene"] + list(names[: idx + 1])),
         inputs_hash,
     ]
     return hashlib.md5("".join(srcs).encode()).hexdigest()

@@ -5,7 +5,10 @@ scene REALLY imports.
     python -m bpkfigures.check_snapshot_deps            # every scene file here
     python -m bpkfigures.check_snapshot_deps 12 07      # just these
 
-The snapshot key hashes only `scene._import_closure` of the scene file — the
+Since 2026-11-05 the snapshot key follows what each subscene REACHES
+(`scene._reach_parts`), not this closure; the closure still finds the scene's
+sounds.py (`_audio_only`) and stays a check on static import tracing. Before that,
+the snapshot key hashed `scene._import_closure` of the scene file — the
 project files it can import, found by reading import statements. If that walk
 MISSED a file the scene really loads, editing that file would leave a stale
 snapshot valid: a wrong render, silently. So each scene is imported for real in a

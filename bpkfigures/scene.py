@@ -1,4 +1,5 @@
 import ast
+import dis
 import hashlib
 import inspect
 import os
@@ -38,7 +39,7 @@ SNAPSHOT_DIR = os.path.join("cache", "snapshots")
 
 # Bump this to manually invalidate every cached snapshot (e.g. after changing
 # the snapshot machinery itself or any dependency the source hash can't see).
-SNAPSHOT_VERSION = 6
+SNAPSHOT_VERSION = 7
 
 # Every subscene is framed by a static hold: the framework plays one leading
 # self.wait(SUBSCENE_HOLD) at the very start of a render, then one trailing hold
@@ -427,6 +428,230 @@ def _letter(i):
     return index_to_label(i)
 
 
+# ── what a subscene REACHES (the key since SNAPSHOT_VERSION 7) ────────────────
+# Until 2026-11-05 the key hashed EVERY project file a scene imports, so editing
+# assets/tiles.py or bpkfigures/pie_chart.py threw away every snapshot of the scene,
+# its first beats included, though they never touch either (wheel-of-fortune 03a/03b,
+# minutes each). `_reach_parts` starts instead from the subscenes' own code and follows
+# what it uses, across modules: the source of every project function and class reached,
+# the VALUE of every constant read (default arguments and class attributes included),
+# and two conservative catch-alls -- a module whose constant has no stable repr, or that
+# is used as a module object (`mod.x`), is hashed WHOLE, and every reached module's
+# top-level code that is not a definition, an import or a plain name assignment (a
+# registration call, an `if` block) always counts. Framework methods run without being
+# named (construct, setup...) are seeded from the scene's project base classes.
+_IMPLICIT = ("construct", "setup", "tear_down", "__init__", "setup_scene")
+
+
+def _project_file(obj, roots, tooling):
+    """The project file `obj` is defined in (under `roots`, not the CLI tooling), or None."""
+    try:
+        f = inspect.getsourcefile(obj) or inspect.getfile(obj)
+    except (TypeError, OSError):
+        return None
+    if not f:
+        return None
+    f = os.path.realpath(f)
+    if f in tooling:
+        return None
+    return f if any(f == r or f.startswith(r + os.sep) for r in roots) else None
+
+
+def _canon(val):
+    """repr(val) with every set's items in sorted order, nested sets included: a set's
+    repr order follows string hashing, which Python randomises per process."""
+    if isinstance(val, (set, frozenset)):
+        return f"{type(val).__name__}({sorted(_canon(v) for v in val)})"
+    if isinstance(val, dict) and type(val) is dict:
+        return "{" + ", ".join(f"{_canon(k)}: {_canon(v)}" for k, v in val.items()) + "}"
+    if type(val) in (list, tuple):
+        inner = ", ".join(_canon(v) for v in val)
+        return f"[{inner}]" if type(val) is list else f"({inner})"
+    return repr(val)
+
+
+def _stable_repr(val):
+    """repr(val), or None when it is not stable across processes (a memory address, or
+    manim's render-specific `config`; see _scene_source_digest)."""
+    try:
+        r = _canon(val)
+    except Exception:
+        return None
+    if " at 0x" in r or type(val).__name__ == "ManimConfig":
+        return None
+    return r
+
+
+def _side_effects(path):
+    """A module's top-level code other than definitions, imports, docstrings and plain
+    name assignments (those are reached by name instead): what can change state
+    without being referenced."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        tree = ast.parse(src)
+    except (OSError, SyntaxError, ValueError):
+        return path
+    out = []
+    for node in tree.body:
+        if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef,
+                             ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            continue
+        if isinstance(node, ast.Assign) and all(isinstance(x, ast.Name) for x in node.targets):
+            continue
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            continue
+        out.append(ast.get_source_segment(src, node) or ast.dump(node))
+    return "\n".join(out)
+
+
+def _code_names(fn):
+    """(globals, attributes, imports) a function's bytecode names, nested code included:
+    a global read resolves through the function's module, an attribute only to the
+    scene's own methods (`self.x`). Keeping them apart matters: `board.tiles` must not
+    pull in a module-level function that happens to be called `tiles`."""
+    glob, attrs, imps = set(), set(), set()
+    stack = [fn.__code__]
+    while stack:
+        code = stack.pop()
+        for ins in dis.get_instructions(code):
+            if not isinstance(ins.argval, str):
+                continue
+            if ins.opname in ("LOAD_GLOBAL", "LOAD_NAME", "LOAD_FROM_DICT_OR_GLOBALS"):
+                glob.add(ins.argval)
+            elif ins.opname in ("LOAD_ATTR", "LOAD_METHOD", "LOAD_SUPER_ATTR"):
+                attrs.add(ins.argval)
+            elif ins.opname == "IMPORT_NAME":
+                imps.add(ins.argval)
+        stack.extend(c for c in code.co_consts if isinstance(c, types.CodeType))
+    return glob, attrs, imps
+
+
+def _reach_parts(cls, method_names, skip=(), skip_files=()):
+    """(module_hash, digest) for subscenes `method_names` of scene class `cls`: what
+    they reach (see the note above). `skip`: constant names left out, `skip_files`:
+    files whose top-level code is left out (the snapshot key passes the sound settings,
+    see AUDIO_ONLY_FILE)."""
+    scene_file = os.path.realpath(inspect.getfile(cls))
+    project_root = os.path.dirname(os.path.dirname(scene_file))
+    roots = [os.path.realpath(_BPK_DIR), os.path.realpath(project_root)]
+    tooling = {os.path.realpath(os.path.join(_BPK_DIR, f)) for f in ("render.py", "resolve.py")}
+    scene_classes = {c.__name__ for c in cls.__mro__
+                     if c is cls or _project_file(c, roots, tooling)}
+    skip_files = {os.path.realpath(f) for f in skip_files}
+    parts, seen, queue = {}, set(), []
+    modules, whole = set(), set()
+
+    def value(key, v, owner):
+        r = _stable_repr(v)
+        if r is None:
+            parts[key] = key
+            if owner and owner != scene_file:
+                whole.add(owner)
+        else:
+            parts[key] = r
+
+    def code(qual, obj):
+        if qual in seen:
+            return
+        seen.add(qual)
+        try:
+            parts[qual] = inspect.getsource(obj)
+        except Exception:
+            parts[qual] = qual              # deterministic (see _add_function)
+        owner = _project_file(obj, roots, tooling)
+        if owner and owner != scene_file:
+            modules.add(owner)
+        if isinstance(obj, types.FunctionType):
+            for attr in ("__defaults__", "__kwdefaults__"):
+                d = getattr(obj, attr, None)
+                if d:
+                    value(f"{qual}.{attr}", d, owner)
+            queue.append(obj)
+        elif isinstance(obj, type):
+            for k, v in vars(obj).items():
+                fn = v.fget if isinstance(v, property) else getattr(v, "__func__", v)
+                if isinstance(fn, types.FunctionType):
+                    for attr in ("__defaults__", "__kwdefaults__"):
+                        d = getattr(fn, attr, None)
+                        if d:
+                            value(f"{qual}.{k}.{attr}", d, owner)
+                    queue.append(fn)
+                elif not k.startswith("__"):
+                    value(f"{qual}.{k}", v, owner)
+            for base in obj.__mro__[1:]:
+                if _project_file(base, roots, tooling):
+                    code(f"{base.__module__}.{base.__qualname__}", base)
+
+    def name(ref, glb, owner):
+        v = glb[ref]
+        if isinstance(v, types.ModuleType):
+            f = _project_file(v, roots, tooling)
+            if f:
+                whole.add(f)
+            return
+        if isinstance(v, (types.FunctionType, type)):
+            if _project_file(v, roots, tooling):
+                code(f"{v.__module__}.{v.__qualname__}", v)
+            return
+        if ref in skip:
+            return
+        value(f"const:{owner or cls.__module__}:{ref}", v, owner)
+
+    for n in method_names:                       # the subscenes themselves
+        fn = getattr(cls, n, None)
+        fn = getattr(fn, "__func__", fn)
+        if isinstance(fn, types.FunctionType):
+            code(f"{cls.__name__}.{n}", fn)
+    for base in cls.__mro__[1:]:                 # framework methods run unnamed
+        if _project_file(base, roots, tooling):
+            for n in _IMPLICIT:
+                fn = vars(base).get(n)
+                fn = getattr(fn, "__func__", fn)
+                if isinstance(fn, types.FunctionType):
+                    code(f"{base.__module__}.{base.__qualname__}.{n}", fn)
+
+    while queue:
+        fn = queue.pop()
+        glb = fn.__globals__
+        owner = _project_file(fn, roots, tooling)
+        on_scene = fn.__qualname__.split(".")[0] in scene_classes
+        glob, attrs, imps = _code_names(fn)
+        if on_scene:                             # self.<method> on the scene's classes
+            for ref in attrs:
+                a = getattr(cls, ref, None)
+                a = getattr(a, "__func__", a)
+                if isinstance(a, types.FunctionType) and _project_file(a, roots, tooling):
+                    code(f"{cls.__name__}.{ref}" if ref in vars(cls)
+                         else f"{a.__module__}.{a.__qualname__}", a)
+        for ref in glob:
+            if ref in glb:
+                name(ref, glb, owner)
+        for mod in imps:                         # an import inside a function: whole
+            f = _project_file(sys.modules[mod], roots, tooling) if mod in sys.modules else None
+            if f:
+                whole.add(f)
+
+    mh = hashlib.md5()
+    for f in sorted(whole - skip_files):
+        try:
+            with open(f, "rb") as fh:
+                mh.update(f.encode())
+                mh.update(fh.read())
+        except OSError:
+            pass
+    for f in sorted(modules - whole - skip_files):
+        mh.update(f.encode())
+        mh.update(_side_effects(f).encode())
+    dh = hashlib.md5()
+    for qual in sorted(parts):
+        dh.update(qual.encode())
+        dh.update(parts[qual].encode())
+    return mh.hexdigest(), dh.hexdigest()
+
+
 class BpkScene(Scene):
     def setup_scene(self):
         pass
@@ -459,25 +684,14 @@ class BpkScene(Scene):
         return hashlib.md5(f"v{SNAPSHOT_VERSION}{sh}{dg}".encode()).hexdigest()
 
     def _prefix_key_parts(self, idx, names):
-        """(source_hash, scene_digest) — the two non-version key terms, exposed so a snapshot MISS
-        can report WHICH one changed: source_hash = project .py hash (asset/config/bpkfigures edit),
-        digest = the scene-code closure for setup_scene + subscenes 0..idx."""
-        cls = type(self)
-        scene_file = os.path.realpath(inspect.getfile(cls))
-        tooling = {os.path.realpath(os.path.join(_BPK_DIR, f))
-                   for f in ("render.py", "resolve.py")}
-        # exclude EVERY scene file in this scene's directory, not just our own: scenes are
-        # INDEPENDENT (this scene's own code is captured by the digest), so hashing a sibling
-        # scene would make editing scene 06 invalidate scene 05's snapshots — the user works
-        # several scenes at once, so that mis-coupling is a constant, silent full-replay.
-        scene_dir = os.path.dirname(scene_file)
-        siblings = {os.path.realpath(os.path.join(scene_dir, f))
-                    for f in os.listdir(scene_dir) if f.endswith(".py")}
-        deps = self._dependency_files()
-        audio_files, audio_names = _audio_only(deps)
-        return (_files_hash(deps - siblings - tooling - audio_files),
-                _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1]),
-                                     skip=audio_names))
+        """(module_hash, digest) — the two non-version key terms, exposed so a snapshot MISS
+        can report WHICH one changed: what setup_scene + subscenes 0..idx REACH
+        (`_reach_parts`), less the sound settings (AUDIO_ONLY_FILE). module_hash = modules
+        hashed whole and reached modules' top-level side effects; digest = the source of
+        reached code and the values of reached constants."""
+        audio_files, audio_names = _audio_only(self._dependency_files())
+        return _reach_parts(type(self), ["setup_scene"] + list(names[: idx + 1]),
+                            skip=audio_names, skip_files=audio_files)
 
     def _dependency_files(self):
         """The project .py files this scene can import (`_import_closure`), cached
