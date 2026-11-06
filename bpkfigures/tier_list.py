@@ -159,10 +159,11 @@ def tile_color(ch, vowels=None):
     return VOWEL_TILE_COLOR if ch.lower() in vowels else CONS_TILE_COLOR
 
 
-def ink_color(ch):
+def ink_color(ch, vowels=None):
     """Big corner letter + ngram anchor colour for `ch` on the light bg:
-    vowel CRIMSON / consonant blue."""
-    return VOWEL_INK_COLOR if ch.lower() in VOWELS else CONS_INK_COLOR
+    vowel CRIMSON / consonant blue. `vowels`: as `tile_color`."""
+    vowels = VOWELS if vowels is None else {v.lower() for v in vowels}
+    return VOWEL_INK_COLOR if ch.lower() in vowels else CONS_INK_COLOR
 
 
 def heat_color(ch):
@@ -348,7 +349,7 @@ BOX_FILL_FRAC = 0.9          # a boxed letter's square, as a fraction of its slo
 
 
 def fill_tier(tl, i, letters, *, height=0.5, buff=LETTER_BUFF,
-              pitch=LETTER_PITCH, box=None, vowels=None):
+              pitch=LETTER_PITCH, box=None, vowels=None, token=None):
     """Lay tier `i`'s `letters` (a sourced string, or a list of TOKENS, top tier
     first) left→right in its panel — each centred in a fixed-width slot (`pitch`, or
     `token_slots` of it for a double) so they stay evenly spaced regardless of glyph
@@ -357,14 +358,23 @@ def fill_tier(tl, i, letters, *, height=0.5, buff=LETTER_BUFF,
 
     `box` (optional, a `letter_box` style dict) draws each letter IN A BOX of side
     `BOX_FILL_FRAC * pitch` instead of bare; `height` is then ignored. Default None
-    leaves every existing list exactly as it was. `vowels`: see `tile_color`."""
+    leaves every existing list exactly as it was. `vowels`: see `tile_color`.
+
+    `token` (optional, a function of one letter returning a mobject) draws each letter
+    with it instead, centred in its slot, `height`, `box` and `vowels` ignored: a video's
+    own letter look (wheel-of-fortune 05: its puzzle tiles). Only called while building,
+    so nothing keeps a reference to it."""
     cy = tl.row_cys[i]
     x = tl.panel_left_x + buff
     tiles = VGroup()
     for ch in letters:
         w = token_slots(ch) * pitch
-        tile = (letter_tile(ch, height=height, vowels=vowels) if box is None
-                else letter_box(ch, BOX_FILL_FRAC * pitch, box, vowels=vowels))
+        if token is not None:
+            tile = token(ch)
+        elif box is None:
+            tile = letter_tile(ch, height=height, vowels=vowels)
+        else:
+            tile = letter_box(ch, BOX_FILL_FRAC * pitch, box, vowels=vowels)
         tiles.add(tile.move_to([x + w / 2, cy, 0]))
         x += w
     tl.contents[i].add(*tiles)
@@ -373,17 +383,17 @@ def fill_tier(tl, i, letters, *, height=0.5, buff=LETTER_BUFF,
 
 # ── comparison (a filled list, and a piece-by-piece morph between two) ─────────
 def filled_list(letters, *, names=None, scale=1.0, panel_width=_DEFAULT_PANEL_W,
-                panel_fill=None, box=None, vowels=None, panels=True):
+                panel_fill=None, box=None, vowels=None, panels=True, token=None):
     """A tier list with each tier's `letters` filled in — default the 7-tier NAMED
     structure, or a custom `names` (list of (word, arrow)) — scaled and ready to
     `.move_to(...)`. `letters` is one string (or list of TOKENS) per tier, top→bottom. The shared builder
     behind the scene-17 / scene-22 tier COMPARISONS. `box`: see `fill_tier`; `vowels`:
-    see `tile_color`; `panels`: see `get_tier_list`."""
+    see `tile_color`; `panels`: see `get_tier_list`; `token`: see `fill_tier`."""
     kw = dict(panel_width=panel_width, panel_fill=panel_fill, panels=panels)
     tl = (get_tier_list("name", **kw) if names is None
           else get_tier_list(names=names, **kw))
     for i, lets in enumerate(letters):
-        fill_tier(tl, i, lets, box=box, vowels=vowels)
+        fill_tier(tl, i, lets, box=box, vowels=vowels, token=token)
     return tl.scale(scale)
 
 
