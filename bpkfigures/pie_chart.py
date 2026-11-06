@@ -46,29 +46,36 @@ _TOP = PI / 2   # 12 o'clock — where every sweep starts
 
 # Sound effects, off unless a video turns them on (set_sounds, e.g. in its config.py):
 # "open" under every fan-in, "eat" under every resize_sectors. Each is None or
-# (sfx name, gain dB or None, peak s), played with scene.sfx so that the file's loudest
-# moment (`peak` seconds in) lands at the middle of the animation, as a whoosh is placed.
+# a list of (sfx name, gain dB or None, peak s), played with scene.sfx in order, spread
+# over the animation, each file's loudest moment (`peak` seconds in) at the middle of its
+# share of it, as a whoosh is placed.
 _SOUNDS = {"open": None, "eat": None}
+
+
+def _spec(v):
+    v = v if isinstance(v, tuple) else (v,)
+    return (v[0], v[1] if len(v) > 1 else None, v[2] if len(v) > 2 else 0.0)
 
 
 def set_sounds(*, open=None, eat=None):
     """Turn on the pie's sounds for every pie from here on: `open` under each fan-in
     (fan_all, fan_sectors, fan_group, and each sector of fan_sequential), `eat` under
     each resize_sectors. Each is an sfx name, (name, gain dB) or (name, gain dB, peak
-    s): the peak, where the file is loudest, is put at the animation's middle (0 puts
-    the file's start there). None leaves it off."""
+    s), or a LIST of them, played in order and spread evenly over the animation. A
+    sound's peak (where the file is loudest; 0 is its start) lands at the middle of
+    its share of the animation, so a single sound sits at the animation's middle and
+    four sit at 1/8, 3/8, 5/8 and 7/8 of it. None leaves it off."""
     for key, v in (("open", open), ("eat", eat)):
-        if v is None:
-            _SOUNDS[key] = None
-        else:
-            v = v if isinstance(v, tuple) else (v,)
-            _SOUNDS[key] = (v[0], v[1] if len(v) > 1 else None, v[2] if len(v) > 2 else 0.0)
+        _SOUNDS[key] = (None if v is None else
+                        [_spec(x) for x in v] if isinstance(v, list) else [_spec(v)])
 
 
 def _cue(scene, key, sound, run_time):
-    s = _SOUNDS[key]
-    if sound and s is not None and hasattr(scene, "sfx"):
-        scene.sfx(s[0], at=max(0.0, run_time / 2 - s[2]), gain=s[1])
+    sounds = _SOUNDS[key]
+    if sound and sounds and hasattr(scene, "sfx"):
+        n = len(sounds)
+        for k, (name, gain, peak) in enumerate(sounds):
+            scene.sfx(name, at=max(0.0, run_time * (k + 0.5) / n - peak), gain=gain)
 
 
 class PieChart(VGroup):
