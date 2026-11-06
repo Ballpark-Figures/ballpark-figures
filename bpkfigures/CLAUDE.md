@@ -1121,6 +1121,13 @@ beside the source's entry.
   The user: "We've always agreed on me doing the big computations. Why do you keep violating
   this?") This SHARPENS the two rules below, which only fire when the user asks for a command
   or when the job is visibly long; this one fires regardless.
+  - **EXCEPTION — BUILDING FOR A SCENE: THE AGENT RUNS IT** (the user, 2026-11-06: "If
+    you're building stuff for a scene, you should run it"). A scene's data module
+    (`assets/<name>_data.py` writing its cache from already-sanctioned pipeline helpers),
+    a render, a cache refresh: run them yourself and report what they printed. The rule
+    above is for ANALYSES and SEARCHES whose result is the question (a solver sweep, an
+    LLM batch, a new statistic); a scene's cache only collects numbers the user's
+    pipeline already defines. The numbers rule still binds: the cache computes nothing new.
   - **A GOAL, PLAN OR TODO THE AGENT DRAFTS IS NOT AUTHORISATION — NOT EVEN AFTER THE USER
     PASTES IT BACK.** This is the loophole that makes the rule above look satisfied while it
     is being broken. The agent writes "run one 30-episode trial" into a `/goal` it proposes,
