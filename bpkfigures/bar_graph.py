@@ -63,6 +63,13 @@ def get_bar_chart(
     y_ticks=None,
     y_tick_factory=None,
     y_tick_buff=0.12,
+    x_ticks=None,                # [(slot, label)]: a tick at `slot` slot widths from the
+                                 # left edge (0 = the edge, n = the right), its label
+                                 # below; for bars that are BANDS of a continuous axis
+                                 # (5% bands ticked at 0%, 20%, ...), where per-bar
+                                 # labels would name a band by its middle
+    x_tick_factory=None,
+    x_tick_buff=0.12,
     title=None,
     title_mobject=None,
     title_factory=None,
@@ -83,7 +90,7 @@ def get_bar_chart(
     Returns a VGroup with per-role handles: ``.bars`` ``.labels`` ``.values``
     (parallel VGroups in item order), ``.bar_of`` / ``.label_of`` / ``.value_of``
     ({label: mobject}), ``.cols`` ({label: VGroup(bar[, label][, value])}),
-    ``.x_axis`` ``.y_axis`` ``.yticks`` ``.title`` (any may be None), and
+    ``.x_axis`` ``.y_axis`` ``.yticks`` ``.xticks`` ``.title`` (any may be None), and
     ``.chart_geom`` (scale/geometry, so morph_bar_chart can pair two charts)."""
     if orientation not in ("vertical", "horizontal"):
         raise ValueError(f"orientation must be 'vertical' or 'horizontal', "
@@ -181,6 +188,16 @@ def get_bar_chart(
             tl = y_tick_factory(t)
             tl.next_to(tick, LEFT, buff=y_tick_buff)
             yticks.add(tick, tl)
+    xticks = VGroup()
+    if x_ticks:
+        x_tick_factory = x_tick_factory or _crisp_factory(ink_color)
+        for s, label in x_ticks:
+            x = left + s * slot
+            tick = Line([x, base, 0], [x, base - 0.12, 0], color=ink_color,
+                        stroke_width=2)
+            tl = x_tick_factory(label)
+            tl.next_to(tick, DOWN, buff=x_tick_buff)
+            xticks.add(tick, tl)
 
     elements = VGroup(bars, labels, values)
     for m in (xa, ya):
@@ -188,6 +205,8 @@ def get_bar_chart(
             elements.add(m)
     if len(yticks):
         elements.add(yticks)
+    if len(xticks):
+        elements.add(xticks)
 
     title_text = None
     if title_mobject is not None:
@@ -206,6 +225,7 @@ def get_bar_chart(
     elements.cols = cols
     elements.x_axis, elements.y_axis = xa, ya
     elements.yticks = yticks if len(yticks) else None
+    elements.xticks = xticks if len(xticks) else None
     elements.title = title_text
     elements.chart_geom = {"y_max": vmax, "y_min": y_min, "width": width,
                            "height": height, "n": n,
@@ -310,7 +330,7 @@ def morph_bar_chart(old, new):
             anims.append(FadeOut(o[i]))
         for i in range(k, len(nw)):
             anims.append(FadeIn(nw[i]))
-    for attr in ("x_axis", "y_axis", "yticks", "title"):
+    for attr in ("x_axis", "y_axis", "yticks", "xticks", "title"):
         o, nw = getattr(old, attr, None), getattr(new, attr, None)
         if o is not None and nw is not None:
             anims.append(FadeTransform(o, nw))
