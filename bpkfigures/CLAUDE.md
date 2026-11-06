@@ -1951,6 +1951,15 @@ they are working in it. Treat each one as touching their session, not as a free 
   file the closure missed. Run it after an unusual import (importlib, exec).
   **NOT covered, as before: non-`.py` inputs** — a `*_cache.json` regenerated under
   a scene does not invalidate its snapshots; use `--recompute`.
+- **SOUND SETTINGS LIVE IN A FILE NAMED `sounds.py`, WHICH THE SNAPSHOT KEY LEAVES OUT**
+  (2026-11-05, `scene.AUDIO_ONLY_FILE`). A sound cannot change a frame, yet with the
+  gains and peaks in `config.py` every retuned sound threw away every snapshot of every
+  scene (wheel-of-fortune 03a/03b, minutes each, rebuilt after a bubble timing moved).
+  The file and the names it defines are dropped from the snapshot's source hash AND its
+  digest; the per-clip skip key (`render._video_key`) still covers both, so a changed
+  sound re-renders the clips that play it. The video's `config.py` does `from sounds
+  import *`. **Only sound settings go there**: anything that affects a frame put in
+  `sounds.py` would leave stale snapshots behind. wheel-of-fortune is the reference.
 - **A scene-file MODULE CONSTANT the subscene reads IS captured in its digest —
   editing it invalidates the snapshot.** The digest repr's the VALUE of every
   module-level constant a subscene's code closure references, of ANY stable-repr

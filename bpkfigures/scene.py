@@ -177,6 +177,39 @@ def _import_closure(entry, roots, search):
     return seen
 
 
+# A project file with this name holds SOUND SETTINGS ONLY (which effect, how loud, where
+# it peaks). A sound cannot change what is on screen, so the SNAPSHOT key leaves the file,
+# and the names it defines, out: retuning a sound used to throw away every snapshot of
+# every scene that imports the video's config (wheel-of-fortune, 2026-11-05: 03a and 03b,
+# minutes each, rebuilt after a bubble's timing changed). The per-clip SKIP key
+# (render.py `_video_key`) still covers both, so a changed sound re-renders its clips.
+# Anything that affects a frame must NOT go in such a file.
+AUDIO_ONLY_FILE = "sounds.py"
+
+
+def _audio_only(files):
+    """(the sound-settings files among `files`, the names they define at top level)."""
+    found = {f for f in files if os.path.basename(f) == AUDIO_ONLY_FILE}
+    names = set()
+    for f in found:
+        try:
+            with open(f, "rb") as fh:
+                tree = ast.parse(fh.read(), filename=f)
+        except (OSError, SyntaxError, ValueError):
+            continue
+        for node in tree.body:
+            targets = []
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            for tgt in targets:
+                for n in ast.walk(tgt):
+                    if isinstance(n, ast.Name):
+                        names.add(n.id)
+    return found, names
+
+
 def _files_hash(files):
     """md5 over the path and source of each of `files`, in sorted order."""
     h = hashlib.md5()
@@ -204,7 +237,7 @@ def _referenced_names(fn):
     return names
 
 
-def _scene_source_digest(cls, method_names):
+def _scene_source_digest(cls, method_names, skip=()):
     """Deterministic md5 over the source of `method_names` (methods on `cls`)
     plus the transitive closure of everything they reference that is defined in
     the SAME module/class — other methods, module-level helper functions, and
@@ -215,7 +248,10 @@ def _scene_source_digest(cls, method_names):
     doesn't change the digest for an earlier subscene, while editing a helper or
     constant that an in-scope method reaches does. Third-party / asset / config
     code is deliberately NOT followed here — it's covered wholesale by
-    _source_hash."""
+    _source_hash.
+
+    `skip`: module-level constant names left out (the snapshot key passes the sound
+    settings' names, see AUDIO_ONLY_FILE); methods and functions are never skipped."""
     module = sys.modules.get(cls.__module__)
     mod_ns = getattr(module, "__dict__", {})
     cls_ns = dict(vars(cls))
@@ -305,6 +341,8 @@ def _scene_source_digest(cls, method_names):
                             parts[key] = inspect.getsource(val)
                         except Exception:
                             parts[key] = key  # deterministic fallback (see above)
+                elif ref in skip:
+                    continue
                 else:
                     # a module-level constant the code depends on. Capture its
                     # VALUE via repr so tuning it (a size, a position vector, a
@@ -435,8 +473,11 @@ class BpkScene(Scene):
         scene_dir = os.path.dirname(scene_file)
         siblings = {os.path.realpath(os.path.join(scene_dir, f))
                     for f in os.listdir(scene_dir) if f.endswith(".py")}
-        return (_files_hash(self._dependency_files() - siblings - tooling),
-                _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1])))
+        deps = self._dependency_files()
+        audio_files, audio_names = _audio_only(deps)
+        return (_files_hash(deps - siblings - tooling - audio_files),
+                _scene_source_digest(cls, ["setup_scene"] + list(names[: idx + 1]),
+                                     skip=audio_names))
 
     def _dependency_files(self):
         """The project .py files this scene can import (`_import_closure`), cached
