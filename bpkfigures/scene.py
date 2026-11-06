@@ -529,11 +529,16 @@ def _code_names(fn):
     return glob, attrs, imps
 
 
-def _reach_parts(cls, method_names, skip=(), skip_files=()):
+def _reach_parts(cls, method_names, skip=(), skip_files=(), texts=None, classes=None,
+                 attr_classes=()):
     """(module_hash, digest) for subscenes `method_names` of scene class `cls`: what
     they reach (see the note above). `skip`: constant names left out, `skip_files`:
     files whose top-level code is left out (the snapshot key passes the sound settings,
-    see AUDIO_ONLY_FILE)."""
+    see AUDIO_ONLY_FILE). `texts`: a list to receive every hashed source and value, so
+    render.py can find the sound effects a subscene names. `classes`: a list to receive
+    every project class reached. `attr_classes`: classes whose methods an attribute
+    call may also resolve to, from any reached code -- for a subscene looked at alone
+    that calls methods on objects an EARLIER subscene built (`self.pie.fan_all`)."""
     scene_file = os.path.realpath(inspect.getfile(cls))
     project_root = os.path.dirname(os.path.dirname(scene_file))
     roots = [os.path.realpath(_BPK_DIR), os.path.realpath(project_root)]
@@ -571,6 +576,8 @@ def _reach_parts(cls, method_names, skip=(), skip_files=()):
                     value(f"{qual}.{attr}", d, owner)
             queue.append(obj)
         elif isinstance(obj, type):
+            if classes is not None:
+                classes.append(obj)
             for k, v in vars(obj).items():
                 fn = v.fget if isinstance(v, property) else getattr(v, "__func__", v)
                 if isinstance(fn, types.FunctionType):
@@ -626,6 +633,12 @@ def _reach_parts(cls, method_names, skip=(), skip_files=()):
                 if isinstance(a, types.FunctionType) and _project_file(a, roots, tooling):
                     code(f"{cls.__name__}.{ref}" if ref in vars(cls)
                          else f"{a.__module__}.{a.__qualname__}", a)
+        for ref in attrs:                        # methods of objects built earlier
+            for C in attr_classes:
+                a = getattr(C, ref, None)
+                a = a.fget if isinstance(a, property) else getattr(a, "__func__", a)
+                if isinstance(a, types.FunctionType) and _project_file(a, roots, tooling):
+                    code(f"{a.__module__}.{a.__qualname__}", a)
         for ref in glob:
             if ref in glb:
                 name(ref, glb, owner)
@@ -649,6 +662,9 @@ def _reach_parts(cls, method_names, skip=(), skip_files=()):
     for qual in sorted(parts):
         dh.update(qual.encode())
         dh.update(parts[qual].encode())
+    if texts is not None:
+        texts.extend(parts.values())
+        texts.extend(_side_effects(f) for f in sorted(modules - skip_files))
     return mh.hexdigest(), dh.hexdigest()
 
 

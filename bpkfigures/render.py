@@ -935,10 +935,10 @@ def _thumb_change_plan(targets, qtag):
 #
 # The code terms are the snapshot cache's own (bpkfigures.scene `_prefix_key`), so
 # a skip is exactly as trustworthy as a snapshot hit, with the same blind spot: a
-# CLASS attribute read via `self.X`. Non-code inputs are covered COARSELY — every
-# non-.py file under this tree's assets/ (the render caches, images) and every sound
-# effect file — so regenerating any cache re-renders every scene once, which errs
-# the safe way. A scene that opens a file anywhere else is not tracked: use
+# CLASS attribute read via `self.X`. The non-.py files under this tree's assets/ (the
+# render caches, images) are covered COARSELY, so regenerating any cache re-renders
+# every scene once, which errs the safe way. Sound effects are covered PER CLIP: only
+# the ones the clip's reached code names (`_sfx_hash`). A scene that opens a file anywhere else is not tracked: use
 # --recompute after changing one.
 _VIDEO_KEYS = ".render_keys.json"
 
@@ -961,37 +961,66 @@ def _content_hash(paths):
 
 
 def _non_code_inputs_hash():
-    """Content hash of every non-code file a scene can read at render time: this
-    tree's assets/ (caches, images) and the sound-effect library."""
+    """Content hash of the non-code files under this tree's assets/ (caches, images)
+    a scene can read at render time. Sound effects are NOT here: each clip's key
+    hashes only the ones it names (`_sfx_hash`)."""
     paths = []
     assets = os.path.realpath(os.path.join(os.getcwd(), "..", "assets"))
     for dirpath, dirnames, filenames in os.walk(assets):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         paths += [os.path.join(dirpath, f) for f in filenames
                   if not f.endswith((".py", ".pyc"))]
+    return _content_hash(paths)
+
+
+def _sfx_files():
+    """{name: path} of every sound effect (`self.sfx(name)` resolves `<name>.wav`)."""
+    out = {}
     try:
         from bpkfigures.sfx import sfx_roots
         for root in sfx_roots():
             if os.path.isdir(root):
-                paths += [os.path.join(root, f) for f in os.listdir(root)
-                          if f.endswith(".wav")]
+                for f in os.listdir(root):
+                    if f.endswith(".wav"):
+                        out.setdefault(f[:-4], os.path.join(root, f))
     except Exception:
         pass
-    return _content_hash(paths)
+    return out
+
+
+def _sfx_hash(texts):
+    """Content hash of the sound effects a subscene NAMES: every effect whose name
+    appears quoted in the code and constant values it reaches (a literal
+    `self.sfx("glock")`, or a sound setting like ("bubble", -10.0, 0.046)). Until
+    2026-11-05 every clip hashed the WHOLE library, so adding one sound re-rendered
+    every clip of every scene (wheel-of-fortune 03a, minutes, after tonal-whoosh.wav)."""
+    blob = "\n".join(texts)
+    used = [path for name, path in _sfx_files().items()
+            if f"'{name}'" in blob or f'"{name}"' in blob]
+    return _content_hash(used)
 
 
 def _video_key(cls, scene_path, names, idx, qtag, no_sfx, inputs_hash):
     """The change-key for video subscene `names[idx]`: what setup_scene + subscenes
     0..idx REACH (scene `_reach_parts`, as the snapshot key, but WITH the sound
     settings, since they change the clip's audio), plus the version, the quality,
-    whether sound effects are baked in, and the non-code inputs."""
+    whether sound effects are baked in, the non-code inputs under assets/, and the
+    sound effects the subscene itself names (`_sfx_hash`)."""
     from bpkfigures import scene as S
+    classes = []
+    reach = S._reach_parts(cls, ["setup_scene"] + list(names[: idx + 1]), classes=classes)
+    # the clip's audio is only its OWN subscene's cues (the prefix replays silent), so
+    # the effects are looked up in what that subscene alone reaches, its calls on
+    # objects built earlier resolved through every class reached so far
+    texts = []
+    S._reach_parts(cls, ["setup_scene", names[idx]], texts=texts, attr_classes=classes)
     srcs = [
         f"v{S.SNAPSHOT_VERSION}",
         f"q:{qtag}",
         f"sfx:{0 if no_sfx else 1}",
-        *S._reach_parts(cls, ["setup_scene"] + list(names[: idx + 1])),
+        *reach,
         inputs_hash,
+        _sfx_hash(texts),
     ]
     return hashlib.md5("".join(srcs).encode()).hexdigest()
 

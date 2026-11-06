@@ -1955,7 +1955,14 @@ they are working in it. Treat each one as touching their session, not as a free 
     (`_canon`), since a set's repr order follows per-process string hashing. That was
     measured: a stray `_NEVER_PICKLE` set made every render miss.
   - The per-clip skip key (`render._video_key`) and the thumbnail key use the same
-    reach, WITH the sound settings.
+    reach, WITH the sound settings. **Sound-effect FILES are keyed per clip too**
+    (`_sfx_hash`, 2026-11-05): only the `.wav`s whose names appear quoted in what the
+    clip's OWN subscene reaches (its calls on objects built earlier, `self.pie.fan_all`,
+    resolved through every class reached so far). Before, every clip hashed the whole
+    library, so adding one sound re-rendered every clip of every scene. Checked on 03
+    and 02: every beat finds every sound it plays; adding `tonal-whoosh.wav` re-keys
+    exactly the five 03 beats that play it. A sound name built at runtime (an
+    f-string) would be missed: give each name literally (a constant is fine).
   - **Verified 2026-11-05** in memory on scene 03 (a `tiles.py` constant re-keys from
     03c, `board.py` from 03a, `pie_chart.py` from 03j, a sound only the clip key) and
     by real renders (02c, then 02d and 02e loading the snapshot before them).
