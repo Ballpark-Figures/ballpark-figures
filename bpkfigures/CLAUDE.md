@@ -2323,6 +2323,10 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   are ignored for this alignment — they add beats WITHIN a left section). An empty beat
   still needs an empty segment (`… --- (no change) --- …`); a `---` mismatch silently shifts
   the pairing, so flag it.
+- **"Start with X" in column 2 means X is ALREADY ON SCREEN at the scene's first frame**
+  (built and added in `setup_scene`), with no entrance animation. It is not "X comes in
+  first". (Bit us on wheel-of-fortune 04, 2026-11-05: "Start with title Common Letter
+  Patterns" was built as a title rising from the bottom.)
 - **A beat with an EMPTY animation column (voiceover-only) gets NO subscene** — don't
   create a do-nothing `self.wait` subscene; its voiceover plays over the neighbours'
   framework holds. Still COUNT it when zipping (so later beats stay aligned), but skip
