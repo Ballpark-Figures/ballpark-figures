@@ -2273,6 +2273,13 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   sequence and bump the rest down (a renumber). Don't auto-avoid a "taken" number there
   or pick your own — follow the user's intended numbering, and do the renumbering they
   ask for.
+- **FETCH THE SCRIPT YOURSELF — never ask the user to.** Run `fetch-script.sh` (the
+  `/fetch-script` skill; it is allowlisted) from the video repo before starting or editing
+  a scene, and again whenever the user mentions changing the script. The SessionStart hook
+  refreshes `Script.md` only ONCE, at session start, so an edit the user makes in the Doc
+  mid-session is not in the local file until someone fetches. Relay its `[WARN]`/`[FAIL]`
+  lines. (Bit us 2026-11-06: the user changed 06's slope to -1/-1.5 in the Doc, and the
+  agent asked THEM to run `/fetch-script` rather than running it.)
 - **Orient before writing.** Read the OTHER scenes in this video first to match their
   structure/conventions (if it's the video's FIRST scene, read a previous video's).
   Reuse what exists — this video's `animations/assets/` and the shared `bpkfigures/`.
