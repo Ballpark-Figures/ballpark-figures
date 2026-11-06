@@ -33,6 +33,8 @@ To CHANGE a pie already on screen (e.g. once a letter rules some answers out):
                                         first sector's start edge stays put (or, with
                                         anchor="gap", the point opposite the eaten ones);
                                         labels slide and cross-fade.
+Sounds: `set_sounds(open=…, eat=…)` (once, e.g. in a video's config.py) puts an sfx under
+every fan-in and every resize_sectors; each method's `sound=False` skips it for one call.
 Both/all use manim's default easing. Colours (and optional labels) are the caller's —
 e.g. vowels red + consonants blue.
 """
@@ -41,6 +43,25 @@ from manim import *
 from bpkfigures.style import FONT, FONT_SIZE_SM, crisp_text
 
 _TOP = PI / 2   # 12 o'clock — where every sweep starts
+
+# Sound effects, off unless a video turns them on (set_sounds, e.g. in its config.py):
+# "open" under every fan-in, "eat" under every resize_sectors. Each is None or
+# (sfx name, gain dB or None), played with scene.sfx as the animation starts.
+_SOUNDS = {"open": None, "eat": None}
+
+
+def set_sounds(*, open=None, eat=None):
+    """Turn on the pie's sounds for every pie from here on: `open` under each fan-in
+    (fan_all, fan_sectors, fan_group, and each sector of fan_sequential), `eat` under
+    each resize_sectors. Each is an sfx name, or (name, gain dB). None leaves it off."""
+    for key, v in (("open", open), ("eat", eat)):
+        _SOUNDS[key] = None if v is None else (v if isinstance(v, tuple) else (v, None))
+
+
+def _cue(scene, key, sound):
+    s = _SOUNDS[key]
+    if sound and s is not None and hasattr(scene, "sfx"):
+        scene.sfx(s[0], gain=s[1])
 
 
 class PieChart(VGroup):
@@ -213,7 +234,7 @@ class PieChart(VGroup):
         self.sectors[i].become(self._sector(i, a, start))
 
     # ── animations (start at the top, sweep clockwise; default manim easing) ────
-    def fan_all(self, scene, run_time, extra=()):
+    def fan_all(self, scene, run_time, extra=(), sound=True):
         """ALL sectors grow SIMULTANEOUSLY from the top: the arc drawn so far is always
         split in the final proportions (a 39% sector is 39% of the swept arc throughout),
         expanding clockwise to the full pie. Each sector's start scales with the sweep so
@@ -230,6 +251,7 @@ class PieChart(VGroup):
             self.labels.set_opacity(max(0.0, (alpha - 0.7) / 0.3))
 
         self.labels.set_opacity(0)
+        _cue(scene, "open", sound)
         scene.play(UpdateFromAlphaFunc(self, func), *extra, run_time=run_time)
         for i in range(n):
             self._redraw(i, self.arc[i])
@@ -242,19 +264,20 @@ class PieChart(VGroup):
             self._redraw(i, 0.0)
         self.labels.set_opacity(0)
 
-    def _fan_one(self, scene, i, run_time):
+    def _fan_one(self, scene, i, run_time, sound=True):
         """Grow sector ``i`` from nothing to its full arc (from its own start edge),
         its label fading in with it."""
         def func(_m, alpha):
             self._redraw(i, self.arc[i] * alpha)
             if i < len(self.labels):
                 self.labels[i].set_opacity(alpha)
+        _cue(scene, "open", sound)
         scene.play(UpdateFromAlphaFunc(self.sectors[i], func), run_time=run_time)
         self._redraw(i, self.arc[i])
         if i < len(self.labels):
             self.labels[i].set_opacity(1)
 
-    def fan_sequential(self, scene, run_time):
+    def fan_sequential(self, scene, run_time, sound=True):
         """Each sector sweeps in one at a time (equal time each), the first starting at
         the top; each label fades in with its sector. Default manim easing per sector."""
         if self not in scene.mobjects:
@@ -263,9 +286,9 @@ class PieChart(VGroup):
         n = len(self.sectors)
         rt = run_time / max(n, 1)
         for i in range(n):
-            self._fan_one(scene, i, rt)
+            self._fan_one(scene, i, rt, sound)
 
-    def fan_sectors(self, scene, indices, run_time, *, sequential=False, extra=()):
+    def fan_sectors(self, scene, indices, run_time, *, sequential=False, extra=(), sound=True):
         """Grow just the sectors in ``indices`` (each from its OWN start edge) over one
         ``run_time`` — SIMULTANEOUSLY by default (the "all at once" tail), or one at a
         time if ``sequential=True``. Un-named sectors are left as they are, so calling
@@ -278,7 +301,7 @@ class PieChart(VGroup):
         if sequential:
             rt = run_time / max(len(indices), 1)
             for i in indices:
-                self._fan_one(scene, i, rt)
+                self._fan_one(scene, i, rt, sound)
             return
 
         def func(_m, alpha):
@@ -286,13 +309,14 @@ class PieChart(VGroup):
                 self._redraw(i, self.arc[i] * alpha)
                 if i < len(self.labels):
                     self.labels[i].set_opacity(alpha)
+        _cue(scene, "open", sound)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in indices:
             self._redraw(i, self.arc[i])
             if i < len(self.labels):
                 self.labels[i].set_opacity(1)
 
-    def fan_group(self, scene, indices, run_time, extra=()):
+    def fan_group(self, scene, indices, run_time, extra=(), sound=True):
         """Grow a CONTIGUOUS group of sectors as ONE arc sweeping clockwise from the
         FIRST sector's start edge (a shared origin) — the swept arc always split in the
         group's final proportions (fan_all, restricted to `indices`), so the group fans
@@ -316,13 +340,14 @@ class PieChart(VGroup):
             self._redraw(i, 0.0)
             if i < len(self.labels):
                 self.labels[i].set_opacity(0)
+        _cue(scene, "open", sound)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         for i in idx:
             self._redraw(i, self.arc[i])
             if i < len(self.labels):
                 self.labels[i].set_opacity(1)
 
-    def resize_sectors(self, scene, values, run_time, *, anchor=None, extra=()):
+    def resize_sectors(self, scene, values, run_time, *, anchor=None, extra=(), sound=True):
         """Re-split the pie to new `values` (one per sector, in the same order): every
         arc moves from its old share to its new one at once, and a sector given 0 is
         EATEN by its neighbours, which grow into it from both sides until it is gone.
@@ -415,6 +440,7 @@ class PieChart(VGroup):
                 if id(lab) not in paired:
                     lab.set_opacity(max(0.0, (alpha - 0.6) / 0.4))
 
+        _cue(scene, "eat", sound)
         scene.play(UpdateFromAlphaFunc(self.sectors, func), *extra, run_time=run_time)
         # adopt the new layout, so later calls (another resize) start from it
         self.rotation, self.arc, self.cum_before = rot1, new, cums(new)
