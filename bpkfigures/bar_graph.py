@@ -341,7 +341,7 @@ def morph_bar_chart(old, new):
     return anims
 
 
-def grow_bars(scene, bars, run_time, *, lag=0.0, extra=(), edge=DOWN):
+def grow_bars(scene, bars, run_time, *, lag=0.0, extra=(), edge=DOWN, rate_func=None):
     """Reveal filled bars by GROWING each up from the axis (x fixed) — the house
     entrance for a bar chart. Promoted from the ``_grow_up`` that scenes 04/05 and
     yahtzee 07 each hand-rolled, so a bar chart stops reinventing its reveal.
@@ -350,13 +350,17 @@ def grow_bars(scene, bars, run_time, *, lag=0.0, extra=(), edge=DOWN):
     lag   : stagger the bars in order, 0 = all at once (a small 0.05–0.10 reads well).
     extra : animations to play ALONGSIDE (e.g. ``FadeIn(chart.labels)``).
     edge  : the edge each bar grows FROM — DOWN for vertical bars, LEFT for a
-            horizontal chart (get_bar_chart(orientation="horizontal"))."""
+            horizontal chart (get_bar_chart(orientation="horizontal")).
+    rate_func : the bars' own, e.g. squish_rate_func(smooth, 0.55, 1) to start them
+            partway through a play whose `extra` runs from its start (default:
+            manim's)."""
     bars = list(bars)
     dim = 0 if abs(edge[0]) > abs(edge[1]) else 1
     for b in bars:
         b.save_state()
         b.stretch(1e-3, dim=dim, about_edge=edge)      # collapse onto the base edge
-    grow = [Restore(b) for b in bars]
+    grow = [Restore(b) if rate_func is None else Restore(b, rate_func=rate_func)
+            for b in bars]
     anim = LaggedStart(*grow, lag_ratio=lag) if lag > 0 else AnimationGroup(*grow)
     scene.play(anim, *extra, run_time=run_time)
 

@@ -18,7 +18,8 @@ remembering (and that got missed while EDITING this-or-that scene):
   - `.scale(...)` chained on a get_scorecard()/get_two_scorecards() -> enters full-size via slide_in
   - a HAND-ROLLED BAR CHART (fill-only `Rectangle` bars with a data-driven
       height/width, built in a loop) -> use bpkfigures.histogram.get_histogram
-      (ink_color=CHALK for dark/chalkboard scenes) / bar_graph.get_bar_graph
+      (ink_color=CHALK for dark/chalkboard scenes) / bar_graph.get_bar_graph; and the
+      same Rectangle OUTSIDE a loop (a bar or bar part built one at a time) -> bar_graph
   - `GrowFromEdge(...)` / `GrowFromCenter(...)`          -> a uniform SCALE, so a bar
       grows sideways; bars enter with bar_graph.grow_bars (wheel-of-fortune 07,
       2026-11-07: three beats' bars grew in width and height)
@@ -126,8 +127,8 @@ class _Linter(ast.NodeVisitor):
                        "a cache hit")
         # a fill-only Rectangle with a DATA-DRIVEN height/width, built in a loop =
         # a hand-rolled bar chart -> the shared histogram/bar-graph asset
-        if name == "Rectangle" and self._loop_depth > 0:
-            self._check_hand_rolled_bar(node)
+        if name == "Rectangle":
+            self._check_hand_rolled_bar(node, self._loop_depth > 0)
         # `.scale(...)` chained DIRECTLY on a scorecard factory call
         if (name == "scale" and isinstance(f, ast.Attribute)
                 and isinstance(f.value, ast.Call)):
@@ -154,11 +155,14 @@ class _Linter(ast.NodeVisitor):
     visit_DictComp = _visit_loop
     visit_GeneratorExp = _visit_loop
 
-    def _check_hand_rolled_bar(self, node):
-        """`node` is a `Rectangle(...)` call inside a loop. Flag it as a hand-rolled
-        bar iff it's fill-only (`stroke_width=0`) AND at least one of its height/
-        width is DATA-DRIVEN (not a numeric literal) — the bar idiom. A fixed-size
-        rectangle grid (both dims literal) is left alone."""
+    def _check_hand_rolled_bar(self, node, in_loop):
+        """`node` is a `Rectangle(...)` call. Flag it as a hand-rolled bar iff it's
+        fill-only (`stroke_width=0`) AND at least one of its height/width is
+        DATA-DRIVEN (not a numeric literal) — the bar idiom. A fixed-size rectangle
+        (both dims literal) is left alone. OUTSIDE a loop too (2026-11-07): wheel-of-
+        fortune 07 built its bar parts one at a time in a helper, so the loop-only
+        check never saw them, and once hand-built they entered with a manim primitive
+        that grew them sideways."""
         kw = {k.arg: k.value for k in node.keywords if k.arg}
         sw = kw.get("stroke_width")
         if not (isinstance(sw, ast.Constant) and sw.value == 0):
@@ -167,7 +171,15 @@ class _Linter(ast.NodeVisitor):
             return v is not None and not (isinstance(v, ast.Constant)
                                           and isinstance(v.value, (int, float))
                                           and not isinstance(v.value, bool))
-        if data_driven(kw.get("height")) or data_driven(kw.get("width")):
+        if not (data_driven(kw.get("height")) or data_driven(kw.get("width"))):
+            return
+        if not in_loop:
+            self._warn(node.lineno,
+                       "fill-only Rectangle with a data-driven size — if it is a bar or "
+                       "part of one, build it with bpkfigures.bar_graph (get_bar_chart, "
+                       "get_stacked_column, get_stacked_bar) and bring it in with "
+                       "grow_bars; if the helper lacks a knob, ADD the param")
+        else:
             self._warn(node.lineno,
                        "hand-rolled bar chart (fill-only Rectangle bars in a loop) — "
                        "use bpkfigures.histogram.get_histogram (ink_color=CHALK for "
