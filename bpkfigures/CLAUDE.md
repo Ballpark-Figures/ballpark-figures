@@ -657,6 +657,10 @@ the "where do I look" map.
   labels, x-title, title, legend; returns role handles `.series`/`.bars`/`.rest`/`.legend`
   for `grow_bars` + a fade-in of the rest). Used by hangman scenes 17 (optimal uniform vs
   zipf) and 19 (uniform vs best-opener) — pass the two series + labels, don't hand-roll axes.
+  A bar made of PARTS of one value (stacked, standing) is `bar_graph.get_stacked_column`:
+  `column_cover` + `lower_cover` for "the whole value, then take parts off",
+  `stacked_column_to` to resize, `stacked_column_spans` to place labels (wheel-of-fortune
+  07; `get_stacked_bar` is its horizontal sibling). Never hand-build its rectangles.
   A bar chart's ENTRANCE is
   `bar_graph.grow_bars(scene, chart.bars, run_time, lag=…, extra=…)` (bars rise from the
   axis; `lag` staggers them L→R, `extra` fades the labels in alongside) — don't hand-roll
