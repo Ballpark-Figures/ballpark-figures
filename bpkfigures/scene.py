@@ -762,7 +762,7 @@ class BpkScene(Scene):
         except Exception as e:
             if os.path.exists(path):
                 os.remove(path)
-            print(f"[bpk] snapshot skipped at {_letter(idx)}: {type(e).__name__}")
+            print(f"[bpk] snapshot skipped at {_letter(idx)}: {type(e).__name__}: {e}")
 
     def _load_snapshot(self, idx, names):
         if os.environ.get("RECOMPUTE", "0") == "1":
