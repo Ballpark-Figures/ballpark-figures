@@ -596,3 +596,80 @@ def get_stacked_bar(shares, colors, *, length, height, opacity=1.0):
         x += share * length
     bar.segments = bar
     return bar
+
+
+# ═══ a VERTICAL stacked column (parts of one value, bottom to top) ══════════
+#
+# `get_stacked_column` is a standing bar made of parts, each `values[k] * unit`
+# tall, the first at the bottom; `gap` leaves that much navy at the BOTTOM of every
+# part above the first, so the column's total height is still the sum. Its bottom
+# edge sits at y=0, centred on x=0: place it with `.shift(base_point)`. Grow it in
+# with `grow_bars([column], ...)` (it stretches up from the axis as one bar).
+#
+# The "whole value, then take parts off" move (wheel-of-fortune 07: the bar starts
+# at the whole value and is lowered to leave its other parts showing) is a COVER:
+# `column_cover` is one bar over the whole column in its bottom part's colour, and
+# `lower_cover(column, cover, k)` lowers it to the top of part k. `stacked_column_to`
+# resizes every part to new values, the base fixed. `stacked_column_spans` gives
+# each part's (bottom, top) y for some values, for labels placed before a resize.
+# Added for wheel-of-fortune 07 (j-l, u-x).
+
+def get_stacked_column(values, colors, *, width, unit, gap=0.0, opacities=None):
+    """VGroup of parts (also `.segments`), bottom edge at y=0, centred on x=0; a part
+    of 0 a sliver (1e-3 tall), so columns with the same colours pair part for part."""
+    opacities = opacities or [1.0] * len(values)
+    col = VGroup()
+    col.unit, col.gap = unit, gap
+    for (lo, hi), color, op in zip(_spans(0.0, values, unit, gap), colors, opacities):
+        h = max(hi - lo, 1e-3)
+        col.add(Rectangle(width=width, height=h, fill_color=color, fill_opacity=op,
+                          stroke_width=0).move_to([0, lo + h / 2, 0]))
+    col.segments = col
+    return col
+
+
+def _spans(base, values, unit, gap):
+    out, y = [], base
+    for k, v in enumerate(values):
+        top = y + v * unit
+        out.append((min(y + (gap if k else 0.0), top), top))
+        y = top
+    return out
+
+
+def _column_base(column):
+    return column.segments[0].get_bottom()[1]
+
+
+def stacked_column_spans(column, values):
+    """Each part's (bottom, top) y were `column` showing `values`, its base fixed."""
+    return _spans(_column_base(column), values, column.unit, column.gap)
+
+
+def stacked_column_to(column, values):
+    """Animations resizing every part of `column` to `values`, its base fixed."""
+    x = column.get_x()
+    anims = []
+    for seg, (lo, hi) in zip(column.segments, stacked_column_spans(column, values)):
+        h = max(hi - lo, 1e-3)
+        anims.append(seg.animate.stretch_to_fit_height(h).move_to([x, lo + h / 2, 0]))
+    return anims
+
+
+def column_cover(column, color=None):
+    """One bar over the whole of `column`, in its bottom part's colour (or `color`), a
+    z_index above it: the whole value, before lower_cover takes parts off."""
+    seg = column.segments[0]
+    base, top = _column_base(column), column.segments[-1].get_top()[1]
+    return Rectangle(width=seg.width, height=max(top - base, 1e-3),
+                     fill_color=color or seg.get_fill_color(), fill_opacity=1,
+                     stroke_width=0).move_to([column.get_x(), (base + top) / 2, 0]) \
+        .set_z_index(column.z_index + 1)
+
+
+def lower_cover(column, cover, k):
+    """The animation of `cover` lowered to the top of `column`'s part k, the parts
+    above showing."""
+    base = _column_base(column)
+    h = max(column.segments[k].get_top()[1] - base, 1e-3)
+    return cover.animate.stretch_to_fit_height(h).move_to([cover.get_x(), base + h / 2, 0])

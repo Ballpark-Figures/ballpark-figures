@@ -19,6 +19,9 @@ remembering (and that got missed while EDITING this-or-that scene):
   - a HAND-ROLLED BAR CHART (fill-only `Rectangle` bars with a data-driven
       height/width, built in a loop) -> use bpkfigures.histogram.get_histogram
       (ink_color=CHALK for dark/chalkboard scenes) / bar_graph.get_bar_graph
+  - `GrowFromEdge(...)` / `GrowFromCenter(...)`          -> a uniform SCALE, so a bar
+      grows sideways; bars enter with bar_graph.grow_bars (wheel-of-fortune 07,
+      2026-11-07: three beats' bars grew in width and height)
   - `self.add_sound(...)`                                -> use self.sfx('name'); manim's
       own call files at the SCENE-absolute time and is dropped on a cache hit
   - `self.sfx('name')` naming a sound effect that does NOT exist -> the one check here
@@ -93,6 +96,12 @@ class _Linter(ast.NodeVisitor):
             self._warn(node.lineno,
                        f"{name}(...) — text enters with FadeIn (optionally a small "
                        f"shift, e.g. shift=UP * 0.2), never manim's writing animation")
+        if name in ("GrowFromEdge", "GrowFromCenter"):
+            self._warn(node.lineno,
+                       f"{name}(...) — scales the WHOLE mobject (width too), so a bar "
+                       f"grows sideways; a bar or column enters with "
+                       f"bar_graph.grow_bars (height only). Anything else: find its "
+                       f"house entrance in a sibling scene before using a manim one")
         # a self.sfx("name") whose sound effect does not exist. Resolving it HERE turns
         # a failure that costs a whole render into one that costs a --check, which is
         # the only reason this check reaches outside the AST.
