@@ -361,8 +361,11 @@ def grow_bars(scene, bars, run_time, *, lag=0.0, extra=(), edge=DOWN, rate_func=
         b.stretch(1e-3, dim=dim, about_edge=edge)      # collapse onto the base edge
     grow = [Restore(b) if rate_func is None else Restore(b, rate_func=rate_func)
             for b in bars]
-    anim = LaggedStart(*grow, lag_ratio=lag) if lag > 0 else AnimationGroup(*grow)
-    scene.play(anim, *extra, run_time=run_time)
+    # with no stagger, each bar's Restore on its own: an AnimationGroup's new Group of the
+    # bars would be added to the scene, and manim takes an added mobject out of any group
+    # it is part of, so a bar inside a chart left the chart (wheel-of-fortune 08m)
+    anims = [LaggedStart(*grow, lag_ratio=lag)] if lag > 0 else grow
+    scene.play(*anims, *extra, run_time=run_time)
 
 
 def shrink_bars(scene, bars, run_time, *, extra=()):
@@ -645,16 +648,22 @@ def _column_base(column):
     return column.segments[0].get_bottom()[1]
 
 
-def stacked_column_spans(column, values):
-    """Each part's (bottom, top) y were `column` showing `values`, its base fixed."""
-    return _spans(_column_base(column), values, column.unit, column.gap)
+def stacked_column_spans(column, values, *, anchor=DOWN):
+    """Each part's (bottom, top) y were `column` showing `values`, its base fixed; with
+    anchor=UP its TOP fixed instead (a column hanging from a line, wheel-of-fortune 08)."""
+    base = _column_base(column)
+    if anchor[1] > 0:
+        base = column.segments[-1].get_top()[1] - sum(values) * column.unit
+    return _spans(base, values, column.unit, column.gap)
 
 
-def stacked_column_to(column, values):
-    """Animations resizing every part of `column` to `values`, its base fixed."""
+def stacked_column_to(column, values, *, anchor=DOWN):
+    """Animations resizing every part of `column` to `values`, its base fixed (or its
+    top, with anchor=UP: see stacked_column_spans)."""
     x = column.get_x()
     anims = []
-    for seg, (lo, hi) in zip(column.segments, stacked_column_spans(column, values)):
+    for seg, (lo, hi) in zip(column.segments,
+                             stacked_column_spans(column, values, anchor=anchor)):
         h = max(hi - lo, 1e-3)
         anims.append(seg.animate.stretch_to_fit_height(h).move_to([x, lo + h / 2, 0]))
     return anims
