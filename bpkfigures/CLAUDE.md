@@ -2340,6 +2340,19 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
 - **Orient before writing.** Read the OTHER scenes in this video first to match their
   structure/conventions (if it's the video's FIRST scene, read a previous video's).
   Reuse what exists — this video's `animations/assets/` and the shared `bpkfigures/`.
+- **A SCENE IS BUILT IN PLAN MODE, AND THE PLAN IS THE PREFLIGHT: NO SCENE CODE UNTIL THE
+  USER APPROVES IT** (the user's call, 2026-11-09). Building a new scene, or reworking
+  beats of one (new beats, new elements, a changed sequence), runs as `/build-scene`
+  (`dotclaude/commands/build-scene.md`): `EnterPlanMode` first, read-only research, the
+  full preflight below presented with `ExitPlanMode`, and the turn ENDS there. **Answers to
+  the plan's questions are not approval of the plan**: fold them in and present it again.
+  A deviation found while building is a stop-and-ask, never a docstring flag. Tuning a
+  run_time, or a fix the user named, does not need plan mode.
+  (Bit us 2026-11-09: wheel-of-fortune 08 and 09 were built with no preflight shown. On
+  09 the agent posted a partial table and four data questions, took the answers as a
+  go-ahead, built all nine beats, and recorded its unlicensed choices in the docstring
+  afterwards: a three-play beat the script said was simultaneous, a solve the script did
+  not ask for, invented text.)
 - **PREFLIGHT before writing OR editing a scene — write the map down first** (this
   turns the sparse-text and reuse rules into a gate; skipping it is HOW they get
   violated). In the chat, produce:
