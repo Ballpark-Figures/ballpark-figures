@@ -132,6 +132,46 @@ def _find_venv_manim(start=None):
     return shutil.which("manim") or "manim"
 
 
+def _manim_launcher(manim):
+    """How to start manim: through bpkfigures.subscene_inputs, which records the files
+    each subscene opens (the skip key and snapshot staleness read the records), with the
+    venv's own python beside its `manim` script. Plain `manim` if that python is missing
+    or older than 3.12 (no sys.monitoring): nothing is recorded, and keys fall back to
+    the whole-assets/ hash."""
+    py = os.path.join(os.path.dirname(manim), "python")
+    try:
+        ok = subprocess.run([py, "-c", "import sys; sys.exit(sys.version_info < (3, 12))"],
+                            capture_output=True).returncode == 0
+    except OSError:
+        ok = False
+    return [py, "-m", "bpkfigures.subscene_inputs"] if ok else [manim]
+
+
+def _drop_stale_snapshots(path, classname):
+    """Delete the snapshots a changed file has made stale: from the first subscene whose
+    recorded reads (or setup_scene's, or an earlier subscene's) no longer match the files
+    on disk, on. The snapshot key hashes code and constants, not files a beat opens, so
+    without this a changed image left every later snapshot showing the old one."""
+    from bpkfigures import subscene_inputs as SI
+    try:
+        _cn, subs, _st = resolve._parse(path)
+        k = SI.stale_from(classname, subs)
+    except Exception:
+        return
+    if k is None:
+        return
+    gone = []
+    for i in range(k, len(subs)):
+        snap = os.path.join(SI.SNAPSHOT_DIR, f"{classname}_{resolve.index_to_label(i)}.pkl")
+        if os.path.exists(snap):
+            os.remove(snap)
+            gone.append(resolve.index_to_label(i))
+    if gone:
+        print(f"[render] a file subscene {resolve.index_to_label(k)} (or one before it) "
+              f"reads has changed: dropped its snapshots {gone[0]}-{gone[-1]}",
+              file=sys.stderr)
+
+
 def _ffmpeg():
     return shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
 
@@ -972,11 +1012,16 @@ def _thumb_change_plan(targets, qtag):
 #
 # The code terms are the snapshot cache's own (bpkfigures.scene `_prefix_key`), so
 # a skip is exactly as trustworthy as a snapshot hit, with the same blind spot: a
-# CLASS attribute read via `self.X`. The non-.py files under this tree's assets/ (the
-# render caches, images) are covered COARSELY, so regenerating any cache re-renders
-# every scene once, which errs the safe way. Sound effects are covered PER CLIP: only
-# the ones the clip's reached code names (`_sfx_hash`). A scene that opens a file anywhere else is not tracked: use
-# --recompute after changing one.
+# CLASS attribute read via `self.X`. Non-code files are covered PER CLIP (2026-11-09):
+# the ones setup + subscenes a..itself were recorded OPENING while they ran
+# (bpkfigures.subscene_inputs, which manim is started through); a cache read at IMPORT
+# reaches a beat only through a constant, whose value the reach digest already hashes
+# beat by beat. Until
+# then every clip hashed every file under assets/, so regenerating ONE cache
+# re-rendered the WHOLE video. A clip with no record yet (its subscenes not run since)
+# keeps that coarse hash, and an entry recorded under the coarse key is accepted while
+# assets/ is unchanged, then upgraded, so the switch re-rendered nothing. Sound effects
+# are covered PER CLIP too: only the ones the clip's reached code names (`_sfx_hash`).
 _VIDEO_KEYS = ".render_keys.json"
 
 
@@ -1074,7 +1119,14 @@ def _video_change_plan(targets, qtag, no_sfx):
             by_prefix.setdefault(t[:2], []).append(t)
     if not by_prefix:
         return skip, record
-    inputs_hash = _non_code_inputs_hash()
+    coarse = []                                   # the old whole-assets/ hash, lazily
+
+    def coarse_hash():
+        if not coarse:
+            coarse.append(_non_code_inputs_hash())
+        return coarse[0]
+
+    from bpkfigures import subscene_inputs as SI
     for prefix, tt in by_prefix.items():
         try:
             path, classname, _o, _l = resolve.resolve(tt[0])
@@ -1087,15 +1139,27 @@ def _video_change_plan(targets, qtag, no_sfx):
                     continue
                 _p, _c, output, letter = resolve.resolve(t)
                 idx = resolve.label_to_index(letter)
-                key = _video_key(cls, path, subs, idx, qtag, no_sfx, inputs_hash)
+                rec = SI.inputs_hash(classname, ["setup_scene"] + list(subs[: idx + 1]))
+                inputs = coarse_hash() if rec is None else f"inputs:{rec}"
+                key = _video_key(cls, path, subs, idx, qtag, no_sfx, inputs)
                 mkey = f"{qtag}/{output}"
                 record[t] = (manifest_path, mkey, key)
                 entry = manifest.get(mkey)
-                if isinstance(entry, dict) and entry.get("key") == key:
-                    mp4 = entry.get("mp4")
-                    if mp4 and os.path.exists(mp4) and \
-                            os.path.getmtime(mp4) == entry.get("mtime"):
-                        skip[t] = mp4
+                if not isinstance(entry, dict):
+                    continue
+                mp4 = entry.get("mp4")
+                if not (mp4 and os.path.exists(mp4) and
+                        os.path.getmtime(mp4) == entry.get("mtime")):
+                    continue
+                if entry.get("key") == key:
+                    skip[t] = mp4
+                elif rec is not None and entry.get("key") == _video_key(
+                        cls, path, subs, idx, qtag, no_sfx, coarse_hash()):
+                    # recorded under the coarse key, and nothing in assets/ has changed
+                    # since: still current; upgrade it to the per-clip key
+                    skip[t] = mp4
+                    entry["key"] = key
+                    _save_manifest(manifest_path, manifest)
         except Exception as e:
             print(f"[render] change-check skipped for scene {prefix} — rendering it "
                   f"all ({type(e).__name__}: {e})", file=sys.stderr)
@@ -1641,6 +1705,8 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     for f in resolve.clean_orphans(target[:2], edit_dir=_edit):
         print(f"[render] removed orphan {f}", file=sys.stderr)
 
+    _drop_stale_snapshots(path, classname)
+
     # build the env (explicit -> no leak from a prior interrupted run)
     env = dict(os.environ)
     env.pop("SUBSCENE", None)
@@ -1668,7 +1734,7 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
     # renders the old clip, and --recompute cannot reach it (2026-11-04: a fix to a
     # flight's pop rendered stale until the partials were deleted). The snapshot
     # cache and the skip keys above do the skipping that matters, keyed on the code.
-    cmd = [manim, quality, "--disable_caching"]
+    cmd = [*_manim_launcher(manim), quality, "--disable_caching"]
     if image:
         cmd += ["-s"]                            # save the LAST frame as a PNG (no video)
     if very_fast:

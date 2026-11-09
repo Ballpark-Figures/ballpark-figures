@@ -1853,8 +1853,8 @@ they are working in it. Treat each one as touching their session, not as a free 
   only thumbnails skipped, so `render 01 … 24 sub --stills` re-rendered the whole video every
   time). Each clip's key, in `media/videos/<scene>/.render_keys.json`, is the snapshot
   prefix-key's terms for subscenes `a..itself` (the project code the scene imports + the
-  scene digest), plus the quality, `--no-sfx`, and a CONTENT hash of every non-.py file
-  under the tree's `assets/` and every sound-effect `.wav`. A match whose recorded mp4 is
+  scene digest), plus the quality, `--no-sfx`, the sound effects the clip names, and the
+  CONTENTS OF THE FILES ITS SUBSCENES READ (below). A match whose recorded mp4 is
   still there prints `unchanged — skipped`; with `--stills` it is re-staged only if
   `edit_clips/` is stale and imported only if the pool lacks it (never refreshed — the bytes
   did not change). `NN all` also skips the stitch when no subscene re-rendered.
@@ -1862,10 +1862,28 @@ they are working in it. Treat each one as touching their session, not as a free 
     `self.X`, and a scene that opens a file OUTSIDE `assets/` directly (e.g. a CSV under
     `math/`). After changing either, use `--recompute`, which renders regardless and still
     records the new key.
-  - **Regenerating ANY asset cache re-renders every scene of that tree once** — the
-    non-code hash is deliberately coarse, erring toward re-rendering.
-  - **The first run after the change renders everything** (no keys recorded yet). `@still`
-    images other than thumbnails are not covered; they are cheap.
+  - **A changed file re-renders only the clips that read it** (2026-11-09,
+    `bpkfigures/subscene_inputs.py`). `render` starts manim through that module, which
+    records the non-code files each subscene (and `setup_scene`) OPENS while it runs, with
+    their md5s, in `cache/snapshots/<Scene>_inputs.json`; a clip's key covers those of
+    setup + `a..itself`. A cache read at IMPORT (`DATA = load()`) is not recorded: it
+    reaches a beat only through a constant, and the digest already hashes the value of
+    each constant a beat reads, beat by beat. So regenerating 07's strategy cache re-keys
+    only the beats that read it (07j-x), not the whole video.
+  - **Until 2026-11-09 the key hashed EVERY file under `assets/` for every clip**, so
+    regenerating ONE cache (a one-word label) re-rendered every scene of the video. A clip
+    whose subscenes have no record yet (not run since) still uses that whole-folder hash,
+    so the records fill in as scenes render; an entry recorded under the old key is
+    accepted, and upgraded, while `assets/` is unchanged.
+  - **A changed file also drops the snapshots it made stale**: before each render,
+    `render` deletes the snapshots from the first subscene whose recorded reads no longer
+    match the files on disk (a changed image used to leave every later snapshot showing
+    the old one).
+  - **The recorder must stay OUT of anything a scene imports.** The keys hash the code a
+    scene reaches, and every scene reaches `BpkScene.construct` and the snapshot methods
+    in `scene.py`: an edit there re-keys every clip and every snapshot of every video.
+    (The first version of this fix lived in `scene.py` and did exactly that.)
+  - `@still` images other than thumbnails are not covered; they are cheap.
 - **manim's audio leftovers are deleted after each render.** `combine_to_movie` writes
   `<clip>.wav` and `<clip>.aac` beside the mp4, muxes them in, and leaves them there —
   254 KB each, often bigger than the clip. Since `media/videos/<scene>/<res>/` is the
@@ -1987,9 +2005,11 @@ they are working in it. Treat each one as touching their session, not as a free 
     force-invalidate.
   - **Blind spots**: a CLASS attribute read via `self.X` on the scene (as before); code
     reached only dynamically (`getattr(obj, "name")`, a callback stored in a
-    registry); and **non-`.py` inputs** — a `*_cache.json` regenerated under a scene
-    does not invalidate its snapshots (its value is caught only when a beat reads it
-    as a module constant, e.g. `DATA = load()`); use `--recompute`.
+    registry); and a non-`.py` file read at import into something whose repr is not
+    stable (a module-level Mobject built from an image). A file a subscene OPENS is
+    covered since 2026-11-09 (`render` drops the snapshots it made stale, see the skip
+    bullets above), and a cache read at import is covered through the constants beats
+    read.
 - **SOUND SETTINGS LIVE IN A FILE NAMED `sounds.py`, WHICH THE SNAPSHOT KEY LEAVES OUT**
   (2026-11-05, `scene.AUDIO_ONLY_FILE`). A sound cannot change a frame, yet with the
   gains and peaks in `config.py` every retuned sound threw away every snapshot of every
@@ -2043,8 +2063,24 @@ The slowest mistakes here are render round-trips, not thinking. Defaults:
 - **Render ONLY the subscene(s) you changed**, never the whole scene unless geometry
   changed everywhere. `render NNk` replays the prefix once; `NN sub`/`NN all` rebuilds
   all subscenes (much slower).
-- **Editing a shared asset (`assets/`, `bpkfigures/`) invalidates ALL snapshots**, so
-  BATCH asset edits and render once.
+- **BEFORE EDITING A SHARED FILE OR REGENERATING A CACHE, SAY WHAT IT WILL RE-RENDER.**
+  Every clip and snapshot is keyed on the code and data it reaches, so an edit to a
+  shared module (`assets/*.py`, `config.py`, `bpkfigures/`) or a regenerated
+  `*_cache.json` re-renders every beat that reaches it, in every scene — and an edit to
+  `bpkfigures/scene.py`'s framework methods re-renders EVERY clip of EVERY video. So:
+  - **A change about DISPLAY ONLY (a label, a colour, a position) goes in the scene, in
+    the beats that show it**, not in a data module, a cache or a shared asset, unless the
+    user asks for it there.
+  - **When the shared route is the only one, name the cost to the user first** ("this
+    re-renders 07j-x" / "this re-renders every scene"), and batch shared edits so one
+    render pays for all of them.
+  - The tell: you are about to edit a file under `assets/` or `bpkfigures/`, or run a
+    `*_data.py`, to change something one scene shows.
+  - (Bit us 2026-11-09: to rename one bar's label, "Never" to "All", the agent edited
+    07's data module and regenerated its cache. The whole-assets/ hash then re-rendered
+    every scene of the video. Putting the word in the scene would have re-rendered four
+    beats. The first fix for the hash then edited `scene.py`, which would have re-keyed
+    every clip of every video, and was caught only by a test render.)
 - **Verify with ≤2 frames, for OBJECTIVE issues only** (wrong number/position/
   overlap/clipping). The user judges feel/timing from the video far better than the
   agent from stills — don't frame-hunt.
