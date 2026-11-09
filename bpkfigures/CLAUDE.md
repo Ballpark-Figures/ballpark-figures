@@ -1312,6 +1312,11 @@ calls for; no titles/labels/narration that weren't asked for.
   hard-cut between two full frames. If a talking head follows, it may end with content
   on screen (the head covers the transition) — usually restore any mid-scene emphasis
   (dimmed/hidden elements) to the clean end state. Check the script's segment order.
+- **How a scene STARTS follows the same rule, the other way round** (the user's rule of
+  thumb, 2026-11-09): a scene that comes right AFTER a talking head starts with its first
+  content ALREADY ON SCREEN (built in `setup_scene`, no entrance), because the head covers
+  the cut. Only a scene that follows another animated scene brings its content in. (Bit
+  us on wheel-of-fortune 08: after THE, the board was planned to rise from the bottom.)
 - **A transient annotation you ADD (footnote, callout, one-off caption) has a BOUNDED
   lifetime — fade it OUT by scene end (or when its context ends); don't leave it
   lingering into unrelated beats.** This holds even when the scene's PERSISTENT content
