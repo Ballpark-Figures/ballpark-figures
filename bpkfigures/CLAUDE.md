@@ -1317,6 +1317,15 @@ calls for; no titles/labels/narration that weren't asked for.
   content ALREADY ON SCREEN (built in `setup_scene`, no entrance), because the head covers
   the cut. Only a scene that follows another animated scene brings its content in. (Bit
   us on wheel-of-fortune 08: after THE, the board was planned to rise from the bottom.)
+- **A scene that opens on the PREVIOUS scene's last frame REBUILDS that frame live** (the
+  user's call, 2026-11-09, for wheel-of-fortune 10 opening on 09's end): load the previous
+  scene's module by path (`importlib`, as 09 loads 08) and build its end state in
+  `setup_scene` from that module's own constants, data and helpers, so the frame follows
+  the previous scene as it changes. Not a PNG still: a still goes stale the moment the
+  previous scene's last beat changes, silently. The one exception is a frame a 2D scene
+  cannot build (a 3D scene's camera view: 07 opens on a still of 06), and then the still's
+  refresh steps go in the scene's docstring. Check the rebuilt frame against a render of
+  the previous scene's last frame.
 - **A transient annotation you ADD (footnote, callout, one-off caption) has a BOUNDED
   lifetime — fade it OUT by scene end (or when its context ends); don't leave it
   lingering into unrelated beats.** This holds even when the scene's PERSISTENT content
