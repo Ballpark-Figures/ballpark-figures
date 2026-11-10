@@ -2456,6 +2456,12 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   emitting it. Removing a subscene shifts every LATER letter, orphaning the old
   highest-letter video (`resolve --clean` only cleans letters you render) — delete that
   orphaned `NN<letter>_*.mp4` by hand.
+- **A WHOLE SCENE with voiceover and no animation column is NOT a voiceover-only scene: its
+  animation is not written yet** (the user, 2026-11-10: "I never have voiceover only
+  scenes"; it is almost always the scene after the one being built, and `Script.md` labels
+  it "no subscene (voiceover only)"). Treat it as an ANIMATED scene when deciding how the
+  scene before it ends (§ Scene structure: end with content up, the next scene rebuilding
+  that frame). Never plan for its voiceover to play over the previous scene's last frame.
 - **BUILD EVERY SUBSCENE THE SCRIPT GIVES — never stop partway through a scene.** If a
   scene's column 2 is written out, the user wants all of it built; when they want only
   part of a scene, they leave the rest unwritten. So "animate scene N" (or "the first
