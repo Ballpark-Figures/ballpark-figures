@@ -2350,13 +2350,19 @@ How the user likes a brand-new `scenes/NN<name>.py` built:
   structure/conventions (if it's the video's FIRST scene, read a previous video's).
   Reuse what exists — this video's `animations/assets/` and the shared `bpkfigures/`.
 - **A SCENE IS BUILT IN PLAN MODE, AND THE PLAN IS THE PREFLIGHT: NO SCENE CODE UNTIL THE
-  USER APPROVES IT** (the user's call, 2026-11-09). Building a new scene, or reworking
-  beats of one (new beats, new elements, a changed sequence), runs as `/build-scene`
-  (`dotclaude/commands/build-scene.md`): `EnterPlanMode` first, read-only research, the
-  full preflight below presented with `ExitPlanMode`, and the turn ENDS there. **Answers to
-  the plan's questions are not approval of the plan**: fold them in and present it again.
-  A deviation found while building is a stop-and-ask, never a docstring flag. Tuning a
-  run_time, or a fix the user named, does not need plan mode.
+  USER APPROVES IT** (the user's call, 2026-11-09). Building a NEW scene runs as
+  `/build-scene` (`dotclaude/commands/build-scene.md`): `EnterPlanMode` first, read-only
+  research, the full preflight below presented with `ExitPlanMode`, and the turn ENDS
+  there. **Answers to the plan's questions are not approval of the plan**: fold them in and
+  present it again. A deviation found while building is a stop-and-ask, never a docstring
+  flag.
+  - **EDITS TO AN EXISTING SCENE DO NOT GO THROUGH PLAN MODE** (the user, 2026-11-10: "you
+    don't have to write up a plan for edits"), including new beats, new elements or a
+    changed sequence the user asks for: go straight to the work. Choices the request leaves
+    open are still asked as normal (AskUserQuestion) before building, and a deviation found
+    while building is still a stop-and-ask. (Bit us the same day: asked for a new beat in
+    wheel-of-fortune 12, the agent asked its questions, then entered plan mode and wrote
+    up a plan for an edit.)
   (Bit us 2026-11-09: wheel-of-fortune 08 and 09 were built with no preflight shown. On
   09 the agent posted a partial table and four data questions, took the answers as a
   go-ahead, built all nine beats, and recorded its unlicensed choices in the docstring
