@@ -368,12 +368,14 @@ def grow_bars(scene, bars, run_time, *, lag=0.0, extra=(), edge=DOWN, rate_func=
     scene.play(*anims, *extra, run_time=run_time)
 
 
-def shrink_bars(scene, bars, run_time, *, extra=()):
+def shrink_bars(scene, bars, run_time, *, extra=(), edge=DOWN):
     """The reverse of ``grow_bars``: each bar FALLS back down to the axis (x fixed) —
     the house exit for a bar chart or an overlay layer. Promoted from yahtzee 07's
     ``_fall_down``. The bars are left collapsed on screen; the caller removes them.
-    ``extra`` plays ALONGSIDE (e.g. a legend row fading out)."""
-    scene.play(*[b.animate.stretch(1e-3, dim=1, about_edge=DOWN) for b in bars],
+    ``extra`` plays ALONGSIDE (e.g. a legend row fading out). ``edge``: the edge each
+    bar shrinks TO, as grow_bars' — LEFT for a horizontal chart."""
+    dim = 0 if abs(edge[0]) > abs(edge[1]) else 1
+    scene.play(*[b.animate.stretch(1e-3, dim=dim, about_edge=edge) for b in bars],
                *extra, run_time=run_time)
 
 
