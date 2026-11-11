@@ -58,6 +58,10 @@ load wherever you're working. Video-specific rules live in that video's own
     line, and built it as the last subscene of scene 7 instead. It could have been
     done in scene 8 — show 7's final still as an image and move that up — and the
     user, asked, might have chosen either; they were not asked.)
+- **IN A QUESTION'S OPTIONS, NAME WHO DOES WHAT AS "CLAUDE" AND "THE USER", NEVER "I" AND
+  "YOU"** (the user's request, 2026-11-10). An option is read on its own, out of the
+  sentence that framed it, so "You run them" / "I add them" leaves it unclear whose
+  pronoun is whose. Write "Claude runs the notebooks", "the user adds the cells".
 - **ONE COMMAND, THE ONE THEY ASKED FOR — never append an alternative.** The user
   SCANS for the command block and does not read the prose around it, so every
   command you emit is taken as "the thing I asked for". A second command is
