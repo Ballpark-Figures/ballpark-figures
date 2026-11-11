@@ -115,7 +115,8 @@ One-time setup (per project):
 2. **Patch the mic input** *(hardware-dependent — adjust to your interface)*:
    **Fairlight** page → open the **Mixer** (top-right) → on the VO track's
    channel strip, click the **Input** slot at the top → **Input…** → pick your
-   mic / audio interface as the source.
+   mic / audio interface as the source. **Redo this at the start of every session**:
+   step 8 unpatches it so the Dialogue Leveler can run.
 
 Each recording session:
 3. **Arm the track**: click the **R** (record-enable) on that track's header (goes red).
@@ -125,6 +126,16 @@ Each recording session:
 6. Press the round red **Record** in the transport → speak → **Stop**. The clip
    records onto the armed track at the playhead.
 7. **Disarm** (click **R** off) when finished so a stray Record can't overwrite.
+8. **Unpatch the input and turn the Dialogue Leveler back on**: on the Voice strip set
+   **Input** to **No Input**, then click its `Dial Lev` (Track FX) so it shows yellow.
+
+**A track with an input patched cannot run Track FX** (found 2026-11-11, Resolve
+Studio 21). Patching the mic to Voice switches its Dialogue Leveler off (the slot shows
+`Dial Lev` grey and italic), and clicking it gives "Routing error: Cannot apply a TrackFX
+to a channel with an input source". So the leveler is OFF while recording, and the input
+is patched again (step 2) at the start of each session, after step 8 unpatched it. Takes
+are recorded raw either way; only playback while patched is unlevelled. Grey italic =
+bypassed, yellow = on, in that slot.
 
 **Mic + monitoring (Shure MV7+) — the house setup (the user's call, 2026-10-04):**
 - The mic is a **Shure MV7+** (USB), used as the INPUT only: **System Settings →
