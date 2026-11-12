@@ -332,7 +332,7 @@ and a re-render swaps the new audio in with the video.
   "index": 2})` then `SetTrackName("audio", 2, "SFX")`), set its fader **by hand**, and
   drag any effects already on Music onto it. `render --stills` now warns, in its
   end-of-run summary, whenever the open timeline has no track named SFX.
-- **The SFX fader sits at −20 dB, like Music's** (the user's call, 2026-11-12; the
+- **The SFX fader sits at −10 dB** (the user's call, 2026-11-12, after trying −20 like Music; the
   template carries it from that date). A project made before then has SFX at 0 dB:
   set it by hand on the Fairlight mixer. No script can: the API cannot read or set a
   fader, and the template stores the levels in a compressed binary blob. To change the
