@@ -35,7 +35,8 @@ Usage (run from the dir holding the NN*.py scene files, e.g. animations/scenes/)
                                      # an unchanged subscene (see below)
     (any subscene whose code, imports, assets/ files and sound effects are unchanged
      since its last render at this quality is SKIPPED — "unchanged — skipped" — and
-     with --stills is re-staged/imported only if edit_clips/ or the pool lacks it)
+     with --stills is re-staged/imported only if edit_clips/ or the pool lacks it, or
+     the pool item has an old name or file, e.g. after a re-lettering)
     render 01g --frames "1.0,2.0,-0.3"   # render then extract those frames
     render 01g --frames 5            # 5 evenly-spaced frames
     render 01g --frames "1.0,-0.3" --extract  # extract from the EXISTING mp4
@@ -1227,8 +1228,9 @@ def _staged_current(prefix, letter, output, mp4):
 def _skipped_outputs(target, mp4, frames_spec, padded, stills):
     """A skipped subscene still honours --frames / --padded / --stills, from the
     existing mp4. --stills re-stages only if edit_clips/ is stale, and otherwise
-    just makes sure each file is IN the DaVinci pool (imported if missing, never
-    refreshed — the bytes did not change)."""
+    just makes sure each file is IN the DaVinci pool: imported if missing, refreshed
+    only if the pool item's name or file is not the staged one (a re-lettered beat,
+    or a refresh that was missed)."""
     path, _c, output, letter = resolve.resolve(target)
     if frames_spec is not None:
         for p in _extract_frames(mp4, _parse_frames(frames_spec, _duration(mp4))):

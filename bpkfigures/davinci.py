@@ -22,6 +22,7 @@ clip at a DIFFERENT path forces a fresh read. So:
     import view.
 """
 import contextlib
+import filecmp
 import json
 import os
 import shutil
@@ -75,6 +76,18 @@ def _clip_path(mpi):
         return mpi.GetClipProperty("File Path")
     except Exception:
         return None
+
+
+def _pool_item_current(item, name, src):
+    """True if pool `item` is listed as `name` and its file has the same bytes as the
+    staged `src` (its file is a `.swap/` copy, so compared by content)."""
+    if item.GetName() != name:
+        return False
+    path = _clip_path(item)
+    try:
+        return bool(path) and filecmp.cmp(path, src, shallow=False)
+    except OSError:
+        return False
 
 
 def _video_items(timeline):
@@ -302,7 +315,12 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
 
     `refresh=False`: an EXISTING item is left alone ("already in pool") — for a clip
     whose bytes did not change (render skipped it as up to date), where a refresh
-    would only churn `.swap/` copies. A missing one is still imported."""
+    would only churn `.swap/` copies. A missing one is still imported, and an existing
+    one is still refreshed when its list name or its file is not the staged one: a
+    skipped subscene can have been RE-LETTERED (a beat inserted before it), and the
+    pool item must take the new name, or an earlier refresh may have missed it
+    (2026-11-12: wheel-of-fortune 03's pie_12 kept the name 03w_pie_12, beside the
+    real 03w, and a file two renders old)."""
     r = resolve or get_resolve()
     if r is None:
         return "skipped: resolve not reachable"
@@ -329,7 +347,7 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
         if prev:
             mp.SetCurrentFolder(prev)
         return "imported to pool" if ok else "import failed"
-    if not refresh:
+    if not refresh and _pool_item_current(item, import_name, src):
         return "already in pool"
 
     # EXISTING -> refresh in place (updates the pool item + any timeline instances).
