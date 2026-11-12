@@ -360,6 +360,19 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
     return f"REFRESH FAILED: {where} the PREVIOUS render"
 
 
+def missing_sfx_track(resolve=None):
+    """The open timeline's name if it has NO audio track named `SFX`, else None (also
+    None when Resolve or a timeline is not there to ask). Without that track a manim
+    clip's sound effects drop onto a Music track, whose fader sits at -20 dB: a project
+    made before the template gained the track (2026-10-04) has this, and it played
+    wheel-of-fortune's effects ~20 dB quiet until 2026-11-12."""
+    _p, tl = current_timeline(resolve)
+    if tl is None:
+        return None
+    names = [tl.GetTrackName("audio", i) for i in range(1, tl.GetTrackCount("audio") + 1)]
+    return None if "SFX" in names else tl.GetName()
+
+
 # ── pending imports (clips staged while another project was open) ─────────────
 # `<edit_dir>/.pending.json` maps a staged file name to {"bin", "project"}. ingest()
 # adds an entry instead of importing into the wrong project, and flush_pending()

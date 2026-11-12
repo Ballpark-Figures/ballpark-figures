@@ -515,9 +515,13 @@ def _print_ingest_problems():
         print(f"[stills]   {line}")
 
 
-def _note_ingest(label, status):
+def _note_ingest(label, status, problem=None):
+    """Print an ingest status; a problem (default: a status saying it failed) is also
+    listed again at the end of the run."""
     print(f"[stills] {label}: {status}")
-    if "failed" in status.lower():
+    if problem is None:
+        problem = "failed" in status.lower()
+    if problem:
         if not _INGEST_PROBLEMS:
             atexit.register(_print_ingest_problems)
         _INGEST_PROBLEMS.append(f"{label}: {status}")
@@ -543,6 +547,13 @@ def _ingest_staged(edit_dir, names, scene_module, then=None, refresh=True):
             status = davinci.ingest(edit_dir, name, bin_name=bin_name, project=project,
                                     refresh=refresh)
             _note_ingest(f"{os.path.basename(edit_dir)}/{name}", status)
+        lacking = davinci.missing_sfx_track() if any(
+            n.endswith(".mp4") for n in names) else None
+        if lacking:
+            _note_ingest(f"timeline {lacking!r}",
+                         "has NO audio track named SFX, so clip sound effects drop "
+                         "onto Music (at -20 dB): add a stereo track named SFX at A2 "
+                         "(PUBLISHING.md, Sound effects)", problem=True)
         if then:
             then()
 
