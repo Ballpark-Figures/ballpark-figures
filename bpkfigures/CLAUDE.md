@@ -2078,6 +2078,15 @@ they are working in it. Treat each one as touching their session, not as a free 
 
 ## Rendering during iteration (agent — keep the loop fast)
 The slowest mistakes here are render round-trips, not thinking. Defaults:
+- **A render the user is waiting on comes before any background catch-up run.** When
+  the user asks for a change while an agent-started catch-up or sweep render is running
+  or queued, stop the catch-up by its PID, render the requested change first, then
+  restart the catch-up for whatever it had not reached. Never queue the user's change
+  behind a sweep. (Bit us 2026-11-12: a split of wheel-of-fortune 04a was queued behind
+  an every-scene sound catch-up; the user: "This should really take priority.")
+- **A wait-for-render loop waits on a PID, never on `pgrep -f <pattern>`.** The loop's
+  own command line contains the pattern, so it matches itself and waits forever. (Bit
+  us 2026-11-12: three queued catch-up renders sat 30-45 minutes and never ran.)
 - **Render ONLY the subscene(s) you changed**, never the whole scene unless geometry
   changed everywhere. `render NNk` replays the prefix once; `NN sub`/`NN all` rebuilds
   all subscenes (much slower).
