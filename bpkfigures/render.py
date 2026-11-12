@@ -69,6 +69,7 @@ subscene's old PNG is swept). A plain @still renders at -qh; 99/--thumb default 
 Negative frame times are seconds-from-end (like ffmpeg -sseof). If `render`
 isn't on PATH, use `<repo>/.venv/bin/python -m bpkfigures.render ...`.
 """
+import atexit
 import glob
 import hashlib
 import importlib.util
@@ -500,9 +501,31 @@ def _stage_image(letter, output, png, scene_module):
 _SWITCH = False
 
 
+# DaVinci ingests that failed or needed the re-import fallback, printed again together
+# when the run ends: one such line inside a whole scene's output is easy to miss
+# (2026-11-12, a failed 01d refresh left a renamed, offline item nobody noticed).
+_INGEST_PROBLEMS = []
+
+
+def _print_ingest_problems():
+    if not _INGEST_PROBLEMS:
+        return
+    print(f"\n[stills] ===== {len(_INGEST_PROBLEMS)} DaVinci clip(s) need a look =====")
+    for line in _INGEST_PROBLEMS:
+        print(f"[stills]   {line}")
+
+
+def _note_ingest(label, status):
+    print(f"[stills] {label}: {status}")
+    if "failed" in status.lower():
+        if not _INGEST_PROBLEMS:
+            atexit.register(_print_ingest_problems)
+        _INGEST_PROBLEMS.append(f"{label}: {status}")
+
+
 def _print_flushed(edit_dir, results):
     for name, status in results:
-        print(f"[stills] pending {os.path.basename(edit_dir)}/{name}: {status}")
+        _note_ingest(f"pending {os.path.basename(edit_dir)}/{name}", status)
 
 
 def _ingest_staged(edit_dir, names, scene_module, then=None, refresh=True):
@@ -519,7 +542,7 @@ def _ingest_staged(edit_dir, names, scene_module, then=None, refresh=True):
         for name in names:
             status = davinci.ingest(edit_dir, name, bin_name=bin_name, project=project,
                                     refresh=refresh)
-            print(f"[stills] {os.path.basename(edit_dir)}/{name}: {status}")
+            _note_ingest(f"{os.path.basename(edit_dir)}/{name}", status)
         if then:
             then()
 

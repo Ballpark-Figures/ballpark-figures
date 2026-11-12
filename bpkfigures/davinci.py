@@ -26,6 +26,7 @@ import json
 import os
 import shutil
 import sys
+import time
 
 _API = "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting"
 _LIB = "/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Libraries/Fusion/fusionscript.so"
@@ -213,11 +214,18 @@ def _prune_swaps(swap_dir, stem, ext, keep, referenced):
 
 
 # ── media-pool ingest (the one call render.py makes) ──────────────────────────
+REPLACE_ATTEMPTS = 3      # ReplaceClip tries before a refresh counts as failed
+REPLACE_WAIT = 1.0        # seconds between tries (Resolve may still be reading the file)
+
+
 def _swap_refresh(item, src, edit_dir, ident, referenced):
     """Point `item` (a MediaPoolItem) at a fresh `.swap/<key>.<n><ext>` copy of `src`
     so Resolve actually re-reads the changed bytes (a same-path overwrite is cached).
     Updates the item EVERYWHERE it's used — the pool list AND any timeline instances —
-    then prunes older `.swap` versions nothing references. Returns True on success."""
+    then prunes older `.swap` versions nothing references.
+
+    Returns `(ok, new_path)`. On failure the `.swap` copy is LEFT on disk for the
+    caller, which either imports it as a replacement item or removes it."""
     prefix, method, ext = ident
     key = f"{prefix}_{method}"                        # letter-free swap lineage
     swap_dir = os.path.join(edit_dir, ".swap")
@@ -227,21 +235,54 @@ def _swap_refresh(item, src, edit_dir, ident, referenced):
     shutil.copy2(src, new_path)
     # ReplaceClip can report success WITHOUT re-pointing the item (seen 2026-10-06:
     # 64 clips across eight scenes stayed on the old copy, which the prune below then
-    # deleted, taking them OFFLINE). So read the path back, retry once, and fail if
-    # it never moved, keeping the old copy.
-    moved = False
-    for _attempt in range(2):
+    # deleted, taking them OFFLINE). So read the path back and retry, with a pause:
+    # 2026-11-12 one clip (wheel-of-fortune 01d, the scene's largest, with sound)
+    # failed both of two back-to-back tries, while Resolve may still have been reading
+    # it from its import 11 minutes earlier. A failed try can still RENAME the item to
+    # the .swap file's name, which the caller undoes.
+    for attempt in range(REPLACE_ATTEMPTS):
+        if attempt:
+            time.sleep(REPLACE_WAIT)
         if item.ReplaceClip(new_path) and \
                 os.path.abspath(_clip_path(item) or "") == os.path.abspath(new_path):
-            moved = True
-            break
-    if not moved:
-        try:
-            os.remove(new_path)
-        except OSError:
-            pass
+            _prune_swaps(swap_dir, key, ext, keep=new_path, referenced=referenced)
+            return True, new_path
+    return False, new_path
+
+
+def _folder_of(mp, item):
+    """The Media Pool folder holding `item`, or None."""
+    want = item.GetMediaId()
+    for folder in _walk_folders(mp.GetRootFolder()):
+        for c in folder.GetClipList() or []:
+            if c.GetMediaId() == want:
+                return folder
+    return None
+
+
+def _set_name(item, name):
+    try:
+        if item.GetClipProperty("Clip Name") != name:
+            item.SetClipProperty("Clip Name", name)
+    except Exception:
+        pass
+
+
+def _replace_by_import(mp, item, new_path, import_name):
+    """A refresh failed on an item NO timeline uses: import the fresh `.swap` copy
+    (a new path, so Resolve reads the new bytes) into the same folder, give it the
+    clean name, and delete the old item. Returns True on success; on failure the old
+    item is left as it was."""
+    folder = _folder_of(mp, item) or mp.GetRootFolder()
+    prev = mp.GetCurrentFolder()
+    mp.SetCurrentFolder(folder)
+    new_items = mp.ImportMedia([new_path]) or []
+    if prev:
+        mp.SetCurrentFolder(prev)
+    if not new_items:
         return False
-    _prune_swaps(swap_dir, key, ext, keep=new_path, referenced=referenced)
+    _set_name(new_items[0], import_name)
+    mp.DeleteClips([item])
     return True
 
 
@@ -294,18 +335,29 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
     # EXISTING -> refresh in place (updates the pool item + any timeline instances).
     # A .swap copy survives the prune while ANYTHING points at it: any timeline's
     # items, AND any media-pool item — not just the open timeline's.
-    referenced = _pool_sources(mp)
+    on_timelines = set()
     for i in range(1, proj.GetTimelineCount() + 1):
-        referenced |= _timeline_sources(proj.GetTimelineByIndex(i))
-    if not _swap_refresh(item, src, edit_dir, ident, referenced):
-        return "refresh failed"
-    # ReplaceClip may adopt the .swap basename in the list — restore the clean name
+        on_timelines |= _timeline_sources(proj.GetTimelineByIndex(i))
+    referenced = _pool_sources(mp) | on_timelines
+    old_path = os.path.abspath(_clip_path(item) or "")
+    ok, new_path = _swap_refresh(item, src, edit_dir, ident, referenced)
+    # ReplaceClip may adopt the .swap basename in the list (even when it FAILS to
+    # re-point the item) — restore the clean name either way
+    _set_name(item, import_name)
+    if ok:
+        return "refreshed in pool"
+    # Never leave a half-refreshed item behind. Not in the edit: swap the whole item.
+    if old_path not in on_timelines and _replace_by_import(mp, item, new_path,
+                                                           import_name):
+        return ("refresh failed, so RE-IMPORTED as a new item "
+                "(it was not on any timeline)")
     try:
-        if item.GetClipProperty("Clip Name") != import_name:
-            item.SetClipProperty("Clip Name", import_name)
-    except Exception:
+        os.remove(new_path)
+    except OSError:
         pass
-    return "refreshed in pool"
+    where = "is on a timeline and still shows" if old_path in on_timelines else \
+        "could not be re-imported; it still shows"
+    return f"REFRESH FAILED: {where} the PREVIOUS render"
 
 
 # ── pending imports (clips staged while another project was open) ─────────────
