@@ -327,11 +327,17 @@ and a re-render swaps the new audio in with the video.
   their tails.
 - **A project made before 2026-10-04 has NO SFX track** (the template gained it then,
   and nothing updates an existing project), so its effects drop onto Music, whose fader
-  is at −20 dB: they play ~20 dB quiet (wheel-of-fortune, found 2026-11-12). Add a
-  **stereo** audio track named `SFX` at **A2** (a script can: `timeline.AddTrack("audio",
-  {"audioType": "stereo", "index": 2})` then `SetTrackName("audio", 2, "SFX")`), and
-  drag any effects already on Music down onto it. `render --stills` now warns, in its
+  is at −20 dB (wheel-of-fortune, found 2026-11-12). Add a **stereo** audio track named
+  `SFX` at **A2** (a script can: `timeline.AddTrack("audio", {"audioType": "stereo",
+  "index": 2})` then `SetTrackName("audio", 2, "SFX")`), set its fader **by hand**, and
+  drag any effects already on Music onto it. `render --stills` now warns, in its
   end-of-run summary, whenever the open timeline has no track named SFX.
+- **The SFX fader sits at −20 dB, like Music's** (the user's call, 2026-11-12; the
+  template carries it from that date). A project made before then has SFX at 0 dB:
+  set it by hand on the Fairlight mixer. No script can: the API cannot read or set a
+  fader, and the template stores the levels in a compressed binary blob. To change the
+  template's levels, import it as a temporary project, set them, `ExportProject` it back
+  (Resolve appends `.drp` to the path given), and delete the temporary project.
 - **A sound over a DWELL cannot come from manim.** Dwell is a stretched still whose
   length does not exist until you set it in the edit, so anything playing across a hold
   is a DaVinci-track effect. manim owns sound INSIDE an animation clip only.
