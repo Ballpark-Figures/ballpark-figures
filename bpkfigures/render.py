@@ -687,7 +687,36 @@ def _sound_end(mp4, start, stop):
     return start + (loud[-1] + 1) * win / sr
 
 
-def _stage_trimmed(mp4, dest):
+# A scene can name subscenes whose staged clip ends WITH its animation, sound ringing or
+# not, its audio faded over the last NO_RING_OUT_FADE seconds instead of rung out:
+#     NO_RING_OUT = {"consonant_2", "consonant_3"}      (method names, a literal set)
+# (the user, 2026-11-13, for wheel-of-fortune 07o-s: a 1.2 s call staged as 1.72 s
+# under the glock's tail). Read by AST; it changes only the staging, so restage with
+# `render NNx --extract --stills`.
+NO_RING_OUT_NAME = "NO_RING_OUT"
+NO_RING_OUT_FADE = 0.05
+
+
+def _no_ring_out(scene_path):
+    """The method names `scene_path` lists in NO_RING_OUT (empty if none)."""
+    import ast
+    try:
+        with open(scene_path) as fh:
+            tree = ast.parse(fh.read())
+    except (OSError, SyntaxError):
+        return set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == NO_RING_OUT_NAME for t in node.targets):
+            try:
+                return set(ast.literal_eval(node.value))
+            except (ValueError, TypeError):
+                print(f"[stills] {os.path.basename(scene_path)}: {NO_RING_OUT_NAME} must "
+                      f"be a literal set of method names — ignored", file=sys.stderr)
+    return set()
+
+
+def _stage_trimmed(mp4, dest, ring_out=True):
     """Write `mp4` to `dest` minus ONE framework hold at each end, so the staged clip
     starts as its animation starts and ends as its animation ends, or as its sound
     ends if a sound is still ringing then (see the ring-out below); the stills on
@@ -709,7 +738,7 @@ def _stage_trimmed(mp4, dest):
     # cued near the end of the animation), keep the clip — frozen on its last frame,
     # which is exactly what the following still shows — until the sound has
     # finished, never past the end of the render.
-    end = _sound_end(mp4, hold + body, dur)
+    end = _sound_end(mp4, hold + body, dur) if ring_out else None
     if end is not None:
         rung = min(end + RING_OUT_PAD, dur) - hold
         if rung > body:
@@ -728,6 +757,11 @@ def _stage_trimmed(mp4, dest):
            "-color_range", "tv",
            "-c:v", "libx264", "-crf", "12", "-preset", "medium", "-pix_fmt", "yuv420p",
            "-c:a", "libmp3lame", "-b:a", "192k", "-movflags", "+faststart", dest]
+    if not ring_out and _probe(mp4, ["-select_streams", "a:0"], "stream=codec_name"):
+        fade = min(NO_RING_OUT_FADE, body)
+        cmd[-1:-1] = ["-af", f"afade=t=out:st={body - fade:.6f}:d={fade:.6f}"]
+        print(f"[stills] {os.path.basename(mp4)}: ends with its animation "
+              f"({NO_RING_OUT_NAME}), sound faded over its last {fade:g}s")
     r = subprocess.run(cmd, capture_output=True)
     if r.returncode != 0:
         print(f"[stills] trim failed for {os.path.basename(mp4)}:\n"
@@ -771,7 +805,10 @@ def _stills(prefix, letter, output, mp4, scene_module):
         if _extract_one_frame(mp4, t, os.path.join(edit_dir, name)):
             staged.append(name)
     anim = f"{output}.mp4"                       # NN<letter>_<method>.mp4 — stable import name
-    if not _stage_trimmed(mp4, os.path.join(edit_dir, anim)):
+    scene_path, _c, _o, _l = resolve.resolve(prefix + letter)
+    method = output.split("_", 1)[1] if "_" in output else ""
+    ring_out = method not in _no_ring_out(scene_path)
+    if not _stage_trimmed(mp4, os.path.join(edit_dir, anim), ring_out=ring_out):
         return
     staged.insert(1 if staged else 0, anim)      # still, clip, [end still]
     _mark_staged(edit_dir, output, mp4)
