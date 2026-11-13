@@ -1394,6 +1394,13 @@ calls for; no titles/labels/narration that weren't asked for.
     module-level so the snapshot digest captures it) a run_time has no such reason to sit
     there. So a `ROW_TIME = 4.0` / `ZOOM_OUT_RT = 4.0` at file top is off-convention —
     inline it at its call, or make it a subscene-local for the lockstep/helper case.
+- **A TIMING FRACTION IS A RUN TIME IN DISGUISE — write the moment in SECONDS.**
+  `squish_rate_func(smooth, 0.55, 1)` on a 2.0 s play means "starts 1.1 s in", and no
+  one tuning the beat can read that. A helper takes the moment as a keyword in seconds
+  (`rest_starts_at=1.1`) and divides by its `run_time` itself, so the call reads in
+  seconds and retiming the play keeps the moment where it was. `render --check` lints a
+  literal fraction (2026-11-13, wheel-of-fortune 07: seven of them, and a `_fill`
+  helper whose five timings no call could reach).
 - **Every animation WE author exposes a single `run_time` that scales the WHOLE
   animation.** Any method/closure we write that plays (scene helper, ASSET method,
   local `roll()`/`count_in()`) takes ONE `run_time` meaning the ENTIRE duration: when

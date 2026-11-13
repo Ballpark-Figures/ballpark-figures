@@ -9,11 +9,16 @@ remembering (and that got missed while EDITING this-or-that scene):
   - a hex colour literal ("#B01E43") inlined in a scene  -> name it in style.py / config.py
   - a raw manim palette colour (GREY, RED, …)            -> use a semantic style.py/config.py colour
   - a one-use `run_time` local (`rt = 1.2` … run_time=rt) -> inline the literal at the call site
-  - a HELPER method that calls self.play but exposes NO run_time param -> a helper
+  - a HELPER method that plays (self.play, self.wait, grow_bars) but exposes NO run_time param -> a helper
       that plays takes a run_time the caller passes (@subscene beats are exempt —
       their timing lives inline in the body). Only "no timing knob AT ALL" is flagged;
       multi-knob helpers (rt_write/move_rt/…) satisfy it — the one-vs-many-knobs
       judgment is semantic and stays in CLAUDE.md, not here.
+  - a @subscene body that BUILDS: a loop with no play in it, a function defined in it,
+      or more than 3 statements before its first play -> build in _setup_<name> or a
+      helper, so the body reads as a timeline of plays (wheel-of-fortune 07c, 2026-11-13)
+  - `squish_rate_func(f, 0.55, 1)`: a start/end as a FRACTION of a run time -> take
+      the moment in seconds and divide by the run_time in the helper
   - a recalled manim DEFAULT frame bound (7.11 / 14.22)  -> read config.frame_x_radius/​y_radius
   - `.scale(...)` chained on a get_scorecard()/get_two_scorecards() -> enters full-size via slide_in
   - a HAND-ROLLED BAR CHART (fill-only `Rectangle` bars with a data-driven
@@ -97,6 +102,16 @@ class _Linter(ast.NodeVisitor):
             self._warn(node.lineno,
                        f"{name}(...) — text enters with FadeIn (optionally a small "
                        f"shift, e.g. shift=UP * 0.2), never manim's writing animation")
+        # squish_rate_func(f, 0.55, 1): a start or end given as a FRACTION of a run
+        # time is a run time in disguise; take it in seconds and divide by run_time
+        if name == "squish_rate_func" and any(
+                isinstance(a, ast.Constant) and isinstance(a.value, (int, float))
+                and not isinstance(a.value, bool) and a.value not in (0, 1)
+                for a in node.args[1:3]):
+            self._warn(node.lineno,
+                       "squish_rate_func with a literal fraction — a run time in "
+                       "disguise; take the moment in SECONDS (e.g. a starts_at= "
+                       "keyword) and divide by the run_time in the helper")
         if name in ("GrowFromEdge", "GrowFromCenter"):
             self._warn(node.lineno,
                        f"{name}(...) — scales the WHOLE mobject (width too), so a bar "
@@ -233,7 +248,74 @@ class _Linter(ast.NodeVisitor):
     def visit_FunctionDef(self, node):
         self._check_run_time_locals(node)
         self._check_play_run_time(node)
+        if "subscene" in self._decorators(node):
+            self._check_subscene_body(node)
         self.generic_visit(node)
+
+    @staticmethod
+    def _decorators(fn):
+        names = set()
+        for d in fn.decorator_list:
+            g = d.func if isinstance(d, ast.Call) else d
+            names.add(g.id if isinstance(g, ast.Name)
+                      else g.attr if isinstance(g, ast.Attribute) else None)
+        return names
+
+    # ── a @subscene body that builds instead of playing ───────────────────────
+    @staticmethod
+    def _calls(node):
+        return [c for c in ast.walk(node) if isinstance(c, ast.Call)]
+
+    def _is_timed(self, stmt):
+        """Does this body statement PLAY: a play/wait/grow_bars, or a helper call given
+        a run time (a run_time-family keyword, or a bare number)?"""
+        for c in self._calls(stmt):
+            f = c.func
+            name = (f.id if isinstance(f, ast.Name) else
+                    f.attr if isinstance(f, ast.Attribute) else "")
+            if name in ("play", "wait", "grow_bars", "sfx"):   # a sound cue is timeline
+                return True
+            if name.startswith("_setup"):
+                continue
+            if any(k.arg and _TIMING_PARAM_RE.match(k.arg) for k in c.keywords):
+                return True
+            if any(isinstance(a, ast.Constant) and isinstance(a.value, (int, float))
+                   and not isinstance(a.value, bool) for a in c.args):
+                return True
+        return False
+
+    def _check_subscene_body(self, fn):
+        """A @subscene body reads as a TIMELINE of plays; building belongs in a
+        `_setup_<name>` or a helper (wheel-of-fortune 07c, 2026-11-13: a 13-line loop
+        building the animations before its one play, the timing out of sight)."""
+        for stmt in fn.body:
+            # a one- or two-line loop (setting a flag on each chart) is not building
+            if isinstance(stmt, (ast.For, ast.While)) and not self._is_timed(stmt) \
+                    and stmt.end_lineno - stmt.lineno > 1:
+                self._warn(stmt.lineno,
+                           f"@subscene `{fn.name}`: a loop that builds (no play in it) "
+                           f"— move it into _setup_{fn.name} or a helper, so the body "
+                           f"reads as plays (a loop of plays, the lockstep case, is fine)")
+            elif isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                self._warn(stmt.lineno,
+                           f"@subscene `{fn.name}`: a function defined in the body — "
+                           f"move it into a helper method")
+        building = 0
+        for stmt in fn.body:
+            if self._is_timed(stmt):
+                break
+            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+                continue                         # a docstring
+            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+                f = stmt.value.func
+                if isinstance(f, ast.Attribute) and f.attr.startswith("_setup"):
+                    continue
+            building += 1
+        if building > 3:
+            self._warn(fn.lineno,
+                       f"@subscene `{fn.name}`: {building} statements of building "
+                       f"before its first play — move them into _setup_{fn.name} or a "
+                       f"helper, so the run times are the first thing in the body")
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
@@ -267,16 +349,21 @@ class _Linter(ast.NodeVisitor):
                    f"passes (scale each sub-play by it); @subscene beats are exempt")
 
     def _plays_directly(self, fn):
-        """True iff `fn`'s OWN body calls self.play / scene.play, NOT counting plays
+        """True iff `fn`'s OWN body calls self.play / self.wait / grow_bars, NOT counting plays
         inside a nested def/lambda (those are separate scopes, checked separately)."""
         def walk(node):
             for child in ast.iter_child_nodes(node):
                 if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
                     continue
                 if (isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
-                        and child.func.attr == "play"
+                        and child.func.attr in ("play", "wait")
                         and isinstance(child.func.value, ast.Name)
                         and child.func.value.id in ("self", "scene")):
+                    return True
+                # grow_bars(self, ...) plays too (wheel-of-fortune 07's _fill hid five
+                # timings behind grow_bars, waits and a helper, and was never flagged)
+                if (isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+                        and child.func.id == "grow_bars"):
                     return True
                 if walk(child):
                     return True
