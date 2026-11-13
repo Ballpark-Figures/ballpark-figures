@@ -1327,9 +1327,13 @@ calls for; no titles/labels/narration that weren't asked for.
   `setup_scene` from that module's own constants, data and helpers, so the frame follows
   the previous scene as it changes. Not a PNG still: a still goes stale the moment the
   previous scene's last beat changes, silently. The one exception is a frame a 2D scene
-  cannot build (a 3D scene's camera view: 07 opens on a still of 06), and then the still's
-  refresh steps go in the scene's docstring. Check the rebuilt frame against a render of
-  the previous scene's last frame.
+  cannot build (a 3D scene's camera view: 07 opens on a still of 06), and then the scene
+  DECLARES it, `OPENS_ON_STILL = ("06", "../assets/<name>.png")` at module level, and
+  `render` keeps the PNG equal to the last frame of the source scene's newest 1080p render
+  of its last subscene, after rendering the source and before rendering the dependent
+  (2026-11-13: 07's hand-refreshed still sat four days stale, and its docstring's refresh
+  steps named a beat letter that relettering had moved). Check the rebuilt frame against a
+  render of the previous scene's last frame.
 - **A transient annotation you ADD (footnote, callout, one-off caption) has a BOUNDED
   lifetime — fade it OUT by scene end (or when its context ends); don't leave it
   lingering into unrelated beats.** This holds even when the scene's PERSISTENT content

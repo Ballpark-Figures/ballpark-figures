@@ -1455,6 +1455,95 @@ def _release_locks(paths):
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
+# A scene that opens on ANOTHER scene's last frame as a PICTURE (one it cannot rebuild
+# live, e.g. a 3D scene's camera view) declares it at module level, as a literal:
+#     OPENS_ON_STILL = ("06", "../assets/vowel_cost_06_end.png")
+# (the source scene's prefix, and the picture's path relative to the scene file). render
+# then keeps the picture equal to the last frame of the source scene's newest 1080p
+# render of its LAST subscene: after rendering any subscene of the source, and before
+# rendering the dependent scene. Found by AST, never by importing the scene. Added
+# 2026-11-13, after wheel-of-fortune 07 opened on a picture of 06 four days stale.
+OPENS_ON_NAME = "OPENS_ON_STILL"
+OPENS_ON_AT = -0.02          # seconds from the end of the source clip (its held last frame)
+
+
+def _opens_on_links():
+    """[(dependent prefix, source prefix, absolute picture path)] for the scenes in the
+    current directory that declare OPENS_ON_STILL."""
+    import ast
+    links = []
+    for f in sorted(glob.glob("[0-9][0-9]*.py")):
+        try:
+            with open(f) as fh:
+                tree = ast.parse(fh.read())
+        except (OSError, SyntaxError):
+            continue
+        for node in tree.body:
+            if not (isinstance(node, ast.Assign) and any(
+                    isinstance(t, ast.Name) and t.id == OPENS_ON_NAME
+                    for t in node.targets)):
+                continue
+            try:
+                src, rel = ast.literal_eval(node.value)
+            except (ValueError, TypeError):
+                print(f"[render] {f}: {OPENS_ON_NAME} must be a literal (prefix, path) "
+                      f"— ignored", file=sys.stderr)
+                continue
+            png = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(f)), rel))
+            links.append((f[:2], str(src), png))
+    return links
+
+
+def _hq_last_mp4(prefix):
+    """The newest 1080p render of `prefix`'s LAST subscene, or None."""
+    letters = resolve.subscene_letters(prefix)
+    if not letters:
+        return None
+    output = resolve.resolve(prefix + letters[-1])[2]
+    hits = [h for h in glob.glob(os.path.join("media", "videos", "**", f"{output}.mp4"),
+                                 recursive=True)
+            if os.path.basename(os.path.dirname(h)).startswith("1080p")]
+    return max(hits, key=os.path.getmtime) if hits else None
+
+
+def _refresh_opening_stills(source=None, dependents=None):
+    """Bring each OPENS_ON_STILL picture up to date with its source scene's last frame.
+    `source`: only links from that scene; `dependents`: only links into those scenes.
+    Returns the dependent prefixes whose picture CHANGED. The picture is rewritten only
+    when its pixels file differs, so re-rendering an unchanged last beat costs nothing
+    downstream (each dependent clip is keyed on the md5 of the files it reads)."""
+    import filecmp
+    changed = set()
+    for dep, src, png in _opens_on_links():
+        if (source is not None and src != source) or \
+                (dependents is not None and dep not in dependents):
+            continue
+        mp4 = _hq_last_mp4(src)
+        if not mp4:
+            if dependents is not None:
+                print(f"[render] scene {dep} opens on scene {src}'s last frame, but "
+                      f"there is no 1080p render of {src}'s last subscene to check "
+                      f"{os.path.basename(png)} against", file=sys.stderr)
+            continue
+        if os.path.exists(png) and os.path.getmtime(png) >= os.path.getmtime(mp4):
+            continue                                   # taken from this render already
+        root, ext = os.path.splitext(png)
+        tmp = f"{root}.new{ext}"
+        if not _write_frame(mp4, OPENS_ON_AT, tmp):
+            print(f"[render] could not take the last frame of {os.path.basename(mp4)} "
+                  f"for scene {dep}'s opening picture", file=sys.stderr)
+            continue
+        if os.path.exists(png) and filecmp.cmp(tmp, png, shallow=False):
+            os.remove(tmp)
+            os.utime(png)                              # same frame: mark it checked
+            continue
+        os.replace(tmp, png)
+        changed.add(dep)
+        print(f"[render] scene {dep}'s opening picture {os.path.basename(png)} "
+              f"refreshed from {os.path.basename(mp4)}", file=sys.stderr)
+    return changed
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
 
@@ -1552,6 +1641,10 @@ def main(argv=None):
     # The key (and PNG folder) is per-quality so a --fast PNG never satisfies a
     # full-res run.
     qtag = _qtag(fast, very_fast)
+    # A scene opening on a picture of another scene's last frame: refresh the picture
+    # BEFORE the change plan below, which keys each clip on the files it reads.
+    if not (state or extract):
+        _refresh_opening_stills(dependents={t[:2] for t in targets})
     skip, thumb_keys, thumb_mkey, manifest_path, manifest = (
         (set(), {}, {}, None, {}) if (recompute or state or extract)
         else _thumb_change_plan(targets, qtag))
@@ -1609,6 +1702,19 @@ def main(argv=None):
                 rendered_prefixes.add(target[:2])
                 if target in vrecord:                        # record the clip's key
                     _record_video_key(vrecord[target], resolve.resolve(target)[2])
+                # a scene another opens on: refresh that picture, and re-plan any of
+                # the dependent's targets still to come in this run (their skip keys
+                # were computed from the old picture)
+                changed = _refresh_opening_stills(source=target[:2])
+                later = [t for t in targets[targets.index(target) + 1:]
+                         if t[:2] in changed]
+                if later:
+                    for t in later:
+                        vskip.pop(t, None)
+                    s2, r2 = _video_change_plan(later, qtag, no_sfx)
+                    vrecord.update(r2)
+                    if not recompute:
+                        vskip.update(s2)
                 if target in thumb_keys and manifest_path:   # record the new key
                     manifest[thumb_mkey[target]] = thumb_keys[target]
                     _save_manifest(manifest_path, manifest)
