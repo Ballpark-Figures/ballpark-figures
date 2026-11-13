@@ -830,6 +830,19 @@ def _stills(prefix, letter, output, mp4, scene_module):
         for name in held:
             print(f"[stills] ORPHAN on timeline: {name} — its subscene no longer "
                   f"exists, but the edit uses it, so it was left; delete it in DaVinci")
+        # every clip of the scene listed under its staged name, so none sorts out of
+        # place in its bin (a refresh can leave a .swap name behind)
+        try:
+            renamed, failed = davinci.repair_pool_names(
+                prefix, edit_dir, project=_project_name())
+        except Exception as e:
+            renamed, failed = [], []
+            print(f"[stills] media-pool name check skipped: {e}", file=sys.stderr)
+        for old, new in renamed:
+            print(f"[stills] renamed in the media pool: {old} to {new}")
+        for old, new in failed:
+            print(f"[stills] MISNAMED in the media pool: {old} should be {new}, and "
+                  f"the rename did not take; rename it by hand in DaVinci")
 
     _ingest_staged(edit_dir, staged, scene_module, then=report_orphans)
 

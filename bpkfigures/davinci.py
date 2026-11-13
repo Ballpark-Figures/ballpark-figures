@@ -273,19 +273,47 @@ def _folder_of(mp, item):
     return None
 
 
+RENAME_ATTEMPTS = 3
+
+
 def _set_name(item, name):
-    try:
-        if item.GetClipProperty("Clip Name") != name:
+    """Give `item` the list name `name`, and return whether it now HAS it.
+
+    Judged by reading the name back, never by SetClipProperty's return value, which
+    is unreliable both ways: 2026-11-13 it returned False on a rename that worked.
+    The read-back is the point. Before, a failed rename was swallowed, and
+    wheel-of-fortune 11o sat in its bin as `11_round_4.1.mp4` (a .swap name a
+    refresh gave it), sorted above 11a, with nothing reporting it."""
+    for attempt in range(RENAME_ATTEMPTS):
+        if attempt:
+            time.sleep(REPLACE_WAIT)
+        try:
+            if item.GetClipProperty("Clip Name") == name:
+                return True
             item.SetClipProperty("Clip Name", name)
+            if item.GetClipProperty("Clip Name") == name:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _rename_warning(item, name):
+    """'' when `item` is named `name`, else a loud note for the status line."""
+    try:
+        have = item.GetClipProperty("Clip Name")
     except Exception:
-        pass
+        have = "?"
+    return ("" if have == name else
+            f"; NAME NOT RESTORED: the pool shows it as {have!r}, not {name!r} "
+            f"(rename it by hand, or re-run the render)")
 
 
 def _replace_by_import(mp, item, new_path, import_name):
     """A refresh failed on an item NO timeline uses: import the fresh `.swap` copy
     (a new path, so Resolve reads the new bytes) into the same folder, give it the
-    clean name, and delete the old item. Returns True on success; on failure the old
-    item is left as it was."""
+    clean name, and delete the old item. Returns the new item on success (its name
+    is the caller's to check); on failure None, and the old item is left as it was."""
     folder = _folder_of(mp, item) or mp.GetRootFolder()
     prev = mp.GetCurrentFolder()
     mp.SetCurrentFolder(folder)
@@ -293,10 +321,10 @@ def _replace_by_import(mp, item, new_path, import_name):
     if prev:
         mp.SetCurrentFolder(prev)
     if not new_items:
-        return False
+        return None
     _set_name(new_items[0], import_name)
     mp.DeleteClips([item])
-    return True
+    return new_items[0]
 
 
 def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
@@ -360,22 +388,25 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
     old_path = os.path.abspath(_clip_path(item) or "")
     ok, new_path = _swap_refresh(item, src, edit_dir, ident, referenced)
     # ReplaceClip may adopt the .swap basename in the list (even when it FAILS to
-    # re-point the item) — restore the clean name either way
+    # re-point the item) — restore the clean name either way, and SAY so if it
+    # does not take: a .swap name sorts the clip out of place in its bin
     _set_name(item, import_name)
     if ok:
-        return "refreshed in pool"
+        return "refreshed in pool" + _rename_warning(item, import_name)
     # Never leave a half-refreshed item behind. Not in the edit: swap the whole item.
-    if old_path not in on_timelines and _replace_by_import(mp, item, new_path,
-                                                           import_name):
+    new_item = None if old_path in on_timelines else \
+        _replace_by_import(mp, item, new_path, import_name)
+    if new_item is not None:
         return ("refresh failed, so RE-IMPORTED as a new item "
-                "(it was not on any timeline)")
+                "(it was not on any timeline)" + _rename_warning(new_item, import_name))
     try:
         os.remove(new_path)
     except OSError:
         pass
     where = "is on a timeline and still shows" if old_path in on_timelines else \
         "could not be re-imported; it still shows"
-    return f"REFRESH FAILED: {where} the PREVIOUS render"
+    return f"REFRESH FAILED: {where} the PREVIOUS render" + \
+        _rename_warning(item, import_name)
 
 
 def missing_sfx_track(resolve=None):
@@ -573,6 +604,43 @@ def prune_pool_orphans(prefix, current_methods, resolve=None, scope="edit_clips"
     if doomed and not mp.DeleteClips(doomed):
         names = []
     return names, [c.GetName() for c in kept]
+
+
+def repair_pool_names(prefix, edit_dir, resolve=None, project=None):
+    """Give every media-pool clip of scene `prefix` staged from `edit_dir` the name of
+    the staged file it belongs to (`NN<letter>_<method>[_still].<ext>`), matched by
+    letter-agnostic identity. Catches a clip left with ANY other name, whatever left
+    it: a .swap name from a refresh (wheel-of-fortune 11o, 2026-11-13, listed as
+    `11_round_4.1.mp4` above 11a) or a stale letter. Only runs with `project` open.
+    Returns (renamed [(old, new)], failed [(old, wanted)])."""
+    r = resolve or get_resolve()
+    if r is None:
+        return [], []
+    proj = r.GetProjectManager().GetCurrentProject()
+    if proj is None or (project and proj.GetName() != project):
+        return [], []
+    scope = os.path.basename(os.path.abspath(edit_dir))
+    staged = {}
+    for f in os.listdir(edit_dir):
+        ident = _identity(f)
+        if ident and ident[0] == prefix and f[2:3].isalpha():
+            # a re-lettered beat can leave its old-letter file staged too: newest wins
+            old = staged.get(ident)
+            if old is None or os.path.getmtime(os.path.join(edit_dir, f)) > \
+                    os.path.getmtime(os.path.join(edit_dir, old)):
+                staged[ident] = f
+    renamed, failed = [], []
+    for folder in _walk_folders(proj.GetMediaPool().GetRootFolder()):
+        for c in folder.GetClipList() or []:
+            p = _clip_path(c)
+            if not p or _staging_name(p) != scope:
+                continue
+            want = staged.get(_identity(p))
+            have = c.GetName()
+            if want is None or have == want:
+                continue
+            (renamed if _set_name(c, want) else failed).append((have, want))
+    return renamed, failed
 
 
 def orphan_clips(prefix, current_methods, resolve=None, scope="edit_clips",
