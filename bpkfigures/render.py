@@ -827,37 +827,44 @@ def _stills(prefix, letter, output, mp4, scene_module):
     _mark_staged(edit_dir, output, mp4)
     # report placed clips whose subscene was merged/removed — can't auto-delete an edit.
     # Best-effort: never let the (advisory) orphan report break the staging/swap above.
-    def report_orphans():
-        # clips of a subscene that no longer exists (renamed, merged, removed): off
-        # the media pool, unless a timeline still uses one — then only reported
-        try:
-            gone, held = davinci.prune_pool_orphans(
-                prefix, resolve.subscene_methods(prefix),
-                scope=os.path.basename(edit_dir), project=_project_name())
-        except Exception as e:
-            gone, held = [], []
-            print(f"[stills] orphan cleanup skipped: {e}", file=sys.stderr)
-        for name in gone:
-            print(f"[stills] removed from the media pool: {name} — its subscene no "
-                  f"longer exists")
-        for name in held:
-            print(f"[stills] ORPHAN on timeline: {name} — its subscene no longer "
-                  f"exists, but the edit uses it, so it was left; delete it in DaVinci")
-        # every clip of the scene listed under its staged name, so none sorts out of
-        # place in its bin (a refresh can leave a .swap name behind)
-        try:
-            renamed, failed = davinci.repair_pool_names(
-                prefix, edit_dir, project=_project_name())
-        except Exception as e:
-            renamed, failed = [], []
-            print(f"[stills] media-pool name check skipped: {e}", file=sys.stderr)
-        for old, new in renamed:
-            print(f"[stills] renamed in the media pool: {old} to {new}")
-        for old, new in failed:
-            print(f"[stills] MISNAMED in the media pool: {old} should be {new}, and "
-                  f"the rename did not take; rename it by hand in DaVinci")
+    _ingest_staged(edit_dir, staged, scene_module,
+                   then=lambda: _pool_cleanup(prefix, edit_dir))
 
-    _ingest_staged(edit_dir, staged, scene_module, then=report_orphans)
+
+def _pool_cleanup(prefix, edit_dir):
+    """After a scene's clips are staged, with its project open: delete pool clips of
+    subscenes that no longer exist (unless a timeline uses one), and give every clip its
+    staged name. Run on every --stills staging, rendered or skipped as unchanged (before
+    2026-11-14 a run that re-rendered nothing never ran it, and 17's merged beats stayed
+    in the bin)."""
+    # clips of a subscene that no longer exists (renamed, merged, removed): off
+    # the media pool, unless a timeline still uses one — then only reported
+    try:
+        gone, held = davinci.prune_pool_orphans(
+            prefix, resolve.subscene_methods(prefix),
+            scope=os.path.basename(edit_dir), project=_project_name())
+    except Exception as e:
+        gone, held = [], []
+        print(f"[stills] orphan cleanup skipped: {e}", file=sys.stderr)
+    for name in gone:
+        print(f"[stills] removed from the media pool: {name} — its subscene no "
+              f"longer exists")
+    for name in held:
+        print(f"[stills] ORPHAN on timeline: {name} — its subscene no longer "
+              f"exists, but the edit uses it, so it was left; delete it in DaVinci")
+    # every clip of the scene listed under its staged name, so none sorts out of
+    # place in its bin (a refresh can leave a .swap name behind)
+    try:
+        renamed, failed = davinci.repair_pool_names(
+            prefix, edit_dir, project=_project_name())
+    except Exception as e:
+        renamed, failed = [], []
+        print(f"[stills] media-pool name check skipped: {e}", file=sys.stderr)
+    for old, new in renamed:
+        print(f"[stills] renamed in the media pool: {old} to {new}")
+    for old, new in failed:
+        print(f"[stills] MISNAMED in the media pool: {old} should be {new}, and "
+              f"the rename did not take; rename it by hand in DaVinci")
 
 
 def _output_mp4(output):
@@ -1307,7 +1314,8 @@ def _skipped_outputs(target, mp4, frames_spec, padded, stills):
         if _staged_current(target[:2], letter, output, mp4):
             names = [f"{output}.mp4"] + [n for n, _t in
                                          _still_files(target[:2], letter, output)]
-            _ingest_staged(_edit_dir(), names, module, refresh=False)
+            _ingest_staged(_edit_dir(), names, module, refresh=False,
+                           then=lambda: _pool_cleanup(target[:2], _edit_dir()))
         else:
             _stills(target[:2], letter, output, mp4, module)
 
