@@ -837,6 +837,17 @@ def _pool_cleanup(prefix, edit_dir):
     staged name. Run on every --stills staging, rendered or skipped as unchanged (before
     2026-11-14 a run that re-rendered nothing never ran it, and 17's merged beats stayed
     in the bin)."""
+    # a STILL of a subscene that no longer exists, placed on a timeline: re-pointed at
+    # the still now staged at its letter, so the edit shows the new frame
+    try:
+        adopted = davinci.adopt_orphan_stills(
+            prefix, resolve.subscene_methods(prefix), edit_dir, project=_project_name())
+    except Exception as e:
+        adopted = []
+        print(f"[stills] orphan still swap skipped: {e}", file=sys.stderr)
+    for old, new in adopted:
+        print(f"[stills] on the timeline, {old} replaced by {new} (its subscene no "
+              f"longer exists; the new still at its letter is the same moment)")
     # clips of a subscene that no longer exists (renamed, merged, removed): off
     # the media pool, unless a timeline still uses one — then only reported
     try:

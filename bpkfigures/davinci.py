@@ -583,6 +583,63 @@ def _orphan_method(ident, prefix, keep):
     return not (base in ("scene_end", "lead") or base in keep)
 
 
+def adopt_orphan_stills(prefix, current_methods, edit_dir, resolve=None, project=None):
+    """A STILL of scene `prefix` whose subscene no longer exists (split, merged, renamed)
+    but which a timeline still uses is re-pointed at the still now staged at its LETTER,
+    and takes that still's name; the separately imported item for the new still is then
+    deleted if no timeline uses it. So the edit shows the new frame (the user,
+    2026-11-14: 17b_call_d_still stayed in the cut after 17b and c merged into calls).
+    Safe for a still and not for a clip: a still is the frame before its beat starts,
+    the same moment for the old beat and the new one at that letter, and refreshing a
+    still keeps the duration it was stretched to; a clip's length changes, and swapping
+    media under a placed clip resets its trims, so clips are only reported. Only runs
+    with `project` open. Returns [(old name, new name)]."""
+    r = resolve or get_resolve()
+    if r is None:
+        return []
+    proj = r.GetProjectManager().GetCurrentProject()
+    if proj is None or (project and proj.GetName() != project):
+        return []
+    used = set()
+    for i in range(1, proj.GetTimelineCount() + 1):
+        used |= _timeline_sources(proj.GetTimelineByIndex(i))
+    mp = proj.GetMediaPool()
+    scope = os.path.basename(os.path.abspath(edit_dir))
+    keep = set(current_methods)
+    staged = {}                                  # letter -> the still staged at it
+    for f in os.listdir(edit_dir):
+        ident = _identity(f)
+        if ident and ident[0] == prefix and ident[1].endswith("_still") and \
+                ident[2] == ".png" and not ident[1].startswith("scene_end"):
+            staged[f[2:].split("_", 1)[0]] = f
+    referenced = _pool_sources(mp) | used
+    out = []
+    for folder in _walk_folders(mp.GetRootFolder()):
+        for c in folder.GetClipList() or []:
+            p = _clip_path(c)
+            if not p or _staging_name(p) != scope or os.path.abspath(p) not in used:
+                continue
+            ident = _identity(p)
+            if not ident or ident[2] != ".png" or not _orphan_method(ident, prefix, keep):
+                continue
+            old = c.GetName()
+            new = staged.get(old[2:].split("_", 1)[0])
+            if new is None:
+                continue
+            new_ident = _identity(new)
+            dup = _find_pool_item(mp, new_ident, scope=scope)
+            ok, _path = _swap_refresh(c, os.path.join(edit_dir, new), edit_dir, new_ident,
+                                      referenced)
+            if not ok:
+                continue
+            _set_name(c, new)
+            if dup is not None and dup.GetMediaId() != c.GetMediaId() and \
+                    os.path.abspath(_clip_path(dup) or "") not in used:
+                mp.DeleteClips([dup])
+            out.append((old, new))
+    return out
+
+
 def prune_pool_orphans(prefix, current_methods, resolve=None, scope="edit_clips",
                        project=None):
     """DELETE from the media pool every clip of scene `prefix`, staged from `scope`,
