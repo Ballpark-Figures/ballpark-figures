@@ -1572,6 +1572,28 @@ calls for; no titles/labels/narration that weren't asked for.
   sit in the text-entrance rule above. No scene in the video does that; every title
   there is a plain `FadeIn` played with its content. The reuse map sourced the title's
   look and listed no entrance at all, so nothing forced the search.)
+- **AN EDIT THAT CHANGES A RECURRING ACTION GETS A WRITTEN PRECEDENT LINE FIRST, in the
+  reply, before the edit.** A recurring action is anything the video does in more than one
+  scene: in a game video, a piece taken off the board or wheel, a spin, a call, a solve, a
+  bubble, a card or token spent; generally, an entrance, an exit, a swap, a fill. Before
+  editing how one scene does it, write one line naming where else it happens and how it
+  is done there, and which of those the edit follows, e.g. "Wedge to the corner: 01, 02c,
+  13 keep the money wedge on the wheel; 09, 12, 18 hide the piece; the $500 is money, so
+  it stays." The line is the check made visible: if it is missing, the user can see the
+  check was skipped.
+  - **This binds hardest on a request that sounds LOCAL** ("move X to the bottom left"):
+    those read as a one-beat change, which is exactly why the "how is this done
+    elsewhere?" question never gets asked. The other rules here fire on a NEW value or
+    entrance; this one fires on CHANGING behaviour, which looks like inventing nothing.
+- **DELETING CODE WHOSE COMMENT EXPLAINS IT IS A STOP.** Before removing working code that
+  says why it is there, say in the reply why that reason no longer holds. If it still
+  holds, the edit has to keep the behaviour, not drop it.
+  - (Both bit us on wheel-of-fortune 17a, 2026-11-14: asked to send the $500 under the
+    Wild Card to the bottom left too, the agent replaced the code that kept the $500 on
+    the wheel, whose comment said so, and hid the whole space, so the $500 vanished.
+    Every other scene keeps a money wedge on the wheel and sends a copy. The frame it
+    checked showed the empty slot; it looked only at where the pieces arrived. **Check
+    what an edit leaves behind as well as what it adds.**)
 - Read the existing assets and the video's gameplay REFERENCE scene (its CLAUDE.md's named
   canonical example) BEFORE building a gameplay-style beat. Use the existing helpers.
 - **A recurring ENTRANCE/EXIT/emphasis motion is an asset — grep the other SCENES
