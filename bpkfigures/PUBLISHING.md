@@ -176,38 +176,41 @@ bypassed, yellow = on, in that slot.
   Microphone** — so **check the mic icon shows the GO before every take**, or the phone's
   built-in mic is what gets recorded.
 
-**Dialogue Leveler on the Voice track — the house setting (user's call, 2026-10-06):**
-- Everything spoken goes on the **Voice** track: the MV7+ recordings AND the talking
-  heads' audio. They came in at very different loudness, and **the scripting API cannot
-  change a clip's volume or run Normalize Audio Levels** (checked against the API
-  README of the installed Resolve), so the levelling lives on the TRACK instead.
-- **Fairlight → Mixer → Track FX** (⋯ menu if hidden) → on **Voice** add **Dialogue
-  Leveler**: **Reduce Loud Dialogue**, **Lift Soft Dialogue** and **Background
-  reduction** ON (background reduction kept on "for now", user 2026-10-06), **Optimize
-  Moderate Levels**, **Output Gain** **+6 dB**. Every clip on the track is levelled as
-  it plays, so nothing has to be done per clip. **Voice track only** — on the SFX track
-  it would treat sound effects as speech (it is OFF there in Wordle).
-- **It is a LEVELLER, not a loudness target** — check the Loudness meter afterwards and
-  still set the master to ≈ −14 LUFS (§ Audio loudness).
-- **Per project, until it is in the template.** Effects cannot be added by script, so
-  the template (`dotclaude/resolve/TEMPLATE-60fps.drp`) has to be re-exported with it
-  on: import that `.drp` as a project, add the effect to Voice, Export Project over the
-  same file, and commit it to `dotclaude`. Until then, add it by hand in each project
-  (done or pending per project: Wordle — done 2026-10-06, Wordle Bonus — pending).
+**The voice chain — the house settings, IN THE TEMPLATE (Wordle's, recorded 2026-11-14 from
+the user's screenshots of the Wordle and WheelOfFortune mixers):**
+- Everything spoken goes on the **Voice** track: the MV7+ recordings AND the talking heads'
+  audio (the scripting API cannot change a clip's volume, so the levelling lives on the
+  track).
+- **Voice track:** fader **+10**; Order **DY FX EQ** (the gate BEFORE the leveler, so the gate
+  sees the raw breaths rather than ones "Lift soft dialogue" has already raised).
+  - **Dynamics** (double-click the strip's graph), preset "Dialog - Basic", edited:
+    **Gate** on: Threshold **-30.0**, Range 60.0, Ratio 1:1.1, Attack 5.0, Hold 150, Release
+    300. **Compressor off.** **Limiter on**, Threshold **-1.0** (Attack 0.71, Hold 0, Release 93).
+  - **Track FX: AI Dialogue Leveler** on (`Dial Lev` yellow): **Optimize moderate levels**;
+    Reduce loud dialogue, Lift soft dialogue and Background reduction all on; Output Gain
+    **6.0**.
+- **Other faders** as WheelOfFortune has them (2026-11-14): SFX 0.0, Music -10, Music 2 -10,
+  Bus 1 0.0. The SFX track's `Dial Lev` stays bypassed (it would treat sound effects as speech).
+- **It is a LEVELLER, not a loudness target** — check the Loudness meter afterwards and still
+  set the master to ≈ −14 LUFS (§ Audio loudness).
 
-**Noise gate (removes low-level room noise) — per-track, non-destructive:**
-- On the VO track's Mixer strip, double-click the **Dynamics** graph → the
-  **Dynamics** window (Expander/Gate · Compressor · Limiter). It's **per-track** (so
-  all VO on this one track is covered, and the music track stays untouched) and
-  applied on **playback** — the recorded files stay **raw/full**, so tweaks fix all
-  existing takes retroactively.
-- **Current setting:** the **"Breath Reduction"** factory preset, with **Hold = 150 ms**
-  and **Release = 300 ms** (lengthened from the preset so word-ENDINGS don't get
-  chopped — a gate closing too fast eats the volume tail-off of word-ends).
-- If word-ends still cut: raise **Release**/**Hold**, lower **Threshold**, or reduce
-  **Range** (attenuate rather than fully mute). If room noise creeps in between
-  phrases: raise **Threshold** a few dB. Keep **Attack** fast (~1–2 ms) so word-STARTS
-  aren't clipped.
+**THE TEMPLATE CARRIES ALL OF THIS — keep it current (2026-11-14).** Every new project is
+made from `dotclaude/resolve/TEMPLATE-60fps.drp` (`new_project.py`), and none of the above can
+be set by script. **When a project's sound has been changed for good, rebuild the template
+from it:**
+
+    python3 <dotclaude>/resolve/update_template.py <Project>
+
+(run with a video venv's python; it saves and reopens the open project, never touches the
+source, and leaves a clean template: one empty timeline, no media), then commit the `.drp` to
+dotclaude. Projects made earlier keep their old settings: change them by hand, or delete and
+recreate an empty one (`new_project.py "<Name>" <repo> 60 --return`).
+- **Why this exists:** the template was rebuilt from Hangman on 2026-10-04 and nothing after
+  it went back in, so every project since (WheelOfFortune, the Minesweeper ones) started with
+  Hangman's sound while Wordle's tuned chain lived only in Wordle: WheelOfFortune's voice came
+  out ~14 dB quieter (fader 0, leveler +2) with more breath (gate at -40, leveler before the
+  gate). The template was rebuilt from WheelOfFortune once it matched Wordle, and Minesweeper,
+  Minesweeper Bonus and WheelOfFortune Bonus (all empty) were recreated from it.
 
 ## 3. Assemble (DaVinci Resolve)
 
