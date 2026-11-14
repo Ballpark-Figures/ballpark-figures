@@ -335,7 +335,8 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
       * EXISTING -> refresh in place (the .swap trick), which also updates any timeline
                     instances, then restore the clean list name.
     Matched by letter-agnostic identity, so re-lettering is handled. Returns a short
-    status; a 'skipped: …' when Resolve is unreachable (caller degrades to files-only).
+    status; 'NOT IMPORTED: ...' (and the file QUEUED) when Resolve is installed but does
+    not answer, 'skipped: ...' on a machine without it.
 
     `project`: the DaVinci project this file belongs in. If a different project is
     open, nothing is imported or refreshed — the file stays staged and the status
@@ -350,11 +351,19 @@ def ingest(edit_dir, import_name, bin_name=None, resolve=None, project=None,
     (2026-11-12: wheel-of-fortune 03's pie_12 kept the name 03w_pie_12, beside the
     real 03w, and a file two renders old)."""
     r = resolve or get_resolve()
-    if r is None:
-        return "skipped: resolve not reachable"
-    proj = r.GetProjectManager().GetCurrentProject()
+    proj = r.GetProjectManager().GetCurrentProject() if r is not None else None
     if proj is None:
-        return "skipped: no project"
+        if not os.path.exists(_LIB):
+            return "skipped: no DaVinci Resolve on this machine"
+        # Resolve is installed but did not answer (not running, no project open, or its
+        # scripting down, as after a forced restart, 2026-11-14): QUEUE the file, so it
+        # is imported the next time Resolve answers, rather than staged and forgotten
+        if project:
+            queue_pending(edit_dir, import_name, bin_name, project)
+        why = "not running or its scripting is down" if r is None else "no project open"
+        return (f"NOT IMPORTED: DaVinci did not answer ({why}); "
+                + (f"QUEUED for {project!r}, imported on the next --stills render or "
+                   f"`render --pending` once it answers" if project else "not queued"))
     if project and proj.GetName() != project:
         queue_pending(edit_dir, import_name, bin_name, project)
         return (f"QUEUED for {project!r} (open project is {proj.GetName()!r}); it is "

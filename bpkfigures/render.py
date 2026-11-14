@@ -511,9 +511,22 @@ _INGEST_PROBLEMS = []
 def _print_ingest_problems():
     if not _INGEST_PROBLEMS:
         return
-    print(f"\n[stills] ===== {len(_INGEST_PROBLEMS)} DaVinci clip(s) need a look =====")
-    for line in _INGEST_PROBLEMS:
-        print(f"[stills]   {line}")
+    # DaVinci not answering is ONE problem however many clips it hit: one loud line, not
+    # a line per clip (2026-11-14: after a forced restart Resolve's scripting was down,
+    # and a scene's clips were staged but never imported, one quiet line each)
+    unanswered = [l for l in _INGEST_PROBLEMS if ": NOT IMPORTED:" in l]
+    others = [l for l in _INGEST_PROBLEMS if ": NOT IMPORTED:" not in l]
+    if unanswered:
+        print(f"\n[stills] ===== DaVinci did NOT answer: {len(unanswered)} file(s) staged in "
+              f"edit_clips but NOT imported =====")
+        print("[stills]   They are QUEUED, and import on the next --stills render or "
+              "`render --pending`")
+        print("[stills]   once DaVinci answers. If it is open on the right project, quit "
+              "and reopen it.")
+    if others:
+        print(f"\n[stills] ===== {len(others)} DaVinci clip(s) need a look =====")
+        for line in others:
+            print(f"[stills]   {line}")
 
 
 def _note_ingest(label, status, problem=None):
@@ -521,7 +534,7 @@ def _note_ingest(label, status, problem=None):
     listed again at the end of the run."""
     print(f"[stills] {label}: {status}")
     if problem is None:
-        problem = "failed" in status.lower()
+        problem = "failed" in status.lower() or status.startswith("NOT IMPORTED")
     if problem:
         if not _INGEST_PROBLEMS:
             atexit.register(_print_ingest_problems)
