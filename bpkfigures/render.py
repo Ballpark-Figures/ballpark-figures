@@ -1198,7 +1198,42 @@ def _sfx_hash(texts):
     return _content_hash(used)
 
 
+_KEY_MEMO = {}
+
+
 def _video_key(cls, scene_path, names, idx, qtag, no_sfx, inputs_hash):
+    """`_video_key_parts` joined: the clip's PREFIX key (every subscene up to it), as
+    before early cutoff; still accepted, so a clip recorded under it is not re-rendered
+    by the switch."""
+    from bpkfigures import scene as S
+    reach, sfx_h = _video_key_parts(cls, names, idx)
+    srcs = [f"v{S.SNAPSHOT_VERSION}",
+            f"q:{qtag}", f"sfx:{0 if no_sfx else 1}", *reach, inputs_hash, sfx_h]
+    return hashlib.md5("".join(srcs).encode()).hexdigest()
+
+
+def _chain_video_key(chain, qtag, no_sfx, sfx_h):
+    """EARLY CUTOFF's key for a clip (2026-11-14): its chain key (subscene_inputs
+    `trusted_chain`: its own code, its own files and the STATE it starts from), the
+    quality, whether sound effects are baked in, and the effects it names. No term for
+    the code of the subscenes before it: a change there re-keys this clip only if it
+    changes the state this clip starts from."""
+    from bpkfigures import scene as S
+    srcs = [f"chain-v{S.SNAPSHOT_VERSION}", f"q:{qtag}", f"sfx:{0 if no_sfx else 1}",
+            chain, sfx_h]
+    return hashlib.md5("|".join(srcs).encode()).hexdigest()
+
+
+def _video_key_parts(cls, names, idx):
+    """(the code terms of setup + subscenes 0..idx, the hash of the sound effects
+    subscene idx names), memoized for the run: code does not change mid-run."""
+    k = (cls, tuple(names), idx)
+    if k not in _KEY_MEMO:
+        _KEY_MEMO[k] = _video_key_parts_uncached(cls, names, idx)
+    return _KEY_MEMO[k]
+
+
+def _video_key_parts_uncached(cls, names, idx):
     """The change-key for video subscene `names[idx]`: what setup_scene + subscenes
     0..idx REACH (scene `_reach_parts`, as the snapshot key, but WITH the sound
     settings, since they change the clip's audio), plus the version, the quality,
@@ -1212,15 +1247,7 @@ def _video_key(cls, scene_path, names, idx, qtag, no_sfx, inputs_hash):
     # objects built earlier resolved through every class reached so far
     texts = []
     S._reach_parts(cls, ["setup_scene", names[idx]], texts=texts, attr_classes=classes)
-    srcs = [
-        f"v{S.SNAPSHOT_VERSION}",
-        f"q:{qtag}",
-        f"sfx:{0 if no_sfx else 1}",
-        *reach,
-        inputs_hash,
-        _sfx_hash(texts),
-    ]
-    return hashlib.md5("".join(srcs).encode()).hexdigest()
+    return reach, _sfx_hash(texts)
 
 
 def _video_change_plan(targets, qtag, no_sfx):
@@ -1250,6 +1277,7 @@ def _video_change_plan(targets, qtag, no_sfx):
             _cn, subs, _st = resolve._parse(path)
             manifest_path = _video_manifest_path(path)
             manifest = _load_manifest(manifest_path)
+            chain = SI.trusted_chain(cls, classname, subs)      # early cutoff
             for t in tt:
                 if resolve.is_still(t):
                     continue
@@ -1258,8 +1286,11 @@ def _video_change_plan(targets, qtag, no_sfx):
                 rec = SI.inputs_hash(classname, ["setup_scene"] + list(subs[: idx + 1]))
                 inputs = coarse_hash() if rec is None else f"inputs:{rec}"
                 key = _video_key(cls, path, subs, idx, qtag, no_sfx, inputs)
+                ckey = (_chain_video_key(chain[subs[idx]], qtag, no_sfx,
+                                         _video_key_parts(cls, subs, idx)[1])
+                        if subs[idx] in chain else None)
                 mkey = f"{qtag}/{output}"
-                record[t] = (manifest_path, mkey, key)
+                record[t] = (manifest_path, mkey, ckey or key)
                 entry = manifest.get(mkey)
                 if not isinstance(entry, dict):
                     continue
@@ -1267,8 +1298,13 @@ def _video_change_plan(targets, qtag, no_sfx):
                 if not (mp4 and os.path.exists(mp4) and
                         os.path.getmtime(mp4) == entry.get("mtime")):
                     continue
-                if entry.get("key") == key:
+                if ckey is not None and entry.get("key") == ckey:
                     skip[t] = mp4
+                elif entry.get("key") == key:
+                    skip[t] = mp4
+                    if ckey is not None:       # the old prefix key: upgrade it
+                        entry["key"] = ckey
+                        _save_manifest(manifest_path, manifest)
                 elif rec is not None and entry.get("key") == _video_key(
                         cls, path, subs, idx, qtag, no_sfx, coarse_hash()):
                     # recorded under the coarse key, and nothing in assets/ has changed
@@ -1782,6 +1818,19 @@ def main(argv=None):
             if not state and not extract and rc == 0:
                 print(f"Finished rendering {target}", file=sys.stderr)
                 rendered_prefixes.add(target[:2])
+                # early cutoff: the run just recorded this subscene's end state, so its
+                # key and the keys of the scene's targets still to come are worked out
+                # again now. A later one is skipped only if the state it starts from
+                # really is unchanged (planned before this render, it could not know)
+                later_same = [t for t in targets[targets.index(target) + 1:]
+                              if t[:2] == target[:2]]
+                if target in vrecord:
+                    s2, r2 = _video_change_plan([target] + later_same, qtag, no_sfx)
+                    vrecord.update(r2)
+                    for t in later_same:
+                        vskip.pop(t, None)
+                        if not recompute and t in s2:
+                            vskip[t] = s2[t]
                 if target in vrecord:                        # record the clip's key
                     _record_video_key(vrecord[target], resolve.resolve(target)[2])
                 # a scene another opens on: refresh that picture, and re-plan any of
@@ -1942,6 +1991,23 @@ def _render_one(target, passthrough, recompute, fast, state, frames_spec,
         env["RECOMPUTE"] = "1"
     if no_sfx:
         env["BPK_NO_SFX"] = "1"
+    # a set inside a scene's objects pickles in hash order: fixed, so the same end state
+    # gives the same state hash every run (subscene_inputs `state_hash`, early cutoff)
+    env["PYTHONHASHSEED"] = "0"
+    # early cutoff: each subscene's code fingerprint, computed HERE, where the skip plan
+    # computes it too, so the chain the child records is one this side can reproduce
+    env.pop("BPK_OWN_CODES", None)
+    if classname:
+        try:
+            from bpkfigures import subscene_inputs as SI
+            cls = _load_scene_class(path, classname)
+            _cn, subs, _st = resolve._parse(path)
+            env["BPK_OWN_CODES"] = json.dumps(
+                {n: {"first": SI.own_code(cls, n, True), "rest": SI.own_code(cls, n, False)}
+                 for n in subs if not SI.is_still(cls, n)})
+        except Exception as e:
+            print(f"[render] early-cutoff code keys skipped: {type(e).__name__}: {e}",
+                  file=sys.stderr)
 
     manim = _find_venv_manim()
     # A 4K still (-qk) is the upload-grade thumbnail/`--thumb` default — it gives

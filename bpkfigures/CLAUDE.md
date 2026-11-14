@@ -1909,6 +1909,30 @@ they are working in it. Treat each one as touching their session, not as a free 
   still there prints `unchanged — skipped`; with `--stills` it is re-staged only if
   `edit_clips/` is stale and imported only if the pool lacks it (never refreshed — the bytes
   did not change). `NN all` also skips the stitch when no subscene re-rendered.
+  - **EARLY CUTOFF (2026-11-14): a change that leaves a beat's END STATE as it was does
+    not re-render the beats after it.** The manim child (`subscene_inputs`) records, as
+    each subscene returns, a fingerprint of the scene's state by VALUE (`state_hash`:
+    every point, colour and attribute, sets sorted; not a pickle, whose set order follows
+    memory addresses) and the CHAIN KEY it was produced under: its own code, the files it
+    read, and the state it started from. A clip's key is then that chain key (plus
+    quality and sounds), not the code of every beat before it. `render` trusts a recorded
+    state only if its chain matches the one it computes now from the first beat on
+    (`trusted_chain`), and re-checks the scene's later targets after each render, so a
+    later beat is skipped only if the state it starts from really is unchanged. Measured
+    on wheel-of-fortune 17: a wait changed in 17b re-rendered 17b alone; an attribute
+    added at 17b's end re-rendered 17b-l.
+    - **The code fingerprint is computed in `render` and handed to the child**
+      (`BPK_OWN_CODES`): computed inside manim, the same code fingerprinted differently.
+      Two fields hold memory addresses or cache paths and are left out of the state
+      (`_NOT_STATE`: manim's `original_id`, a Text's `file_name`); a new such field shows
+      up as a chain that never matches (fails safe: it re-renders). `BPK_STATE_DEBUG=<file>`
+      dumps per-attribute fingerprints to find one.
+    - **A key recorded the old way is still accepted** (and upgraded), so the switch
+      re-rendered nothing. A scene's chain starts once every beat has run under it:
+      `render NN<last> --recompute` replays them all in one process.
+    - **Snapshots are still keyed on the prefix code**, so a skipped beat's snapshot goes
+      stale: rendering a LATER beat replays from the nearest valid snapshot (fast, nothing
+      drawn), not a re-render.
   - **Same blind spots as the snapshot cache, plus one:** a CLASS attribute read via
     `self.X`, and a scene that opens a file OUTSIDE `assets/` directly (e.g. a CSV under
     `math/`). After changing either, use `--recompute`, which renders regardless and still
