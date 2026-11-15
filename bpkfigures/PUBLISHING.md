@@ -220,6 +220,29 @@ bypassed, yellow = on, in that slot.
   ~13.38 s); with 100 ms the clap lands within one 60 fps frame. Clap at the start of each
   take anyway. Speech peaked only around −24 to −30 dB on the first test (the clap reached
   −1 dB): clip the lav closer, or raise the receiver's −12 dB output gain.
+- **FIRST SHOOT, 2026-11-15: ABANDONED for the iPhone.** Findings, measured from test files:
+  - **Cable:** the first USB-C cable linked at **480 Mb/s (USB 2.0)** and gave ~20 fps; a
+    second linked at **10 Gb/s**. Check with `system_profiler SPUSBHostDataType` (the X-M5's
+    `Link Speed`). Keep the 10 Gb/s cable for the camera.
+  - **Frame rate is stuck near 30 (~33 new frames/s) at 1080p59.94**, even under a bright lamp,
+    so it is NOT light. Retailers and reviews (Wex, Park Cameras, Cameralabs, RTINGS) advertise
+    the X-M5 as a **4K/60p UVC webcam**; nothing found states its 1080p webcam rate. UNTESTED:
+    OBS with the 3840x2160 59.94 input format, and QuickTime (High = 720p60) saved and measured,
+    to tell a 1080p camera limit from an OBS limit.
+  - **OBS froze** the feed after a few minutes, twice, while the camera stayed connected and
+    QuickTime then showed it live. Reselecting the Device resets Input format to 3840x2160.
+    The source's device ID follows the Mac USB PORT, so a different port loses its settings.
+  - **Grain is light:** dim room = grainy; under a bright lamp the picture is clean. The kit
+    lens is f/3.5-5.6. Bright primes priced 2026-11-15: XF 23mm f/2 R WR ~$499 new
+    (~$350-430 used); XF 23mm f/1.4 R LM WR ~$1,050 (~$735-860 used). A lens fixes grain only,
+    not the frame rate, freezes or heat.
+  - **Heat:** overheated twice in ~1.5 h of streaming (Standard limit; once on 4K input). Now set:
+    AUTO POWER OFF TEMP = HIGH (SET UP, POWER MANAGEMENT). FAN-001 is Fujifilm's fan for it.
+    No DC coupler is listed for the X-M5 (the CP-W126 list omits it).
+  - **Camera settings now:** movie mode, SHOOTING MODE = PROGRAM AE, MOVIE MODE FHD 59.94P,
+    USB POWER SUPPLY/COMM SETTING = POWER SUPPLY OFF/COMM ON (changed from AUTO; the freezes
+    began after, cause unproven). Setup tabs grey out while USB is connected.
+  - Return window ends about 2026-12-11 (30 days from the 2026-11-11 delivery).
 
 **The voice chain — the house settings, IN THE TEMPLATE (Wordle's, recorded 2026-11-14 from
 the user's screenshots of the Wordle and WheelOfFortune mixers):**
