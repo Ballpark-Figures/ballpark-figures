@@ -379,6 +379,20 @@ everyone else's" symptom). Target **≈ −14 LUFS integrated** for the final mi
 3. **Music sits under dialogue:** roughly **−23 LUFS or lower**, ducked a few dB
    further under speech.
 
+### Sending a draft to a collaborator (e.g. the composer) — 2026-11-14
+- **Send a rendered video, not the DaVinci project.** A `.drp` holds no media (every clip
+  would be missing on their machine); a Project Archive (Project Manager > right-click >
+  Export Project Archive) does, ~1.7 GB for WheelOfFortune, but needs DaVinci, and a composer
+  works in a DAW against a picture file plus audio. Offer the archive only if they ask.
+- **Render it:** `python3 <dotclaude>/resolve/composer_draft.py` (a video venv's python), with
+  the project open. H.264 MP4, 1080p, the timeline's fps, the record timecode burned in at
+  the bottom (the "Timecode" data burn-in preset, applied to that render only), into
+  `<repo>/drafts/<Project> draft <date>.mp4` (git-ignored). The Deliver page's settings are
+  saved and restored around it. DaVinci is busy while it renders.
+- **Share it:** a Google Drive folder per video, shared with them once; each draft goes in
+  with its date. (An unlisted YouTube upload also works for watching; never Public.)
+- Mute any temp music first if they should not hear it (WheelOfFortune has none).
+
 ## 4. Export the video (Deliver page)
 
 Deliver → Custom Export, then **Add to Render Queue → Render All**. Settings that
