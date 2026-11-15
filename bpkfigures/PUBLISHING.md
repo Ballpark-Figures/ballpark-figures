@@ -389,8 +389,13 @@ everyone else's" symptom). Target **≈ −14 LUFS integrated** for the final mi
   the bottom (the "Timecode" data burn-in preset, applied to that render only), into
   `<repo>/drafts/<Project> draft <date>.mp4` (git-ignored). The Deliver page's settings are
   saved and restored around it. DaVinci is busy while it renders.
-- **Share it:** a Google Drive folder per video, shared with them once; each draft goes in
-  with its date. (An unlisted YouTube upload also works for watching; never Public.)
+- **Upload it:** `<dotclaude>/upload-draft.sh` inside the video repo puts the newest draft in
+  `Drafts/<Video>/` in the "Ballpark Figures" Drive folder (the one holding Scripts/ and
+  Data/) and prints its link, signing in as the other Drive tools do (`tools/gauth.py`). It
+  shares it with NOBODY.
+- **Share it:** share that video's Drafts folder with them once (Viewer); each later draft
+  lands in it with its date. Sharing is always a deliberate step. (An unlisted YouTube
+  upload also works for watching; never Public.)
 - Mute any temp music first if they should not hear it (WheelOfFortune has none).
 
 ## 4. Export the video (Deliver page)
