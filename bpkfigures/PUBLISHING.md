@@ -205,6 +205,12 @@ bypassed, yellow = on, in that slot.
 - The box listed no USB cable: the camera-to-Mac cable is a USB-C one rated USB 3.2.
 - **Do not mix cameras within one video**: iPhone and X-M5 footage differ in colour and
   blur. Start the X-M5 on a fresh video, or re-record that video's talking heads.
+- **Framing (the user's setup, 2026-11-15):** zoom at **26 mm**, the tripod **fully
+  extended**, standing in front of the table, which is backed against the wall.
+- **Audio route used on 2026-11-15: route (2)**, the receiver into the Mac by USB-C. The
+  only 3.5 mm cable on hand is **TRRS** (three rings on each end, a phone headset cable),
+  which is wrong for the camera's mic jack. A **TRS** cable (two rings, e.g. RØDE SC2) would
+  allow route (1). OBS is installed from the Brewfile.
 
 **The voice chain — the house settings, IN THE TEMPLATE (Wordle's, recorded 2026-11-14 from
 the user's screenshots of the Wordle and WheelOfFortune mixers):**
