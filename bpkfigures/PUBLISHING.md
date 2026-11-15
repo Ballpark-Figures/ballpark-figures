@@ -176,6 +176,36 @@ bypassed, yellow = on, in that slot.
   Microphone** — so **check the mic icon shows the GO before every take**, or the phone's
   built-in mic is what gets recorded.
 
+**Talking heads, NEW CAMERA (Fujifilm X-M5), first shoot planned 2026-11-15:**
+- **Kit (from the order emails, 2026-11-14):** a **Fujifilm X-M5** with the **XC 15-45mm
+  f/3.5-5.6 OIS PZ** kit lens, black, bought **used (Open Box) from Adorama**, delivered
+  2026-11-11; the listing gave a 30-day money-back guarantee and a 1-year warranty. An
+  earlier Amazon order for the same kit was cancelled. The user also has a strap and two
+  spare batteries (the user's words). A $29.39 Amazon "Camera Accessories" order
+  (2026-11-02) is not named in its emails; it is UNRECORDED which accessory it was.
+- **The plan: the camera is a USB WEBCAM, so the file lands on the Mac** (chosen in the
+  2026-11-06 camera conversation over recording to a card). It replaces the iPhone's
+  mount-plug-AirDrop routine; the SD card is a fallback only.
+- **Camera setup, once** (Fujifilm's X-M5 manual, "Using the camera as a webcam"):
+  in the network/USB setting menu, **USB POWER SUPPLY/COMM SETTING** = **AUTO** or **POWER
+  SUPPLY OFF/COMM ON**; **CONNECTION MODE** = **USB WEBCAM**. Then connect by USB-C, turn the
+  camera on, and pick it as the video source in the recording app. Also turn auto
+  power-off off.
+- **Record in OBS, not QuickTime**: OBS gives each audio source a fixed **Sync Offset**,
+  which the second audio route below needs.
+- **Audio, two routes:** (1) the Wireless GO receiver into the camera's 3.5 mm mic input,
+  if the X-M5 sends that audio over USB; (2) otherwise the receiver into the Mac as a USB mic,
+  with a one-time OBS sync offset measured from a clap.
+- **UNCONFIRMED, to settle in the day-one test (inside the return window):** whether
+  webcam mode runs on USB power or drains the battery ("AUTO" switches between power and data;
+  "POWER SUPPLY OFF/COMM ON" draws no power); whether audio comes over USB; heat over an hour
+  of webcam use. Test: an hour of webcam recording, a clap for sync, a check for a heat
+  warning. A USB-C dummy battery (NP-W126S size) is the fallback for power; none was
+  confirmed to fit the X-M5.
+- The box listed no USB cable: the camera-to-Mac cable is a USB-C one rated USB 3.2.
+- **Do not mix cameras within one video**: iPhone and X-M5 footage differ in colour and
+  blur. Start the X-M5 on a fresh video, or re-record that video's talking heads.
+
 **The voice chain — the house settings, IN THE TEMPLATE (Wordle's, recorded 2026-11-14 from
 the user's screenshots of the Wordle and WheelOfFortune mixers):**
 - Everything spoken goes on the **Voice** track: the MV7+ recordings AND the talking heads'
