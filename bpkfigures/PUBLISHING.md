@@ -261,6 +261,15 @@ the user's screenshots of the Wordle and WheelOfFortune mixers):**
   Bus 1 0.0. The SFX track's `Dial Lev` stays bypassed (it would treat sound effects as speech).
 - **It is a LEVELLER, not a loudness target** — check the Loudness meter afterwards and still
   set the master to ≈ −14 LUFS (§ Audio loudness).
+- **The gate's −30 assumes recordings as loud as the main videos' (about −25 LUFS raw).** A
+  quieter session falls under it: the gate runs BEFORE the leveller, so soft words and
+  sentence ends get cut and the voice "goes very quiet in places". WheelOfFortune Bonus's
+  talking heads measured −32 to −37 LUFS raw (EBU R128, 2026-11-19), steady within each
+  file, and the user LOWERED that project's gate threshold (about −38), which fixed it. So
+  that project differs from the template on purpose: do not rebuild the template from it.
+  Check a new session's raw level first (`ffmpeg -i <clip> -map 0:a -af ebur128 -f null -`,
+  the closing `I:`); if it is well under −25, lower the gate or normalize the clips up
+  (Normalize Audio Levels, ITU-R BS.1770-4, about −25 LKFS, Independent) before mixing.
 
 **THE TEMPLATE CARRIES ALL OF THIS — keep it current (2026-11-14).** Every new project is
 made from `dotclaude/resolve/TEMPLATE-60fps.drp` (`new_project.py`), and none of the above can
