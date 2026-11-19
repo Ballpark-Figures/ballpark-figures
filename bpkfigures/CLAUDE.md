@@ -1783,6 +1783,14 @@ graphic goes straight into DaVinci.
   so `--switch` stays opt-in. This applies to the main video too. `/new-video` creates both projects; `dotclaude/resolve/new_project.py
   "<Name> Bonus" <repo> 60 --return` creates one for an existing video, saving and
   reopening whatever was open.
+- **A bonus project is edited with stills 2 s long by default, a main video with 5 s**
+  (the user's call, 2026-11-19; Wordle's bonus title cards all ran ~2.07 s). Resolve
+  keeps that default ("Standard still duration") as ONE user preference for every
+  project, read at launch, so `render --stills` and `render --pending` check it against
+  the open project's tree (`davinci.ensure_still_duration`, `STILL_SECONDS`): if it is
+  wrong they SAVE the project, quit Resolve, change it, relaunch and reopen the project,
+  then import. With Resolve's scripting not answering it is left alone (it cannot save
+  first) and the run says so. Any tree other than `animations/` gets 2 s.
 - **The bonus tree never touches the main video's staging.** `render` derives the
   staging dir and bin from the tree it runs in (`animations/` keeps `edit_clips/` and
   per-scene bins), and DaVinci clip matching is scoped to the staging dir, so a bonus

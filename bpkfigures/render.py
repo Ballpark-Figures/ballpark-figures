@@ -572,12 +572,36 @@ def _ingest_staged(edit_dir, names, scene_module, then=None, refresh=True):
             then()
 
     open_name = davinci.open_project_name()
+    if open_name == project:
+        _ensure_still_duration(open_name)
     if _SWITCH and open_name is not None and open_name != project:
         with davinci.in_project(project) as ok:
             if ok:
                 work()
                 return
     work()
+
+
+# The default still length follows the project being worked in: 5 s for the main
+# video, 2 s for a bonus video (davinci.STILL_SECONDS; the user's call, 2026-11-19).
+# It is a Resolve USER preference read at launch, so a change saves the project and
+# restarts Resolve (davinci.ensure_still_duration). Checked once per run, only when the
+# open project is one of this repo's, before anything is imported.
+_STILL_DURATION_CHECKED = False
+
+
+def _ensure_still_duration(open_name):
+    global _STILL_DURATION_CHECKED
+    if _STILL_DURATION_CHECKED:
+        return
+    root = _repo_root()
+    for tree in sorted(glob.glob(os.path.join(root, "*", "scenes"))):
+        tree_dir = os.path.dirname(tree)
+        if davinci.project_for_tree(tree_dir, root) == open_name:
+            _STILL_DURATION_CHECKED = True
+            davinci.ensure_still_duration(davinci.still_seconds_for_tree(tree_dir),
+                                          reopen=open_name)
+            return
 
 
 def _flush_all_pending():
@@ -589,6 +613,8 @@ def _flush_all_pending():
                   if os.path.isdir(d))
     open_name = davinci.open_project_name()
     print(f"[pending] open project: {open_name!r}")
+    if open_name is not None:
+        _ensure_still_duration(open_name)
     waiting = 0
     for d in dirs:
         _print_flushed(d, davinci.flush_pending(d))

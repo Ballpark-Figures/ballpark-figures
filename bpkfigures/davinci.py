@@ -25,7 +25,9 @@ import contextlib
 import filecmp
 import json
 import os
+import re
 import shutil
+import subprocess
 import sys
 import time
 
@@ -516,6 +518,129 @@ def project_for_tree(tree_dir, repo_root):
     name = "".join(w[:1].upper() + w[1:] for w in repo.split("-"))
     tree = os.path.basename(os.path.abspath(tree_dir))
     return name if tree == "animations" else f"{name} {tree.capitalize()}"
+
+
+# ── the default length of a still (a USER preference, so one value for every project) ──
+# Resolve keeps "Standard still duration" (Preferences > User > Editing) in this file,
+# not in the project, and reads it at launch. Bonus videos want their stills 2 s long by
+# default (their title cards all ran ~2.07 s in Wordle's), the main videos 5 s
+# (Resolve's default). The user's call, 2026-11-19. Keyed by TREE: `animations/` is the
+# main video, any other tree (bonus/) a bonus video.
+USER_CONFIG = os.path.expanduser(
+    "~/Library/Preferences/Blackmagic Design/DaVinci Resolve/config.user.xml")
+STILL_SECONDS = {"animations": 5}
+OTHER_TREE_STILL_SECONDS = 2
+_APP = "/Applications/DaVinci Resolve/DaVinci Resolve.app"
+_PROC = _APP + "/Contents/MacOS/Resolve"
+
+
+def still_seconds_for_tree(tree_dir):
+    """The default still length (seconds) a tree's project is edited with."""
+    tree = os.path.basename(os.path.abspath(tree_dir))
+    return STILL_SECONDS.get(tree, OTHER_TREE_STILL_SECONDS)
+
+
+def still_duration():
+    """(type, seconds) from Resolve's user config, or None if it cannot be read."""
+    try:
+        with open(USER_CONFIG, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return None
+    kind = re.search(r"<StillDurationType>([^<]*)</StillDurationType>", text)
+    secs = re.search(r"<StillDurationSecs>([^<]*)</StillDurationSecs>", text)
+    if not (kind and secs):
+        return None
+    return kind.group(1), secs.group(1)
+
+
+def _write_still_seconds(seconds):
+    """Set the still duration to `seconds` in the config file. Only ever called while
+    Resolve is NOT running: it reads the file at launch and may write it back at quit."""
+    with open(USER_CONFIG, encoding="utf-8") as f:
+        text = f.read()
+    text = re.sub(r"<StillDurationType>[^<]*</StillDurationType>",
+                  "<StillDurationType>DURATION_IN_SECONDS</StillDurationType>", text)
+    text = re.sub(r"<StillDurationSecs>[^<]*</StillDurationSecs>",
+                  f"<StillDurationSecs>{seconds}</StillDurationSecs>", text)
+    tmp = USER_CONFIG + ".bpk-tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, USER_CONFIG)
+
+
+def _resolve_running():
+    return subprocess.run(["pgrep", "-f", _PROC], capture_output=True).returncode == 0
+
+
+def ensure_still_duration(seconds, reopen=None):
+    """Make Resolve's default still length `seconds`, restarting Resolve if it must.
+
+    Already right: nothing happens. Resolve not running: the file is edited and that is
+    all. Resolve running and answering: the open project is SAVED, Resolve quits, the
+    file is edited, Resolve is relaunched and the same project (or `reopen`) reopened.
+    Resolve running but NOT answering: nothing is touched, since the project cannot be
+    saved first; it says so. Returns True when the setting is `seconds` afterwards."""
+    now = still_duration()
+    if now is None:
+        print(f"[davinci] could not read the still duration in {USER_CONFIG}",
+              file=sys.stderr)
+        return False
+    if now == ("DURATION_IN_SECONDS", str(seconds)):
+        return True
+    label = f"{now[1]} s" if now[0] == "DURATION_IN_SECONDS" else f"{now[0]} {now[1]}"
+    if not _resolve_running():
+        _write_still_seconds(seconds)
+        print(f"[davinci] still duration {label} -> {seconds} s (Resolve was not running)",
+              file=sys.stderr)
+        return True
+    r = get_resolve()
+    if r is None:
+        print(f"[davinci] still duration is {label}, this project wants {seconds} s, but "
+              f"DaVinci is not answering, so it was NOT changed (it cannot save first). "
+              f"Change it in Preferences > User > Editing, or restart DaVinci and re-run.",
+              file=sys.stderr)
+        return False
+    pm = r.GetProjectManager()
+    cur = pm.GetCurrentProject()
+    name = reopen or (cur.GetName() if cur else None)
+    if cur is not None and not pm.SaveProject():
+        print(f"[davinci] still duration: could not save {cur.GetName()!r}, so DaVinci "
+              f"was NOT restarted; the setting stays {label}", file=sys.stderr)
+        return False
+    print(f"[davinci] still duration {label} -> {seconds} s: saved, restarting DaVinci",
+          file=sys.stderr)
+    r.Quit()
+    del r, pm, cur
+    for _ in range(120):
+        if not _resolve_running():
+            break
+        time.sleep(1)
+    else:
+        print("[davinci] DaVinci did not quit within 2 minutes; the setting was NOT "
+              "changed", file=sys.stderr)
+        return False
+    _write_still_seconds(seconds)
+    subprocess.run(["open", "-a", _APP])
+    r = None
+    for _ in range(100):
+        time.sleep(3)
+        r = get_resolve()
+        if r is not None and r.GetProjectManager() is not None:
+            break
+    if r is None:
+        print(f"[davinci] still duration set to {seconds} s, but DaVinci did not answer "
+              f"after relaunch: open {name!r} by hand", file=sys.stderr)
+        return True
+    if name:
+        for _ in range(20):
+            if r.GetProjectManager().LoadProject(name):
+                print(f"[davinci] reopened {name!r}", file=sys.stderr)
+                break
+            time.sleep(3)
+        else:
+            print(f"[davinci] could NOT reopen {name!r}: open it by hand", file=sys.stderr)
+    return True
 
 
 def open_project_name(resolve=None):
