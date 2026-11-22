@@ -621,7 +621,16 @@ traceable to the user's OWN computations, never re-derived by the agent.
     with `render 99a`** (scene `99` auto-detects still mode → manim `-s -qk` 4K PNG under
     `media/images/**/`; `--fast` for a quick check). Numbers are still SOURCED. Yahtzee
     is the reference.
-  - Tests/scratch take `98` and DOWN so they never collide with the meta-files.
+  - **`98` = credits** (`98credits.py`, `class Credits`; the user's call, 2026-11-21) —
+    a few STATIC cards at the very end, built by `bpkfigures.credits.credits_card` from
+    the scene's module-level `CARDS` (one list of `(label, [names])` per card). It
+    follows the closing talking head, so card 1 is on from frame 0; a later card
+    cross-fades in on its own beat; the last beat fades to the background, no sound.
+    A FIXED slot, so content scenes and extras never have to be renumbered around it.
+    `/new-video` scaffolds it with TODO text. wheel-of-fortune is the reference.
+  - Tests/scratch take `97` and DOWN so they never collide with the meta-files. (Until
+    2026-11-21 it was `98` and down; hangman, wordle and yahtzee keep their `98` test
+    files, since slot changes apply going forward.)
 - **`@still` = the GENERAL still-IMAGE decorator** (`bpkfigures/scene.py`, exported via
   `from config import *`) — for a scene that's just a SERIES OF IMAGES with no animation
   BETWEEN them (e.g. a mock-UI walk-through: card → watch page → homepage). Two behaviours,
@@ -682,6 +691,8 @@ the "where do I look" map.
   aligned `crisp_text` cells on a card, numeric columns right-aligned by default, zebra
   stripes, fitted to the frame; role handles `.header`/`.rows`/`.cells[r][c]`. Cells are
   shown as given, so formatting is the caller's and the values are SOURCED.
+- **The credits** → `bpkfigures.credits.credits_card(sections)` in the reserved scene
+  `98credits.py` (§ Reserved scene-number slots).
 - **A 3D chart (a grid of bars, a surface, a camera tilt)** → `bpkfigures.three_d`: the
   scene subclasses the video base AND manim's `ThreeDScene` (BpkScene snapshots the 3D
   camera); `bar_grid` + `grow_bar_grid` for the bars; `picklable()` on every `ThreeDAxes` /
@@ -922,6 +933,9 @@ How the user wants the agent to record things worth remembering:
 - **Never write the user's real name (or other personal identifiers) into any public-repo
   file** — `bpkfigures/` and the video repos are public; refer to "the user." Identity
   facts belong only in the private `dotclaude` repo (pulled in via `@CLAUDE.private.md`).
+  **The ONE exception is a video's credits** (`98credits.py` `CARDS`): the user's name
+  goes there as they give it, since it is on screen in the published video anyway (the
+  user's call, 2026-11-21).
 
 ## Shell commands — keep them allowlist-friendly (agent)
 The allowlist covers the core loop (`render`, `manim`, `ffmpeg`/`ffprobe`,
