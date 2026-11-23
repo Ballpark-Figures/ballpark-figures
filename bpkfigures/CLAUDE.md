@@ -1209,7 +1209,7 @@ beside the source's entry.
   large in-memory state, add save/load for it before the first forced restart,
   not after.
 
-## Building computational tools (agent) — four TELLS, not four principles
+## Building computational tools (agent) — five TELLS, not five principles
 These are written as triggers you can notice AT THE MOMENT OF ACTION, because the
 principled versions of all three were already in this file and got violated anyway,
 four times in one day (2026-09-01). A rule that needs you to realise a situation
@@ -1258,6 +1258,20 @@ the mechanical parts, so run it as a gate rather than relying on any of this.**
   the user saw `immix` in a run. The fix was the one-line scoping the original
   change should have had: `sweep_order(bisect)`, bisection for the full sweep,
   ascending for topk.)
+- **TELL: you are writing a run that computes something expensive per event (per
+  game, position, cell) and saves only a TOTAL.** STOP: store the per-event values
+  (locally and gitignored if large, in chunks, with a DONE marker), and derive the
+  totals from that store. A new question, or a changed definition (a tolerance, a
+  cap, a tie rule), then READS the store instead of re-running the expensive part.
+  Store what the computation already finds on the way, not only its winner (every
+  candidate's score, not just the best one), since the next definition usually
+  picks differently among the same candidates. The totals rebuilt from the store
+  must reproduce the files they replace byte for byte. (The user, 2026-11-23: "we
+  should have been storing a lot more from the start". Minesweeper's guess-pattern
+  runs kept only each pattern's count, so every new tolerance, cap, tie rule and
+  interior row re-ran the pattern search for hours, and "which options were on the
+  board when this one was picked" needed every other cell's pattern, which had
+  never been kept.)
 
 ## The Battleship video is the model
 Match its visual look and its **sparse on-screen text** — not necessarily its
