@@ -20,6 +20,9 @@ from bpkfigures.style import (FONT, FONT_SIZE_SM, FONT_SIZE_MD, FONT_SIZE_LG,
 # bars; `y_max` fixes the value mapped to full height (default = max value) so a
 # SERIES of charts shares one scale and morph_bar_chart can pair them by position.
 
+AXIS_Z = 2    # chart axes draw over the bars (the user, 2026-11-22)
+
+
 def _crisp_factory(ink):
     return lambda s: crisp_text(str(s), font=FONT, font_size=FONT_SIZE_SM, color=ink)
 
@@ -179,6 +182,9 @@ def get_bar_chart(
               stroke_width=3) if x_axis else None
     ya = Line([left, base, 0], [left, base + height, 0], color=ink_color,
               stroke_width=3) if y_axis else None
+    for axis in (xa, ya):            # the axes draw over the bars, however they are added
+        if axis is not None:
+            axis.set_z_index(AXIS_Z)
     yticks = VGroup()
     if y_ticks:
         for t in y_ticks:
@@ -433,6 +439,8 @@ def grouped_bar_chart(categories, series, *, title=None, x_title=None,
 
     axes = VGroup(Line([-width / 2, base_y, 0], [width / 2, base_y, 0], color=ink_color, stroke_width=3),
                   Line([-width / 2, base_y, 0], [-width / 2, base_y + height, 0], color=ink_color, stroke_width=3))
+    axes[0].set_z_index(AXIS_Z)
+    axes[1].set_z_index(AXIS_Z)
     for t in y_ticks:
         yy = base_y + t / ymax * height
         tick = Line([-width / 2 - 0.12, yy, 0], [-width / 2, yy, 0], color=ink_color, stroke_width=2)

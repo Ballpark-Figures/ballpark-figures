@@ -252,7 +252,11 @@ class PieChart(VGroup):
                       angle=-max(a, 1e-3), arc_center=self.pie_center,
                       fill_color=self.colors[i], fill_opacity=1.0 if on else 0.0,
                       stroke_color=self.stroke_color,
-                      stroke_width=self.stroke_width if on else 0.0)
+                      stroke_width=self.stroke_width if on else 0.0,
+                      # round joins: manim's default leaves cairo's miter join, which
+                      # draws a narrow wedge's point as a white spike past the centre
+                      # into the opposite slice (wheel-of-fortune 03, 2026-11-22)
+                      joint_type=LineJointType.ROUND)
 
     def _redraw(self, i, a, start=None):
         self.sectors[i].become(self._sector(i, a, start))

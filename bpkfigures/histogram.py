@@ -5,6 +5,9 @@ from bpkfigures.style import (FONT, FONT_SIZE_SM, FONT_SIZE_MD, FONT_SIZE_LG,
                               ACCENT_FILL, ACCENT_GOLD, crisp_text, crisp_paragraph)
 
 
+AXIS_Z = 2    # over the bars and the overlay bars (z 1); the user, 2026-11-22
+
+
 def get_histogram_counts(data, min_val, max_val):
     values = list(range(min_val, max_val + 1))
     counts = {k: 0 for k in values}
@@ -164,6 +167,7 @@ def get_histogram(
             end=np.array([0, width / 2, 0]),
             color=ink_color
         )
+    axis.set_z_index(AXIS_Z)    # the axis draws over the bars, however they are added
     elements.add(axis)
 
     # component handles (None unless the matching block below builds them) so a
@@ -180,7 +184,7 @@ def get_histogram(
             start=np.array([-width / 2, 0, 0]),
             end=np.array([-width / 2, height, 0]),
             color=ink_color
-        )
+        ).set_z_index(AXIS_Z)
         elements.add(y_axis)
         y_tick_labels = VGroup()
         max_frac = (max_mag / total) if total > 0 else 0
